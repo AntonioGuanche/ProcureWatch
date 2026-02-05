@@ -65,3 +65,7 @@ logs/
 
 # Local browser / cookie artifacts (never commit cookies)
 cookies.txt
+
+# Local DB files
+*.db
+
