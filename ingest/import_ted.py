@@ -405,13 +405,30 @@ def import_file(file_path: Path) -> tuple[int, int, int]:
     return created_count, updated_count, error_count
 
 
+def import_ted_raw_files(raw_paths: list[Path]) -> tuple[int, int, int]:
+    """
+    Import one or more TED raw JSON files.
+    Wrapper around import_file for reuse from CLI or other callers.
+    Returns cumulative (imported_new, imported_updated, errors).
+    """
+    total_new = 0
+    total_updated = 0
+    total_errors = 0
+    for path in raw_paths:
+        created, updated, errors = import_file(path)
+        total_new += created
+        total_updated += updated
+        total_errors += errors
+    return total_new, total_updated, total_errors
+
+
 def main() -> None:
     if len(sys.argv) < 2:
-        print("Usage: python ingest/import_ted.py <path_to_raw_ted_json>")
+        print("Usage: python ingest/import_ted.py <path_to_raw_ted_json> [more_paths...]")
         print("Example: python ingest/import_ted.py data/raw/ted/ted_2026-02-03T12-00-00-000Z.json")
         sys.exit(1)
-    file_path = Path(sys.argv[1])
-    imported_new, imported_updated, errors = import_file(file_path)
+    paths = [Path(p) for p in sys.argv[1:]]
+    imported_new, imported_updated, errors = import_ted_raw_files(paths)
     summary = {
         "imported_new": imported_new,
         "imported_updated": imported_updated,

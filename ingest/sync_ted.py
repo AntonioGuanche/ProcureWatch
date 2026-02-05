@@ -6,6 +6,7 @@ fetched, imported_new, imported_updated, errors, saved_path.
 """
 import argparse
 import json
+import os
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -30,22 +31,29 @@ def _count_fetched(result: dict) -> int:
     return len(notices) if isinstance(notices, list) else 0
 
 
-def run_import(file_path: Path) -> tuple[int, int, int]:
+def run_import(file_path: Path, db_url: str | None = None) -> tuple[int, int, int]:
     """
     Run ingest/import_ted.py as subprocess; parse stdout for JSON summary
     (imported_new, imported_updated, errors). Returns (imported_new, imported_updated, errors).
+
+    If db_url is provided, it is passed via DATABASE_URL env var.
     """
     cmd = [
         sys.executable,
         str(PROJECT_ROOT / "ingest" / "import_ted.py"),
         str(file_path),
     ]
+    env = os.environ.copy()
+    if db_url:
+        env["DATABASE_URL"] = db_url
+
     proc = subprocess.run(
         cmd,
         cwd=str(PROJECT_ROOT),
         capture_output=True,
         text=True,
         timeout=600,
+        env=env,
     )
     stdout = proc.stdout or ""
     stderr = proc.stderr or ""
@@ -71,13 +79,38 @@ def run_import(file_path: Path) -> tuple[int, int, int]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Sync TED: search, save raw JSON, optionally import via import_ted.py.",
+        description="Sync TED: search, save raw JSON, optionally import into DB.",
     )
-    parser.add_argument("--term", default="construction", help="Search term")
-    parser.add_argument("--page", type=int, default=1, help="Page number")
-    parser.add_argument("--page-size", type=int, default=25, help="Page size")
     parser.add_argument(
+        "--query",
+        "--term",
+        dest="query",
+        default="construction",
+        help="Search term or expert query",
+    )
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=25,
+        help="Maximum number of notices to fetch (page size)",
+    )
+    # Backwards compatible page / page-size flags (page stays at 1 by default)
+    parser.add_argument(
+        "--page",
+        type=int,
+        default=1,
+        help="Page number (default: 1). For multi-page collection, run multiple times.",
+    )
+    parser.add_argument(
+        "--page-size",
+        type=int,
+        default=None,
+        help="Deprecated: use --limit instead. If set, overrides --limit.",
+    )
+    parser.add_argument(
+        "--out",
         "--out-dir",
+        dest="out_dir",
         type=Path,
         default=DEFAULT_OUT_DIR,
         help="Output directory for raw TED JSON (default: data/raw/ted)",
@@ -94,6 +127,12 @@ def main() -> int:
         dest="do_import",
         action="store_false",
         help="Skip import step",
+    )
+    parser.add_argument(
+        "--db-url",
+        dest="db_url",
+        default=None,
+        help="Optional DATABASE_URL override for import step",
     )
     parser.add_argument(
         "--debug",
@@ -136,14 +175,19 @@ def main() -> int:
             print(f"TED discovery failed: {e}", file=sys.stderr)
             return 1
 
+    # Resolve effective page size
+    page_size = args.page_size if args.page_size is not None else args.limit
+    if page_size <= 0:
+        page_size = 1
+
     # 1) Search TED
     try:
         from connectors.ted import search_ted_notices
 
         result = search_ted_notices(
-            term=args.term,
+            term=args.query,
             page=args.page,
-            page_size=args.page_size,
+            page_size=page_size,
             debug=args.debug,
         )
     except Exception as e:
@@ -163,7 +207,8 @@ def main() -> int:
 
     imported_new, imported_updated, errors = 0, 0, 0
     if args.do_import:
-        imported_new, imported_updated, errors = run_import(saved_path)
+        imported_new, imported_updated, errors = run_import(saved_path, db_url=args.db_url)
+        print(f"Imported/updated {imported_new + imported_updated} notices")
 
     # 4) JSON summary
     summary = {

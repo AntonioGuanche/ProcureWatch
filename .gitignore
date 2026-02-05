@@ -56,6 +56,12 @@ data/_cache/
 data/*.db
 !data/.gitkeep
 
+# Example / local-only data dumps (may contain IDs, never secrets)
+data/publicprocurement_*.json
+
 # Logs
 logs/
 *.log
+
+# Local browser / cookie artifacts (never commit cookies)
+cookies.txt

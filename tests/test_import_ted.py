@@ -189,3 +189,52 @@ def test_import_ted_buyer_country_maps_to_notice_country(db_schema, tmp_path):
         assert notice.country == "BE"
     finally:
         db.close()
+
+
+def test_import_ted_uses_publication_number_when_notice_id_missing(db_schema, tmp_path):
+    """Missing noticeId does not block import when publication-number exists."""
+    from ingest.import_ted import import_file
+
+    raw = {
+        "metadata": {"term": "test", "page": 1, "pageSize": 1},
+        "json": {
+            "notices": [
+                {
+                    "publication-number": "TED-PUB-999",
+                    # No noticeId field here; source_id must fall back to publication-number
+                    "title": "No noticeId but has publication-number",
+                    "buyer-country": "FR",
+                    "publicationDate": "2026-02-05",
+                    "mainCpv": {"code": "45000000"},
+                },
+            ],
+            "totalCount": 1,
+        },
+    }
+    path = tmp_path / "ted_pub_only.json"
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(raw, f, indent=2)
+
+    db = SessionLocal()
+    try:
+        db.query(Notice).filter(Notice.source == "ted.europa.eu").delete()
+        db.commit()
+    finally:
+        db.close()
+
+    imported_new, imported_updated, errors = import_file(path)
+    assert imported_new == 1
+    assert imported_updated == 0
+    assert errors == 0
+
+    db = SessionLocal()
+    try:
+        notice = db.query(Notice).filter(
+            Notice.source == "ted.europa.eu",
+            Notice.source_id == "TED-PUB-999",
+        ).first()
+        assert notice is not None
+        assert notice.title.startswith("No noticeId")
+        assert notice.country == "FR"
+    finally:
+        db.close()

@@ -180,6 +180,37 @@ You can add this as a post-deploy script in Render or run it manually via Render
 
 ```
 
+## Secrets and configuration
+
+All sensitive values (database passwords, OAuth client IDs/secrets, API keys, cookies) **must be provided via environment variables only** and **must never be committed to Git**.
+
+- Copy `.env.example` to `.env` and fill in the placeholders:
+
+  ```bash
+  cp .env.example .env
+  ```
+
+- Required variables include (see `.env.example` for the full list):
+  - `DATABASE_URL`
+  - `EPROC_CLIENT_ID` / `EPROC_CLIENT_SECRET` (Belgian e-Procurement OAuth client)
+  - `TED_MODE`, `TED_SEARCH_BASE_URL` (TED Search API)
+  - `EMAIL_*` (SMTP or file outbox)
+
+- The app uses `pydantic-settings` and reads from `.env` automatically via `app.core.config.Settings`.
+
+To reduce the chance of future leaks, a simple pre-commit helper is provided:
+
+```bash
+cat > .git/hooks/pre-commit << 'EOF'
+#!/usr/bin/env bash
+python scripts/pre_commit_secret_scan.py
+EOF
+chmod +x .git/hooks/pre-commit
+```
+
+This will block commits that contain obvious secrets such as `client_secret` or inline Bearer tokens.
+
+
 ## API Endpoints
 
 ### GET /
