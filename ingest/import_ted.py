@@ -257,7 +257,7 @@ def import_notice(db: Session, notice: dict[str, Any], raw_json_str: str) -> boo
     """Import a single TED notice; dedupe by (source, source_id). Returns True on success."""
     source_id = _notice_id(notice)
     if not source_id:
-        print("⚠️  Skipping notice without stable id")
+        print("[WARNING] Skipping notice without stable id")
         return False
 
     now = datetime.now(timezone.utc)
@@ -295,7 +295,7 @@ def import_notice(db: Session, notice: dict[str, Any], raw_json_str: str) -> boo
         flag_modified(existing, "last_seen_at")
         flag_modified(existing, "updated_at")
         notice_obj = existing
-        print(f"  ↻ Updated: {source_id}")
+        print(f"  [Updated] {source_id}")
     else:
         notice_obj = Notice(
             source=SOURCE_NAME,
@@ -315,14 +315,14 @@ def import_notice(db: Session, notice: dict[str, Any], raw_json_str: str) -> boo
             last_seen_at=now,
         )
         db.add(notice_obj)
-        print(f"  ✓ Created: {source_id}")
+        print(f"  [Created] {source_id}")
 
     try:
         db.commit()
         db.refresh(notice_obj)
     except IntegrityError as e:
         db.rollback()
-        print(f"  ✗ Integrity error for {source_id}: {e}")
+        print(f"  [ERROR] Integrity error for {source_id}: {e}")
         return False
 
     db.query(NoticeCpvAdditional).filter(
@@ -334,7 +334,7 @@ def import_notice(db: Session, notice: dict[str, Any], raw_json_str: str) -> boo
         db.commit()
     except Exception as e:
         db.rollback()
-        print(f"  ⚠️  Error saving CPV additional for {source_id}: {e}")
+        print(f"  [WARNING] Error saving CPV additional for {source_id}: {e}")
     return True
 
 
@@ -344,14 +344,14 @@ def import_file(file_path: Path) -> tuple[int, int, int]:
     Returns (imported_new, imported_updated, errors).
     """
     if not file_path.exists():
-        print(f"❌ File not found: {file_path}")
+        print(f"[ERROR] File not found: {file_path}")
         return 0, 0, 1
 
     try:
         with open(file_path, "r", encoding="utf-8") as f:
             data = json.load(f)
     except json.JSONDecodeError as e:
-        print(f"❌ Invalid JSON: {e}")
+        print(f"[ERROR] Invalid JSON: {e}")
         return 0, 0, 1
 
     raw = data.get("json", data)
@@ -363,11 +363,11 @@ def import_file(file_path: Path) -> tuple[int, int, int]:
         or []
     )
     if not isinstance(notices, list):
-        print("⚠️  No notices list in file")
+        print("[WARNING] No notices list in file")
         return 0, 0, 0
 
-    print(f"\n📂 Processing: {file_path}")
-    print(f"📊 Found {len(notices)} notices")
+    print(f"\n[Processing] {file_path}")
+    print(f"[Found] {len(notices)} notices")
     db = SessionLocal()
     created_count = 0
     updated_count = 0
@@ -394,10 +394,10 @@ def import_file(file_path: Path) -> tuple[int, int, int]:
                     updated_count += 1
             else:
                 error_count += 1
-        print(f"\n✅ Import complete: {created_count} created, {updated_count} updated")
+        print(f"\n[Complete] Import complete: {created_count} created, {updated_count} updated")
     except Exception as e:
         db.rollback()
-        print(f"\n❌ Error during import: {e}")
+        print(f"\n[ERROR] Error during import: {e}")
         raise
     finally:
         db.close()
@@ -423,6 +423,18 @@ def import_ted_raw_files(raw_paths: list[Path]) -> tuple[int, int, int]:
 
 
 def main() -> None:
+    # Configure stdout/stderr for UTF-8 encoding on Windows (when captured as subprocess)
+    if hasattr(sys.stdout, "reconfigure"):
+        try:
+            sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass  # Ignore if reconfigure fails
+    if hasattr(sys.stderr, "reconfigure"):
+        try:
+            sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass  # Ignore if reconfigure fails
+
     if len(sys.argv) < 2:
         print("Usage: python ingest/import_ted.py <path_to_raw_ted_json> [more_paths...]")
         print("Example: python ingest/import_ted.py data/raw/ted/ted_2026-02-03T12-00-00-000Z.json")

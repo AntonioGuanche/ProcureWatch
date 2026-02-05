@@ -45,6 +45,9 @@ def ensure_db_migrated(db_url: str) -> None:
     ]
     env = os.environ.copy()
     env["DATABASE_URL"] = db_url
+    # Ensure UTF-8 encoding for Windows subprocess
+    env["PYTHONUTF8"] = "1"
+    env["PYTHONIOENCODING"] = "utf-8"
 
     proc = subprocess.run(
         cmd,
@@ -80,6 +83,9 @@ def run_import(file_path: Path, db_url: str | None = None) -> tuple[int, int, in
     env = os.environ.copy()
     if db_url:
         env["DATABASE_URL"] = db_url
+    # Ensure UTF-8 encoding for Windows subprocess
+    env["PYTHONUTF8"] = "1"
+    env["PYTHONIOENCODING"] = "utf-8"
 
     proc = subprocess.run(
         cmd,
