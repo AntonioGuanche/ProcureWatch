@@ -1,0 +1,4235 @@
+{
+  "term": "travaux",
+  "capturedAt": "2026-01-28T20:49:50.890Z",
+  "url": "https://www.publicprocurement.be/api/sea/search/publications",
+  "status": 200,
+  "json": {
+    "publications": [
+      {
+        "cancelledAt": "2026-01-28T09:08:45.288777",
+        "cpvAdditionalCodes": [
+          {
+            "code": "45000000-7",
+            "descriptions": [
+              {
+                "language": "EN",
+                "text": "Construction work"
+              },
+              {
+                "language": "DE",
+                "text": "Bauarbeiten"
+              },
+              {
+                "language": "FR",
+                "text": "Travaux de construction"
+              },
+              {
+                "language": "NL",
+                "text": "Bouwwerkzaamheden"
+              }
+            ]
+          }
+        ],
+        "cpvMainCode": {
+          "code": "45000000-7",
+          "descriptions": [
+            {
+              "language": "EN",
+              "text": "Construction work"
+            },
+            {
+              "language": "DE",
+              "text": "Bauarbeiten"
+            },
+            {
+              "language": "FR",
+              "text": "Travaux de construction"
+            },
+            {
+              "language": "NL",
+              "text": "Bouwwerkzaamheden"
+            }
+          ]
+        },
+        "dispatchDate": "2026-01-28",
+        "dossier": {
+          "accreditations": {},
+          "descriptions": [
+            {
+              "language": "NL",
+              "text": " Het project omvat renovatie, gedeeltelijke heropbouw en nieuwbouw. Het bestaande gebouw, dat dateert uit de jaren 1970 en gekenmerkt wordt door de architecturale stijl en gevels die typisch zijn voor die periode, zal grotendeels behouden en gerenoveerd worden. Een deel ervan zal worden afgebroken om plaats te maken voor een nieuwe doorgang. In het midden van het perceel zal een nieuw volume worden gebouwd voor de uitbreiding van het kinderdagverblijf. Van de tweede tot de vierde verdieping zullen er ook appartementen worden ingericht.  Het project besteedt bijzondere aandacht aan duurzaamheid. De gevelelementen van het gesloopte gedeelte zullen zorgvuldig worden gedemonteerd en vervolgens opnieuw worden gebruikt op de site. Bovendien zullen ecologische materialen, zoals hennepkalk en houtvezelisolatie, worden gebruikt voor de isolatie van de gevels.  Het project omvat ook de inrichting van de omgeving. De nieuwe doorgang tussen de Avenue de l'Héliport en de Drève Verte wordt volledig aangelegd en de bestaande tuin van het kinderdagverblijf wordt heringericht.  Het is essentieel dat de planning wordt nageleefd, aangezien het project deel uitmaakt van een duurzaam wijkcontract. Het is ook absoluut noodzakelijk dat het kinderdagverblijf op een bepaalde datum weer open kan gaan. De voorlopige oplevering van het project moet uiterlijk op 28 februari 2029 plaatsvinden.  "
+            },
+            {
+              "language": "FR",
+              "text": "Le projet combine la rénovation, la reconstruction partielle et la construction neuve. Le bâtiment existant, datant des années 1970 et caractérisé par le langage architectural et les façades typiques de cette époque, sera en grande partie conservé et rénové. Une section sera démolie afin de créer un nouveau passage. Au centre de la parcelle, un nouveau volume accueillera l’extension de la crèche. À partir du deuxième jusqu’au quatrième étage, des appartements y seront également aménagés.  Le projet accorde une attention particulière à la durabilité. Les éléments de façade provenant de la partie démolie seront soigneusement démontés puis réemployés sur le site. De plus, des matériaux écologiques, tels que le chanvre-chaux et l’isolation en fibres de bois, seront utilisés pour l’isolation des façades.  Le projet comprend également l’aménagement des abords. Le nouveau passage reliant l’avenue de l’Héliport et la Drève Verte sera entièrement aménagé, et le jardin existant de la crèche sera réaménagé.  Le respect du calendrier est essentiel, car le projet s’inscrit dans le cadre d’un contrat de quartier durable. Il est également impératif que la crèche puisse rouvrir à une date précise. La réception provisoire du projet doit être donnée au plus tard pour le 28 février 2029. "
+            }
+          ],
+          "enterpriseCategories": [],
+          "legalBasis": "D24",
+          "number": "PPP0T3-424/6018/RF/26/PO/1020",
+          "procurementProcedureType": "OPEN",
+          "referenceNumber": "PPP0T3-424/6018/RF/26/PO/1020",
+          "titles": [
+            {
+              "language": "FR",
+              "text": "Travaux Klavertje 4"
+            },
+            {
+              "language": "NL",
+              "text": "Werken Klavertje 4"
+            }
+          ]
+        },
+        "insertionDate": "2026-01-27",
+        "lots": [
+          {
+            "descriptions": [
+              {
+                "language": "NL",
+                "text": " Het project omvat renovatie, gedeeltelijke heropbouw en nieuwbouw. Het bestaande gebouw, dat dateert uit de jaren 1970 en gekenmerkt wordt door de architecturale stijl en gevels die typisch zijn voor die periode, zal grotendeels behouden en gerenoveerd worden. Een deel ervan zal worden afgebroken om plaats te maken voor een nieuwe doorgang. In het midden van het perceel zal een nieuw volume worden gebouwd voor de uitbreiding van het kinderdagverblijf. Van de tweede tot de vierde verdieping zullen er ook appartementen worden ingericht.  Het project besteedt bijzondere aandacht aan duurzaamheid. De gevelelementen van het gesloopte gedeelte zullen zorgvuldig worden gedemonteerd en vervolgens opnieuw worden gebruikt op de site. Bovendien zullen ecologische materialen, zoals hennepkalk en houtvezelisolatie, worden gebruikt voor de isolatie van de gevels.  Het project omvat ook de inrichting van de omgeving. De nieuwe doorgang tussen de Avenue de l'Héliport en de Drève Verte wordt volledig aangelegd en de bestaande tuin van het kinderdagverblijf wordt heringericht.  Het is essentieel dat de planning wordt nageleefd, aangezien het project deel uitmaakt van een duurzaam wijkcontract. Het is ook absoluut noodzakelijk dat het kinderdagverblijf op een bepaalde datum weer open kan gaan. De voorlopige oplevering van het project moet uiterlijk op 28 februari 2029 plaatsvinden.  "
+              },
+              {
+                "language": "FR",
+                "text": "Le projet combine la rénovation, la reconstruction partielle et la construction neuve. Le bâtiment existant, datant des années 1970 et caractérisé par le langage architectural et les façades typiques de cette époque, sera en grande partie conservé et rénové. Une section sera démolie afin de créer un nouveau passage. Au centre de la parcelle, un nouveau volume accueillera l’extension de la crèche. À partir du deuxième jusqu’au quatrième étage, des appartements y seront également aménagés.  Le projet accorde une attention particulière à la durabilité. Les éléments de façade provenant de la partie démolie seront soigneusement démontés puis réemployés sur le site. De plus, des matériaux écologiques, tels que le chanvre-chaux et l’isolation en fibres de bois, seront utilisés pour l’isolation des façades.  Le projet comprend également l’aménagement des abords. Le nouveau passage reliant l’avenue de l’Héliport et la Drève Verte sera entièrement aménagé, et le jardin existant de la crèche sera réaménagé.  Le respect du calendrier est essentiel, car le projet s’inscrit dans le cadre d’un contrat de quartier durable. Il est également impératif que la crèche puisse rouvrir à une date précise. La réception provisoire du projet doit être donnée au plus tard pour le 28 février 2029. "
+              }
+            ],
+            "reservedExecution": [
+              "NO"
+            ],
+            "reservedParticipation": [
+              "NONE"
+            ],
+            "titles": [
+              {
+                "language": "FR",
+                "text": "Travaux Klavertje 4"
+              },
+              {
+                "language": "NL",
+                "text": "Werken Klavertje 4"
+              }
+            ]
+          }
+        ],
+        "natures": [
+          "WORKS"
+        ],
+        "noticeIds": [
+          "ce821858-0e1b-45e0-a9cb-64723a80176a",
+          "2d48db99-566d-44bd-813e-6c35bf6c86da",
+          "2e810297-360a-43a3-83de-dc2321b3665e"
+        ],
+        "noticeSubType": "16",
+        "nutsCodes": [
+          "BE100"
+        ],
+        "organisation": {
+          "organisationId": 4743,
+          "organisationNames": [
+            {
+              "language": "NL",
+              "text": "Grondregie Stad Brussel"
+            },
+            {
+              "language": "EN",
+              "text": "Régie foncière de la ville de Bruxelles"
+            },
+            {
+              "language": "DE",
+              "text": "Régie foncière de la Ville de Bruxelles"
+            },
+            {
+              "language": "FR",
+              "text": "Régie foncière de la Ville de Bruxelles"
+            }
+          ],
+          "tree": "200004.200021.48.4743"
+        },
+        "procedureId": "16cf5b72-bf86-43be-bf77-b4f431c165ac",
+        "publicationDate": "2026-01-28",
+        "publicationLanguages": [
+          "NL",
+          "FR"
+        ],
+        "publicationReferenceNumbersBDA": [
+          "PPP0T3-424/6018/RF/26/PO/1020_001"
+        ],
+        "publicationReferenceNumbersTED": [],
+        "publicationType": "ACTIVE",
+        "publicationWorkspaceId": "94cee4d6-7856-4003-b530-700d5e3eb577",
+        "publishedAt": [
+          "2026-01-27T16:27:45.017949",
+          "2026-01-28T09:08:45.234467"
+        ],
+        "referenceNumber": "PPP0T3-424/6018/RF/26/PO/1020_001",
+        "sentAt": [
+          "2026-01-27T16:27:45.017949",
+          "2026-01-28T09:08:45.234467"
+        ],
+        "tedPublished": false,
+        "vaultSubmissionDeadline": "2026-01-29T00:00:00"
+      },
+      {
+        "cpvAdditionalCodes": [
+          {
+            "code": "72212218-0",
+            "descriptions": [
+              {
+                "language": "EN",
+                "text": "License management software development services"
+              },
+              {
+                "language": "FR",
+                "text": "Services de développement de logiciels de gestion des licences"
+              },
+              {
+                "language": "NL",
+                "text": "Diensten voor ontwikkeling van software voor licentiemanagement"
+              },
+              {
+                "language": "DE",
+                "text": "Entwicklung von Lizenzmanagementsoftware"
+              }
+            ]
+          }
+        ],
+        "cpvMainCode": {
+          "code": "72212218-0",
+          "descriptions": [
+            {
+              "language": "EN",
+              "text": "License management software development services"
+            },
+            {
+              "language": "FR",
+              "text": "Services de développement de logiciels de gestion des licences"
+            },
+            {
+              "language": "NL",
+              "text": "Diensten voor ontwikkeling van software voor licentiemanagement"
+            },
+            {
+              "language": "DE",
+              "text": "Entwicklung von Lizenzmanagementsoftware"
+            }
+          ]
+        },
+        "dispatchDate": "2026-01-28",
+        "dossier": {
+          "accreditations": {},
+          "descriptions": [
+            {
+              "language": "FR",
+              "text": "Le présent marché vise à assurer le renouvellement des licences Odoo attribuées à 120 collaborateurs Spi.    Situation actuelle:  Spi utilise depuis janvier 2022 Odoo dans sa version Enterprise Edition v15 (20250101), installée sur trois serveurs virtualisés sous Linux correspondant à trois environnements de travail différents: TST (Test), ACC (Acceptance) et PRD (Production).    Depuis janvier 2022, la mise en place d'Odoo chez Spi a été réalisée avec le support et l'accompagnement de la Société Abakus IT Solutions qui continuera à assurer les tâches de support et de maintenance jusqu'en avril 2026. Une procédure de marché est actuellement en cours et désignera un partenaire Odoo pour une nouvelle période de 4 ans. Ce dernier sera en charge d'assurer le support, la maintenance et la migration des instances Odoo présentes chez Spi.    Nombre de licences disponibles: 135  Nombre de licences attribuées: 121    Date de fin du présent contrat: 31/01/2026    Situation souhaitée:  Spi souhaite conserver le droit d'installation et d'utilisation de Odoo sur les trois environnements existants. Dans le courant 2026, Spi réalisera avec l'aide d'un partenaire 'Intégrateur Odoo', une montée de version des trois instances depuis la version 15 vers la version 19 de l'Enterprise Edition.   Nombre de licences à renouveler: 120  Durée du contrat: 3 ans ou 36 mois   Fin de contrat: 31/01/2029   Services inclus:   Outre la fourniture des licences utilisateurs, durant la durée du contrat, le soumissionnaire devra fournir une liste, une limitations et les éventuelles limitations des services inclus tels que la correction de bugs, les mises à jour de sécurité, etc...   Contenu de l'offre:  Dans son offre, le soumissionnaire indiquera   - le prix unitaire par licence pour 120 utilisateurs  - le prix unitaire pour toutes licences additionnelles commandées en cours de contrat  - le prix total pour tous les utilisateurs pour une durée de 3 ans  - tous les autres coûts additionnels liés à l'extension du support pour les versions antérieures aux trois dernières années.  - les services inclus et assurés par le soumissionnaire durant la durée du contrat  "
+            }
+          ],
+          "enterpriseCategories": [],
+          "legalBasis": "D24",
+          "number": "PPP0MS-2455/6021/2026-2455",
+          "procurementProcedureType": "NEG_WO_CALL_24",
+          "referenceNumber": "PPP0MS-2455/6021/2026-2455",
+          "titles": [
+            {
+              "language": "FR",
+              "text": "Renouvellement licences Odoo"
+            }
+          ]
+        },
+        "insertionDate": "2026-01-28",
+        "lots": [
+          {
+            "descriptions": [
+              {
+                "language": "FR",
+                "text": "Le présent marché vise à assurer le renouvellement des licences Odoo attribuées à 120 collaborateurs Spi.    Situation actuelle:  Spi utilise depuis janvier 2022 Odoo dans sa version Enterprise Edition v15 (20250101), installée sur trois serveurs virtualisés sous Linux correspondant à trois environnements de travail différents: TST (Test), ACC (Acceptance) et PRD (Production).    Depuis janvier 2022, la mise en place d'Odoo chez Spi a été réalisée avec le support et l'accompagnement de la Société Abakus IT Solutions qui continuera à assurer les tâches de support et de maintenance jusqu'en avril 2026. Une procédure de marché est actuellement en cours et désignera un partenaire Odoo pour une nouvelle période de 4 ans. Ce dernier sera en charge d'assurer le support, la maintenance et la migration des instances Odoo présentes chez Spi.    Nombre de licences disponibles: 135  Nombre de licences attribuées: 121    Date de fin du présent contrat: 31/01/2026    Situation souhaitée:  Spi souhaite conserver le droit d'installation et d'utilisation de Odoo sur les trois environnements existants. Dans le courant 2026, Spi réalisera avec l'aide d'un partenaire 'Intégrateur Odoo', une montée de version des trois instances depuis la version 15 vers la version 19 de l'Enterprise Edition.   Nombre de licences à renouveler: 120  Durée du contrat: 3 ans ou 36 mois   Fin de contrat: 31/01/2029   Services inclus:   Outre la fourniture des licences utilisateurs, durant la durée du contrat, le soumissionnaire devra fournir une liste, une limitations et les éventuelles limitations des services inclus tels que la correction de bugs, les mises à jour de sécurité, etc...   Contenu de l'offre:  Dans son offre, le soumissionnaire indiquera   - le prix unitaire par licence pour 120 utilisateurs  - le prix unitaire pour toutes licences additionnelles commandées en cours de contrat  - le prix total pour tous les utilisateurs pour une durée de 3 ans  - tous les autres coûts additionnels liés à l'extension du support pour les versions antérieures aux trois dernières années.  - les services inclus et assurés par le soumissionnaire durant la durée du contrat  "
+              }
+            ],
+            "titles": [
+              {
+                "language": "FR",
+                "text": "Renouvellement licences Odoo"
+              }
+            ]
+          }
+        ],
+        "natures": [
+          "SERVICES"
+        ],
+        "noticeIds": [
+          "00220dcd-7d2f-4d4f-baea-e71beea9f73e"
+        ],
+        "noticeSubType": "E4",
+        "nutsCodes": [
+          "BE336",
+          "BE335",
+          "BE334",
+          "BE332",
+          "BE331"
+        ],
+        "organisation": {
+          "organisationId": 6629,
+          "organisationNames": [
+            {
+              "language": "EN",
+              "text": "SPI(3p)"
+            },
+            {
+              "language": "DE",
+              "text": "SPI(3p)"
+            },
+            {
+              "language": "FR",
+              "text": "SPI"
+            },
+            {
+              "language": "NL",
+              "text": "SPI(3p)"
+            }
+          ],
+          "tree": "200004.200020.397.4778.6629"
+        },
+        "procedureId": "da411e01-c7d4-44ce-9bc3-f70a3e75e594",
+        "publicationDate": "2026-01-28",
+        "publicationLanguages": [
+          "FR"
+        ],
+        "publicationReferenceNumbersBDA": [
+          "PPP0MS-2455/6021/2026-2455_002"
+        ],
+        "publicationReferenceNumbersTED": [],
+        "publicationType": "ACTIVE",
+        "publicationWorkspaceId": "3f79d50d-e189-4f63-add4-850f781a6641",
+        "publishedAt": [
+          "2026-01-28T09:02:45.01587"
+        ],
+        "referenceNumber": "PPP0MS-2455/6021/2026-2455_002",
+        "sentAt": [
+          "2026-01-28T09:02:45.01587"
+        ],
+        "tedPublished": false
+      },
+      {
+        "cpvAdditionalCodes": [
+          {
+            "code": "90000000-7",
+            "descriptions": [
+              {
+                "language": "DE",
+                "text": "Abwasser- und Abfallbeseitigungs-, Reinigungs- und Umweltschutzdienste"
+              },
+              {
+                "language": "EN",
+                "text": "Sewage, refuse, cleaning and environmental services"
+              },
+              {
+                "language": "FR",
+                "text": "Services d'évacuation des eaux usées et d'élimination des déchets, services d'hygiénisation et services relatifs à l'environnement"
+              },
+              {
+                "language": "NL",
+                "text": "Diensten inzake afvalwater, afval, reiniging en milieu"
+              }
+            ]
+          },
+          {
+            "code": "90510000-5",
+            "descriptions": [
+              {
+                "language": "EN",
+                "text": "Refuse disposal and treatment"
+              },
+              {
+                "language": "FR",
+                "text": "Élimination et traitement des ordures"
+              },
+              {
+                "language": "DE",
+                "text": "Beseitigung und Behandlung von Siedlungsabfällen"
+              },
+              {
+                "language": "NL",
+                "text": "Afvalverzameling en –verwerking"
+              }
+            ]
+          }
+        ],
+        "cpvMainCode": {
+          "code": "90000000-7",
+          "descriptions": [
+            {
+              "language": "DE",
+              "text": "Abwasser- und Abfallbeseitigungs-, Reinigungs- und Umweltschutzdienste"
+            },
+            {
+              "language": "EN",
+              "text": "Sewage, refuse, cleaning and environmental services"
+            },
+            {
+              "language": "FR",
+              "text": "Services d'évacuation des eaux usées et d'élimination des déchets, services d'hygiénisation et services relatifs à l'environnement"
+            },
+            {
+              "language": "NL",
+              "text": "Diensten inzake afvalwater, afval, reiniging en milieu"
+            }
+          ]
+        },
+        "dispatchDate": "2026-01-28",
+        "dossier": {
+          "accreditations": {},
+          "descriptions": [
+            {
+              "language": "NL",
+              "text": "Ophalen en verwerken afval technische dienst"
+            }
+          ],
+          "enterpriseCategories": [],
+          "legalBasis": "D24",
+          "number": "PPP01I-681/6007/2025/26",
+          "procurementProcedureType": "S_NEG_W_CALL_24_81",
+          "referenceNumber": "PPP01I-681/6007/2025/26",
+          "specialPurchasingTechnique": "FRAMEWORK_AGREEMENT",
+          "titles": [
+            {
+              "language": "NL",
+              "text": "Ophalen en verwerken afval technische dienst"
+            }
+          ]
+        },
+        "insertionDate": "2026-01-28",
+        "lots": [
+          {
+            "descriptions": [
+              {
+                "language": "NL",
+                "text": "Ophalen en verwerken van PMD"
+              }
+            ],
+            "reservedExecution": [
+              "NO"
+            ],
+            "reservedParticipation": [
+              "NONE"
+            ],
+            "titles": [
+              {
+                "language": "NL",
+                "text": "Ophalen en verwerken van PMD"
+              }
+            ]
+          },
+          {
+            "descriptions": [
+              {
+                "language": "NL",
+                "text": "Ophalen en verwerken van boomwortels en andere niet te verhakselen takken/stammen"
+              }
+            ],
+            "reservedExecution": [
+              "NO"
+            ],
+            "reservedParticipation": [
+              "NONE"
+            ],
+            "titles": [
+              {
+                "language": "NL",
+                "text": "Ophalen en verwerken van boomwortels en andere niet te verhakselen takken/stammen"
+              }
+            ]
+          },
+          {
+            "descriptions": [
+              {
+                "language": "NL",
+                "text": "Ophalen en verwerken houtafval"
+              }
+            ],
+            "reservedExecution": [
+              "NO"
+            ],
+            "reservedParticipation": [
+              "NONE"
+            ],
+            "titles": [
+              {
+                "language": "NL",
+                "text": "Ophalen en verwerken houtafval"
+              }
+            ]
+          },
+          {
+            "descriptions": [
+              {
+                "language": "NL",
+                "text": "Ophalen en verwerken van aarde vermengd met een beperkt gedeelte steenbrokken, beton, bouwafval (max. ca 20%)"
+              }
+            ],
+            "reservedExecution": [
+              "NO"
+            ],
+            "reservedParticipation": [
+              "NONE"
+            ],
+            "titles": [
+              {
+                "language": "NL",
+                "text": "Ophalen en verwerken van aarde vermengd met een beperkt gedeelte steenbrokken, beton, bouwafval (max. ca 20%)"
+              }
+            ]
+          },
+          {
+            "descriptions": [
+              {
+                "language": "NL",
+                "text": "Ophalen en verwerken van gemengd groenafval"
+              }
+            ],
+            "reservedExecution": [
+              "NO"
+            ],
+            "reservedParticipation": [
+              "NONE"
+            ],
+            "titles": [
+              {
+                "language": "NL",
+                "text": "Ophalen en verwerken van gemengd groenafval"
+              }
+            ]
+          },
+          {
+            "descriptions": [
+              {
+                "language": "NL",
+                "text": "Huur, ledigen en verwerken van Schaeffers voor evenementen: rest, PMD, papier en karton"
+              }
+            ],
+            "reservedExecution": [
+              "NO"
+            ],
+            "reservedParticipation": [
+              "NONE"
+            ],
+            "titles": [
+              {
+                "language": "NL",
+                "text": "Huur, ledigen en verwerken van Schaeffers voor evenementen: rest, PMD, papier en karton"
+              }
+            ]
+          },
+          {
+            "descriptions": [
+              {
+                "language": "NL",
+                "text": "Ophalen en verwerken van steenbrokken en beton"
+              }
+            ],
+            "reservedExecution": [
+              "NO"
+            ],
+            "reservedParticipation": [
+              "NONE"
+            ],
+            "titles": [
+              {
+                "language": "NL",
+                "text": "Ophalen en verwerken van steenbrokken en beton"
+              }
+            ]
+          }
+        ],
+        "natures": [
+          "SERVICES"
+        ],
+        "noticeIds": [
+          "58859fe8-cc5e-403d-9995-6841de1491c2"
+        ],
+        "noticeSubType": "16",
+        "nutsCodes": [
+          "BE241"
+        ],
+        "organisation": {
+          "organisationId": 503,
+          "organisationNames": [
+            {
+              "language": "NL",
+              "text": "Gemeente Machelen"
+            },
+            {
+              "language": "EN",
+              "text": "Machelen"
+            },
+            {
+              "language": "FR",
+              "text": "Machelen"
+            },
+            {
+              "language": "DE",
+              "text": "Machelen"
+            }
+          ],
+          "tree": "200004.200021.503"
+        },
+        "procedureId": "f5dc7275-cbe7-40f9-ad3f-15ffd0df9e3b",
+        "publicationDate": "2026-01-28",
+        "publicationLanguages": [
+          "NL"
+        ],
+        "publicationReferenceNumbersBDA": [
+          "PPP01I-681/6007/2025/26_001"
+        ],
+        "publicationReferenceNumbersTED": [],
+        "publicationType": "ACTIVE",
+        "publicationWorkspaceId": "84320e98-96d9-49fe-8397-774ddec51568",
+        "publishedAt": [
+          "2026-01-28T09:06:45.018583"
+        ],
+        "referenceNumber": "PPP01I-681/6007/2025/26_001",
+        "sentAt": [
+          "2026-01-28T09:06:45.018583"
+        ],
+        "tedPublished": false,
+        "vaultSubmissionDeadline": "2026-02-17T10:00:00"
+      },
+      {
+        "cpvAdditionalCodes": [
+          {
+            "code": "45233162-2",
+            "descriptions": [
+              {
+                "language": "EN",
+                "text": "Cycle path construction work"
+              },
+              {
+                "language": "DE",
+                "text": "Bau von Fahrradwegen"
+              },
+              {
+                "language": "FR",
+                "text": "Travaux de construction de pistes cyclables"
+              },
+              {
+                "language": "NL",
+                "text": "Aanleggen van fietspad"
+              }
+            ]
+          }
+        ],
+        "cpvMainCode": {
+          "code": "45233162-2",
+          "descriptions": [
+            {
+              "language": "EN",
+              "text": "Cycle path construction work"
+            },
+            {
+              "language": "DE",
+              "text": "Bau von Fahrradwegen"
+            },
+            {
+              "language": "FR",
+              "text": "Travaux de construction de pistes cyclables"
+            },
+            {
+              "language": "NL",
+              "text": "Aanleggen van fietspad"
+            }
+          ]
+        },
+        "dispatchDate": "2026-01-28",
+        "dossier": {
+          "accreditations": {},
+          "descriptions": [
+            {
+              "language": "NL",
+              "text": "Het fietspad parallel met de Smidstraat dient aangelegd te worden langs de huidige voetwegen.  De opdracht omvat hoofdzakelijk:  - Het opbreken van bestaande verhardingen - Het rooien van bomen en struiken - Uitvoeren van een algemeen droog grondverzet - Het plaatsen van geotextiel - Het aanleg van een nieuw fietspad langsheen een nieuw tracé - Het maken van onderfunderingen en steenslagfunderingen - Het plaatsen van lijnvormige en plaatselijke elementen - Het maken van nieuwe wegverhardingen zijnde asfalt"
+            }
+          ],
+          "enterpriseCategories": [],
+          "legalBasis": "D24",
+          "number": "PPP04K-1016/5064/1017110010",
+          "procurementProcedureType": "OPEN",
+          "referenceNumber": "PPP04K-1016/5064/1017110010",
+          "titles": [
+            {
+              "language": "NL",
+              "text": "Aanleg alternatief fietspad parallel met Smidstraat"
+            }
+          ]
+        },
+        "insertionDate": "2026-01-28",
+        "lots": [
+          {
+            "descriptions": [
+              {
+                "language": "NL",
+                "text": "Het fietspad parallel met de Smidstraat dient aangelegd te worden langs de huidige voetwegen.  De opdracht omvat hoofdzakelijk:  - Het opbreken van bestaande verhardingen - Het rooien van bomen en struiken - Uitvoeren van een algemeen droog grondverzet - Het plaatsen van geotextiel - Het aanleg van een nieuw fietspad langsheen een nieuw tracé - Het maken van onderfunderingen en steenslagfunderingen - Het plaatsen van lijnvormige en plaatselijke elementen - Het maken van nieuwe wegverhardingen zijnde asfalt"
+              }
+            ],
+            "reservedExecution": [
+              "NO"
+            ],
+            "reservedParticipation": [
+              "NONE"
+            ],
+            "titles": [
+              {
+                "language": "NL",
+                "text": "Aanleg alternatief fietspad parallel met Smidstraat"
+              }
+            ]
+          }
+        ],
+        "natures": [
+          "WORKS"
+        ],
+        "noticeIds": [
+          "1c5fbdbd-5bd6-494e-b977-7661b6cb920e"
+        ],
+        "noticeSubType": "E4",
+        "nutsCodes": [
+          "BE242"
+        ],
+        "organisation": {
+          "organisationId": 371,
+          "organisationNames": [
+            {
+              "language": "NL",
+              "text": "Boutersem"
+            },
+            {
+              "language": "FR",
+              "text": "Boutersem"
+            },
+            {
+              "language": "EN",
+              "text": "Boutersem"
+            },
+            {
+              "language": "DE",
+              "text": "Boutersem"
+            }
+          ],
+          "tree": "200004.200021.371"
+        },
+        "procedureId": "c5df1dca-b56b-4e86-a1aa-27fa15b6db76",
+        "publicationDate": "2026-01-28",
+        "publicationLanguages": [
+          "NL"
+        ],
+        "publicationReferenceNumbersBDA": [
+          "PPP04K-1016/5064/1017110010_004"
+        ],
+        "publicationReferenceNumbersTED": [],
+        "publicationType": "ACTIVE",
+        "publicationWorkspaceId": "efd5f306-076d-4981-a2f3-ddedd5bc9313",
+        "publishedAt": [
+          "2026-01-28T08:52:45.013826"
+        ],
+        "referenceNumber": "PPP04K-1016/5064/1017110010_004",
+        "sentAt": [
+          "2026-01-28T08:52:45.013826"
+        ],
+        "tedPublished": false
+      },
+      {
+        "cpvAdditionalCodes": [
+          {
+            "code": "30216110-0",
+            "descriptions": [
+              {
+                "language": "DE",
+                "text": "Scanner für Computeranwendungen"
+              },
+              {
+                "language": "NL",
+                "text": "Scanners voor computergebruik"
+              },
+              {
+                "language": "EN",
+                "text": "Scanners for computer use"
+              },
+              {
+                "language": "FR",
+                "text": "Scanners informatiques"
+              }
+            ]
+          },
+          {
+            "code": "48900000-7",
+            "descriptions": [
+              {
+                "language": "NL",
+                "text": "Diverse software en computersystemen"
+              },
+              {
+                "language": "EN",
+                "text": "Miscellaneous software package and computer systems"
+              },
+              {
+                "language": "FR",
+                "text": "Logiciels et systèmes informatiques divers"
+              },
+              {
+                "language": "DE",
+                "text": "Diverse Softwarepakete und Computersysteme"
+              }
+            ]
+          },
+          {
+            "code": "48329000-0",
+            "descriptions": [
+              {
+                "language": "EN",
+                "text": "Imaging and archiving system"
+              },
+              {
+                "language": "FR",
+                "text": "Système d'imagerie et d'archivage"
+              },
+              {
+                "language": "NL",
+                "text": "Beeldvormings- en archiefsysteem"
+              },
+              {
+                "language": "DE",
+                "text": "Darstellungs- und Archivierungssystem"
+              }
+            ]
+          }
+        ],
+        "cpvMainCode": {
+          "code": "48900000-7",
+          "descriptions": [
+            {
+              "language": "NL",
+              "text": "Diverse software en computersystemen"
+            },
+            {
+              "language": "EN",
+              "text": "Miscellaneous software package and computer systems"
+            },
+            {
+              "language": "FR",
+              "text": "Logiciels et systèmes informatiques divers"
+            },
+            {
+              "language": "DE",
+              "text": "Diverse Softwarepakete und Computersysteme"
+            }
+          ]
+        },
+        "dispatchDate": "2026-01-28",
+        "dossier": {
+          "accreditations": {},
+          "descriptions": [
+            {
+              "language": "FR",
+              "text": "Solution d'archivage électronique comprenant un dispositif de numérisation"
+            }
+          ],
+          "enterpriseCategories": [],
+          "legalBasis": "D24",
+          "number": "PPP0HT-113/6006/ZP5306-2026-01",
+          "procurementProcedureType": "OPEN",
+          "referenceNumber": "PPP0HT-113/6006/ZP5306-2026-01",
+          "titles": [
+            {
+              "language": "FR",
+              "text": "Solution d'archivage électronique comprenant un dispositif de numérisation"
+            }
+          ]
+        },
+        "insertionDate": "2026-01-28",
+        "lots": [
+          {
+            "descriptions": [
+              {
+                "language": "FR",
+                "text": "Solution d'archivage électronique comprenant un dispositif de numérisation"
+              }
+            ],
+            "reservedExecution": [
+              "NO"
+            ],
+            "reservedParticipation": [
+              "NONE"
+            ],
+            "titles": [
+              {
+                "language": "FR",
+                "text": "Solution d'archivage électronique comprenant un dispositif de numérisation"
+              }
+            ]
+          }
+        ],
+        "natures": [
+          "SUPPLIES"
+        ],
+        "noticeIds": [
+          "b1f949ba-7ae5-435f-ac02-5f1031dad205"
+        ],
+        "noticeSubType": "16",
+        "nutsCodes": [
+          "BE352"
+        ],
+        "organisation": {
+          "organisationId": 759,
+          "organisationNames": [
+            {
+              "language": "FR",
+              "text": "Zone de Police Entre Sambre et Meuse"
+            },
+            {
+              "language": "EN",
+              "text": "Zone de Police Entre Sambre et Meuse"
+            },
+            {
+              "language": "DE",
+              "text": "Zone de Police Entre Sambre et Meuse"
+            },
+            {
+              "language": "NL",
+              "text": "Zone de Police Entre Sambre et Meuse"
+            }
+          ],
+          "tree": "200004.200024.759"
+        },
+        "procedureId": "f8a1a95f-38a8-499f-b960-794c2ab9c614",
+        "publicationDate": "2026-01-28",
+        "publicationLanguages": [
+          "FR"
+        ],
+        "publicationReferenceNumbersBDA": [
+          "PPP0HT-113/6006/ZP5306-2026-01_001"
+        ],
+        "publicationReferenceNumbersTED": [],
+        "publicationType": "ACTIVE",
+        "publicationWorkspaceId": "77004ec9-461a-4bd3-ab4d-ee0d383e92d0",
+        "publishedAt": [
+          "2026-01-28T08:59:45.014407"
+        ],
+        "referenceNumber": "PPP0HT-113/6006/ZP5306-2026-01_001",
+        "sentAt": [
+          "2026-01-28T08:59:45.014407"
+        ],
+        "tedPublished": false,
+        "vaultSubmissionDeadline": "2026-03-03T12:00:00"
+      },
+      {
+        "cpvAdditionalCodes": [
+          {
+            "code": "79714000-2",
+            "descriptions": [
+              {
+                "language": "FR",
+                "text": "Services de surveillance"
+              },
+              {
+                "language": "DE",
+                "text": "Überwachungsdienste"
+              },
+              {
+                "language": "EN",
+                "text": "Surveillance services"
+              },
+              {
+                "language": "NL",
+                "text": "Surveillancediensten"
+              }
+            ]
+          }
+        ],
+        "cpvMainCode": {
+          "code": "79714000-2",
+          "descriptions": [
+            {
+              "language": "FR",
+              "text": "Services de surveillance"
+            },
+            {
+              "language": "DE",
+              "text": "Überwachungsdienste"
+            },
+            {
+              "language": "EN",
+              "text": "Surveillance services"
+            },
+            {
+              "language": "NL",
+              "text": "Surveillancediensten"
+            }
+          ]
+        },
+        "dispatchDate": "2026-01-28",
+        "dossier": {
+          "accreditations": {},
+          "descriptions": [
+            {
+              "language": "FR",
+              "text": "Service pour location de caméra de rue pour une période 4 ans (2026-2029)"
+            },
+            {
+              "language": "NL",
+              "text": "Verhuur van straatcamera's voor een periode van 4 jaar (2026-2029)"
+            }
+          ],
+          "enterpriseCategories": [],
+          "legalBasis": "D24",
+          "number": "PPP06X-4542/5152/104-2025 Propreté\\Netheid",
+          "procurementProcedureType": "S_NEG_W_CALL_24_81",
+          "referenceNumber": "PPP06X-4542/5152/104-2025 Propreté\\Netheid",
+          "titles": [
+            {
+              "language": "FR",
+              "text": "Service pour location de caméra de rue pour une période 4 ans (2026-2029)"
+            },
+            {
+              "language": "NL",
+              "text": "Verhuur van straatcamera's voor een periode van 4 jaar (2026-2029)"
+            }
+          ]
+        },
+        "insertionDate": "2026-01-28",
+        "lots": [
+          {
+            "descriptions": [
+              {
+                "language": "FR",
+                "text": "Service pour location de caméra de rue pour une période 4 ans (2025-2028)"
+              },
+              {
+                "language": "NL",
+                "text": "Verhuur van straatcamera's voor een periode van 4 jaar (2025-2028)"
+              }
+            ],
+            "reservedExecution": [
+              "NO"
+            ],
+            "reservedParticipation": [
+              "NONE"
+            ],
+            "titles": [
+              {
+                "language": "FR",
+                "text": "Service pour location de caméra de rue pour une période 4 ans (2025-2028)"
+              },
+              {
+                "language": "NL",
+                "text": "Verhuur van straatcamera's voor een periode van 4 jaar (2025-2028)"
+              }
+            ]
+          }
+        ],
+        "natures": [
+          "SERVICES"
+        ],
+        "noticeIds": [
+          "8b3d3f03-660b-4b32-85ee-2f244751fb1c"
+        ],
+        "noticeSubType": "33",
+        "nutsCodes": [
+          "BE100"
+        ],
+        "organisation": {
+          "organisationId": 745,
+          "organisationNames": [
+            {
+              "language": "FR",
+              "text": "Evere"
+            },
+            {
+              "language": "EN",
+              "text": "Evere"
+            },
+            {
+              "language": "DE",
+              "text": "Evere"
+            },
+            {
+              "language": "NL",
+              "text": "Evere"
+            }
+          ],
+          "tree": "200004.200021.745"
+        },
+        "procedureId": "12e6aed1-3dd7-423b-8c9e-58e0a701ef1d",
+        "publicationDate": "2026-01-28",
+        "publicationLanguages": [
+          "NL",
+          "FR"
+        ],
+        "publicationReferenceNumbersBDA": [
+          "PPP06X-4542/5152/104-2025 Propreté\\Netheid_002"
+        ],
+        "publicationReferenceNumbersTED": [],
+        "publicationType": "ACTIVE",
+        "publicationWorkspaceId": "b23a7f3a-bf1d-41be-9bc5-81759cbc3a60",
+        "publishedAt": [
+          "2026-01-28T09:01:45.021409"
+        ],
+        "referenceNumber": "PPP06X-4542/5152/104-2025 Propreté\\Netheid_002",
+        "sentAt": [
+          "2026-01-28T09:01:45.021409"
+        ],
+        "tedPublished": false
+      },
+      {
+        "cpvAdditionalCodes": [
+          {
+            "code": "45000000-7",
+            "descriptions": [
+              {
+                "language": "EN",
+                "text": "Construction work"
+              },
+              {
+                "language": "DE",
+                "text": "Bauarbeiten"
+              },
+              {
+                "language": "FR",
+                "text": "Travaux de construction"
+              },
+              {
+                "language": "NL",
+                "text": "Bouwwerkzaamheden"
+              }
+            ]
+          }
+        ],
+        "cpvMainCode": {
+          "code": "45000000-7",
+          "descriptions": [
+            {
+              "language": "EN",
+              "text": "Construction work"
+            },
+            {
+              "language": "DE",
+              "text": "Bauarbeiten"
+            },
+            {
+              "language": "FR",
+              "text": "Travaux de construction"
+            },
+            {
+              "language": "NL",
+              "text": "Bouwwerkzaamheden"
+            }
+          ]
+        },
+        "dispatchDate": "2026-01-28",
+        "dossier": {
+          "accreditations": {
+            "D": 6
+          },
+          "descriptions": [
+            {
+              "language": "FR",
+              "text": "Projet Copernicus - Travaux d'aménagement d'un bâtiment casco"
+            },
+            {
+              "language": "NL",
+              "text": "Project Copernicus - Inrichtingswerken van een casco gebouw"
+            }
+          ],
+          "enterpriseCategories": [
+            {
+              "categoryCode": "D",
+              "levels": [
+                2,
+                1,
+                6,
+                5,
+                4,
+                3
+              ]
+            }
+          ],
+          "legalBasis": "D24",
+          "number": "SFPD/S2000/2026/04",
+          "procurementProcedureType": "OPEN",
+          "referenceNumber": "SFPD/S2000/2026/04",
+          "titles": [
+            {
+              "language": "FR",
+              "text": "Projet Copernicus - Travaux d'aménagement d'un bâtiment casco"
+            },
+            {
+              "language": "NL",
+              "text": "Project Copernicus - Inrichtingswerken van een casco gebouw"
+            }
+          ]
+        },
+        "insertionDate": "2026-01-28",
+        "lots": [
+          {
+            "descriptions": [
+              {
+                "language": "FR",
+                "text": "Projet Copernicus - Travaux d'aménagement d'un bâtiment casco"
+              },
+              {
+                "language": "NL",
+                "text": "Project Copernicus - Inrichtingswerken van een casco gebouw"
+              }
+            ],
+            "reservedExecution": [
+              "NO"
+            ],
+            "reservedParticipation": [
+              "NONE"
+            ],
+            "titles": [
+              {
+                "language": "NL",
+                "text": "SFPD/S2000/2026/04 - 1"
+              },
+              {
+                "language": "FR",
+                "text": "SFPD/S2000/2026/04 - 1"
+              }
+            ]
+          }
+        ],
+        "natures": [
+          "WORKS"
+        ],
+        "noticeIds": [
+          "698e3c2b-13f2-449e-b306-f3bc5a2de57e"
+        ],
+        "noticeSubType": "16",
+        "nutsCodes": [
+          "BE211"
+        ],
+        "organisation": {
+          "organisationId": 96,
+          "organisationNames": [
+            {
+              "language": "FR",
+              "text": "Service fédéral des Pensions"
+            },
+            {
+              "language": "DE",
+              "text": "Föderaler Pensionsdienst"
+            },
+            {
+              "language": "EN",
+              "text": "Federal Pensions Service"
+            },
+            {
+              "language": "NL",
+              "text": "Federale Pensioendienst"
+            }
+          ],
+          "tree": "200002.200011.96"
+        },
+        "procedureId": "f9ec61a2-cf64-43b6-b7e2-29dc19ca1b02",
+        "publicationDate": "2026-01-28",
+        "publicationLanguages": [
+          "NL",
+          "FR"
+        ],
+        "publicationReferenceNumbersBDA": [
+          "SFPD/S2000/2026/04_pub01"
+        ],
+        "publicationReferenceNumbersTED": [],
+        "publicationType": "ACTIVE",
+        "publicationWorkspaceId": "4a6e1bd0-1580-4967-b27e-1da5fdfb2c78",
+        "publishedAt": [
+          "2026-01-28T08:48:45.020619"
+        ],
+        "referenceNumber": "SFPD/S2000/2026/04_pub01",
+        "sentAt": [
+          "2026-01-28T08:48:45.020619"
+        ],
+        "tedPublished": false,
+        "vaultSubmissionDeadline": "2026-03-19T10:00:00"
+      },
+      {
+        "cpvAdditionalCodes": [
+          {
+            "code": "38342000-4",
+            "descriptions": [
+              {
+                "language": "EN",
+                "text": "Oscilloscopes"
+              },
+              {
+                "language": "DE",
+                "text": "Oszilloskope"
+              },
+              {
+                "language": "NL",
+                "text": "Oscilloscopen"
+              },
+              {
+                "language": "FR",
+                "text": "Oscilloscopes"
+              }
+            ]
+          }
+        ],
+        "cpvMainCode": {
+          "code": "38342000-4",
+          "descriptions": [
+            {
+              "language": "EN",
+              "text": "Oscilloscopes"
+            },
+            {
+              "language": "DE",
+              "text": "Oszilloskope"
+            },
+            {
+              "language": "NL",
+              "text": "Oscilloscopen"
+            },
+            {
+              "language": "FR",
+              "text": "Oscilloscopes"
+            }
+          ]
+        },
+        "dispatchDate": "2026-01-28",
+        "dossier": {
+          "accreditations": {},
+          "descriptions": [
+            {
+              "language": "FR",
+              "text": "For the beam commissioning of the MYRRHA Phase I 100 MeV high power proton LINAC a High Sampling Rate Oscilloscope (HSR-O) is needed as digitizer for various uses.  Few of the foreseen applications for the HSR-O are the following: • Reconstruction of the longitudinal profile of proton bunches from a Fast-Faraday Cup (FFC).      The expected signal for this measurement is a Gaussian pulse • Jitter studies within the LLRF scope • Simultaneous capture of two RF-like signals, in the case of TOF measurement between two BPMs."
+            },
+            {
+              "language": "EN",
+              "text": "For the beam commissioning of the MYRRHA Phase I 100 MeV high power proton LINAC a High Sampling Rate Oscilloscope (HSR-O) is needed as digitizer for various uses.  Few of the foreseen applications for the HSR-O are the following: • Reconstruction of the longitudinal profile of proton bunches from a Fast-Faraday Cup (FFC).      The expected signal for this measurement is a Gaussian pulse • Jitter studies within the LLRF scope • Simultaneous capture of two RF-like signals, in the case of TOF measurement between two BPMs."
+            },
+            {
+              "language": "NL",
+              "text": "For the beam commissioning of the MYRRHA Phase I 100 MeV high power proton LINAC a High Sampling Rate Oscilloscope (HSR-O) is needed as digitizer for various uses.  Few of the foreseen applications for the HSR-O are the following: • Reconstruction of the longitudinal profile of proton bunches from a Fast-Faraday Cup (FFC).      The expected signal for this measurement is a Gaussian pulse • Jitter studies within the LLRF scope • Simultaneous capture of two RF-like signals, in the case of TOF measurement between two BPMs."
+            }
+          ],
+          "enterpriseCategories": [],
+          "legalBasis": "D24",
+          "number": "2025-097-JVL",
+          "procurementProcedureType": "NEG_WO_CALL_24",
+          "referenceNumber": "2025-097-JVL",
+          "titles": [
+            {
+              "language": "FR",
+              "text": "High Sampling Rate Oscilloscope"
+            },
+            {
+              "language": "NL",
+              "text": "High Sampling Rate Oscilloscope"
+            },
+            {
+              "language": "EN",
+              "text": "High Sampling Rate Oscilloscope"
+            }
+          ]
+        },
+        "insertionDate": "2026-01-28",
+        "lots": [
+          {
+            "descriptions": [
+              {
+                "language": "FR",
+                "text": "High Sampling Rate Oscilloscope"
+              },
+              {
+                "language": "NL",
+                "text": "High Sampling Rate Oscilloscope"
+              },
+              {
+                "language": "EN",
+                "text": "High Sampling Rate Oscilloscope"
+              }
+            ],
+            "titles": [
+              {
+                "language": "EN",
+                "text": "2025-097-JVL - 1"
+              },
+              {
+                "language": "FR",
+                "text": "2025-097-JVL - 1"
+              },
+              {
+                "language": "NL",
+                "text": "2025-097-JVL - 1"
+              }
+            ]
+          }
+        ],
+        "natures": [
+          "SUPPLIES"
+        ],
+        "noticeIds": [
+          "f640a3df-3637-44f3-b56c-0012278ef8e5"
+        ],
+        "noticeSubType": "29",
+        "nutsCodes": [
+          "BE213"
+        ],
+        "organisation": {
+          "organisationId": 1251,
+          "organisationNames": [
+            {
+              "language": "DE",
+              "text": "SCK•CEN"
+            },
+            {
+              "language": "NL",
+              "text": "SCK CEN"
+            },
+            {
+              "language": "FR",
+              "text": "SCK•CEN"
+            },
+            {
+              "language": "EN",
+              "text": "SCK•CEN"
+            }
+          ],
+          "tree": "200002.200010.1251"
+        },
+        "procedureId": "9d4b59e5-0413-4b26-bb22-99bc0b113979",
+        "publicationDate": "2026-01-28",
+        "publicationLanguages": [
+          "EN",
+          "NL",
+          "FR"
+        ],
+        "publicationReferenceNumbersBDA": [
+          "2025-097-JVL_gra01"
+        ],
+        "publicationReferenceNumbersTED": [],
+        "publicationType": "ACTIVE",
+        "publicationWorkspaceId": "83684cc1-b0f6-4417-86f2-7ae73805ef3a",
+        "publishedAt": [
+          "2026-01-28T08:55:45.035363"
+        ],
+        "referenceNumber": "2025-097-JVL_gra01",
+        "sentAt": [
+          "2026-01-28T08:55:45.035363"
+        ],
+        "tedPublished": false
+      },
+      {
+        "cpvAdditionalCodes": [
+          {
+            "code": "80000000-4",
+            "descriptions": [
+              {
+                "language": "FR",
+                "text": "Services d'enseignement et de formation"
+              },
+              {
+                "language": "DE",
+                "text": "Allgemeine und berufliche Bildung"
+              },
+              {
+                "language": "NL",
+                "text": "Diensten voor onderwijs en opleiding"
+              },
+              {
+                "language": "EN",
+                "text": "Education and training services"
+              }
+            ]
+          }
+        ],
+        "cpvMainCode": {
+          "code": "80000000-4",
+          "descriptions": [
+            {
+              "language": "FR",
+              "text": "Services d'enseignement et de formation"
+            },
+            {
+              "language": "DE",
+              "text": "Allgemeine und berufliche Bildung"
+            },
+            {
+              "language": "NL",
+              "text": "Diensten voor onderwijs en opleiding"
+            },
+            {
+              "language": "EN",
+              "text": "Education and training services"
+            }
+          ]
+        },
+        "dispatchDate": "2026-01-28",
+        "dossier": {
+          "accreditations": {},
+          "descriptions": [
+            {
+              "language": "FR",
+              "text": "Recrutement de formateurs pour dispenser des formations destinées à un public d'adultes pour son service de formations à la création d'entreprises"
+            }
+          ],
+          "enterpriseCategories": [],
+          "legalBasis": "D24",
+          "number": "D1-001-2025- Formations-CREA",
+          "procurementProcedureType": "NEG_WO_CALL_24",
+          "referenceNumber": "D1-001-2025- Formations-CREA",
+          "titles": [
+            {
+              "language": "FR",
+              "text": "Recrutement de formateurs pour dispenser des formations destinées à un public d'adultes pour son service de formations à la création d'entreprises"
+            }
+          ]
+        },
+        "insertionDate": "2026-01-28",
+        "lots": [
+          {
+            "descriptions": [
+              {
+                "language": "FR",
+                "text": "Objectifs :  Rendre le porteur de projet capable d’intégrer l’IA dans son entreprise notamment via : • L’identification des outils d’IA utiles à la gestion quotidienne d’une entreprise. • L'automatisation de certaines tâches administratives, commerciales ou marketing. • L'optimisation de sa prise de décision grâce à l’analyse des données. • La mise en place d’une stratégie d’intégration progressive de l’IA dans son activité. "
+              }
+            ],
+            "titles": [
+              {
+                "language": "FR",
+                "text": "Lot 9 : l’IA et les outils numériques au service de mon entreprise"
+              }
+            ]
+          },
+          {
+            "descriptions": [
+              {
+                "language": "FR",
+                "text": "Objectifs :  Permettre au porteur de projet d’avoir une réflexion globale quant aux possibilités et opportunités de durabiliser son projet d’entreprise. Elle devra répondre aux impératifs suivants : • Sensibilisation et compréhension des enjeux durables ; • Conscientisation et intégration des valeurs ; • Information, connaissance du cadre institutionnel, des outils et des méthodologies permettant la mise en œuvre de la durabilité ; • Conduire à la concrétisation, à travers l’amélioration du business plan ou du business model du projet ; • Intégration du projet dans un cadre partenarial plus large en favorisant la mise en réseau (chaîne de valeurs). La formation doit connoter le business plan d’éléments sociétaux (cf. 17 ODD) qui seront challengés au même titre que les autres éléments lors de la présentation au jury externe. La formation permettra de capitaliser sur les parties sociétales des business plans pour les valoriser dans les outils utilisés. "
+              }
+            ],
+            "titles": [
+              {
+                "language": "FR",
+                "text": "Lot 8 : Développement durable"
+              }
+            ]
+          },
+          {
+            "descriptions": [
+              {
+                "language": "FR",
+                "text": "Objectifs :  Rendre le porteur de projet capable de : • Définir la mission, la vision, les valeurs du porteur de projet, situer le projet dans l'environnement et décelé des opportunités créatives. • D’analyser le marché et interroger ses acteurs clés (prospects, clients, concurrents). • Définir la proposition de valeur (Value Proposition Canvas puis l'unité de valeur et le prix unitaire) et le positionnement du projet (matrice). • D’élaborer un plan marketing (4P-Marketing mix) incluant les personae, les messages clés et les objectifs, identifié les actions nécessaires pour atteindre les objectifs. • D'utiliser des techniques d'études de marché quantitatives et qualitatives et les types de questions pour valider les hypothèses et affiner le projet (Microsoft ou Google Forms). • De comprendre et d’intégrer des objectifs de développement durable de façon transversale."
+              }
+            ],
+            "titles": [
+              {
+                "language": "FR",
+                "text": "Lot 1 : Stratégie commerciale"
+              }
+            ]
+          },
+          {
+            "descriptions": [
+              {
+                "language": "FR",
+                "text": "Objectifs :  Permettre au porteur de projet d’évaluer la viabilité financière de son projet, de comprendre les bases du jargon financier, de comprendre les éléments constitutifs du plan financier et leur articulation (bilan/compte de résultats/plan de trésorerie), d’établir une liste des investissements nécessaires à l’élaboration du projet, de pouvoir calculer son prix de revient et de fixer son prix de vente, de calculer son seuil de rentabilité  de maîtriser ses coûts et de recueillir les informations nécessaires à l’établissement du plan financier afin de l’utiliser comme outils de support à la prise de décision. "
+              }
+            ],
+            "titles": [
+              {
+                "language": "FR",
+                "text": "Lot 3 : Plan financier"
+              }
+            ]
+          },
+          {
+            "descriptions": [
+              {
+                "language": "FR",
+                "text": "Objectifs :  Au terme de la formation, le participant sera capable de :  • Valider son idée entrepreneuriale en découvrant les processus du Design Thinking, du Lean Startup et de l'innovation par le modèle économique  • Identifier des solutions innovantes répondant aux besoins et aux attentes de ses clients  • Identifier les fonctionnalités et l'expérience cœur d'un nouveau produit/service  • Prétotyper : Comment s'assurer de construire la bonne solution avant de bien la construire  "
+              }
+            ],
+            "titles": [
+              {
+                "language": "FR",
+                "text": "Lot 12 : Lean startup "
+              }
+            ]
+          },
+          {
+            "descriptions": [
+              {
+                "language": "FR",
+                "text": "Objectifs :  Permettre au porteur de projet/candidat repreneur les étapes de la reprise d’une entreprise incluant la préparation, les compétences techniques à mobiliser et les acteurs clés du secteur. "
+              }
+            ],
+            "titles": [
+              {
+                "language": "FR",
+                "text": " Lot 10 : Cession et transmission d’entreprise"
+              }
+            ]
+          },
+          {
+            "descriptions": [
+              {
+                "language": "FR",
+                "text": "Objectifs :  Rendre le porteur de projet capable d’établir une stratégie de communication sur le Web. • Développer des compétences techniques pour utiliser les principaux canaux digitaux incluant site, réseaux sociaux, e-mailings, référencement, Canva (création logo et charte graphique), Odoo, Google Ads, etc. • Utiliser efficacement les médias et étendre les réseaux afin de générer des leads, des conversions et de la fidélisation. • Communiquer efficacement et mobiliser les autres => Développer un plan de communication / calendrier éditorial chiffré et daté (personas, messages, objectifs, canaux), créer une image et une notoriété, une base de données respectueuse du RGPD. Évaluer l'impact des actions de communication (KPIs, résultats, ROI). Ces objectifs visent à rendre les porteurs de projet capables de mettre en œuvre une stratégie de communication digitale performante. "
+              }
+            ],
+            "titles": [
+              {
+                "language": "FR",
+                "text": "Lot 5 : Communication digitale"
+              }
+            ]
+          },
+          {
+            "descriptions": [
+              {
+                "language": "FR",
+                "text": "Objectifs :  Permettre au porteur de projet de s’organiser dans sa gestion administrative quotidienne, de maîtriser des outils opérationnels et utilisables facilement pour tenir sa comptabilité au quotidien, surveiller ses rentrées et sorties d’argent ainsi que ses marges et anticiper la croissance de sa structure.  Les thématiques abordées sont : - Planifier, prioriser et exécuter de manière efficace ses tâches ;  - Tenir sa comptabilité au quotidien ; - Surveiller ses rentrées et sorties d’argent ainsi que ses marges (tableau de bord, etc.) ; - Remplir les obligations administratives et fiscales liés au statut ; - Anticiper la croissance de la structure. "
+              }
+            ],
+            "titles": [
+              {
+                "language": "FR",
+                "text": "Lot 7 : Bien gérer son entreprise au quotidien"
+              }
+            ]
+          },
+          {
+            "descriptions": [
+              {
+                "language": "FR",
+                "text": "Objectifs :  Permettre au porteur de projet de rédiger son business plan (sur base du canevas IFAPME) et de préparer la présentation au jury. Ce lot inclut la participation au jury : partager un retour critique constructif sur le business plan du porteur de projet.  "
+              }
+            ],
+            "titles": [
+              {
+                "language": "FR",
+                "text": "Lot 4 : Rédaction du plan d’affaires : atelier et présentation finale des projets"
+              }
+            ]
+          },
+          {
+            "descriptions": [
+              {
+                "language": "FR",
+                "text": "Objectifs :  Permettre au porteur de projet de: • Comprendre les étapes administratives et juridiques afin de créer une entreprise et d’avoir une vision des acteurs concernés (BCE, guichet d’entreprise…). • Choisir son statut et la forme juridique de son activité, de connaître les obligations légales et réglementaires (droits et obligations, les cotisations sociales, les assurances, la législation en matière de baux…)  • Savoir où trouver les sources fiables et officielles d’informations pour les matières légales et réglementaires. "
+              }
+            ],
+            "titles": [
+              {
+                "language": "FR",
+                "text": "Lot 2 : Environnement juridique et réglementaire"
+              }
+            ]
+          },
+          {
+            "descriptions": [
+              {
+                "language": "FR",
+                "text": "Objectifs :  Rendre le porteur de projet capable de : • Préparer et maîtriser les techniques de prospection de clients. • Maîtriser les phases de la vente (tunnel de conversion) et les éléments-clés de la négociation commerciale (clients / fournisseurs / partenaires). • Utiliser les leviers de fidélisation pour maintenir une relation durable avec les clients. • Persuader et mobiliser les autres dans le cadre des relations commerciales. • Travailler efficacement avec les autres et étendre ses réseaux. Apprendre et mettre en œuvre les techniques de réseautage en ligne et en présentiel. Ces objectifs visent à rendre les porteurs de projet capables de vendre et négocier efficacement tout en fidélisant leurs clients. "
+              }
+            ],
+            "titles": [
+              {
+                "language": "FR",
+                "text": "Lot 6 : Réseauter, vendre et négocier"
+              }
+            ]
+          },
+          {
+            "descriptions": [
+              {
+                "language": "FR",
+                "text": "Objectifs : • Identifier les exigences du projet et les compétences à réunir pour le mener à bien. • Apprendre à mieux se connaître et déterminer ses compétences. • Mesurer sa motivation à entreprendre : moteurs et freins. • Augmenter sa confiance en soi et son assertivité. • Mieux gérer son temps, son stress et ses émotions. • Passer d’une idée à un projet. "
+              }
+            ],
+            "titles": [
+              {
+                "language": "FR",
+                "text": "Lot 11 : Compétences entrepreneuriales"
+              }
+            ]
+          }
+        ],
+        "natures": [
+          "SERVICES"
+        ],
+        "noticeIds": [
+          "8489ddd3-beac-434a-80bc-8ec286c63b64"
+        ],
+        "noticeSubType": "E4",
+        "nutsCodes": [
+          "BE351"
+        ],
+        "organisation": {
+          "organisationId": 992,
+          "organisationNames": [
+            {
+              "language": "FR",
+              "text": "Centre IFAPME de Dinant ASBL"
+            },
+            {
+              "language": "DE",
+              "text": "Centre "
+            },
+            {
+              "language": "NL",
+              "text": "Centre de Formation PME"
+            },
+            {
+              "language": "EN",
+              "text": "Centre de Formation PME"
+            }
+          ],
+          "tree": "200004.200036.992"
+        },
+        "procedureId": "ec807239-376c-4fe2-806b-dc9a4813d875",
+        "publicationDate": "2026-01-28",
+        "publicationLanguages": [
+          "FR"
+        ],
+        "publicationReferenceNumbersBDA": [
+          "D1-001-2025- Formations-CREA_pub01"
+        ],
+        "publicationReferenceNumbersTED": [],
+        "publicationType": "ACTIVE",
+        "publicationWorkspaceId": "c4417460-0fb1-4167-afaf-d50ff9bcad52",
+        "publishedAt": [
+          "2026-01-28T09:42:45.01505"
+        ],
+        "referenceNumber": "D1-001-2025- Formations-CREA_pub01",
+        "sentAt": [
+          "2026-01-28T09:42:45.01505"
+        ],
+        "tedPublished": false
+      },
+      {
+        "cpvAdditionalCodes": [
+          {
+            "code": "45111230-9",
+            "descriptions": [
+              {
+                "language": "DE",
+                "text": "Baugrundverfestigungsarbeiten"
+              },
+              {
+                "language": "EN",
+                "text": "Ground-stabilisation work"
+              },
+              {
+                "language": "FR",
+                "text": "Travaux de stabilisation des sols"
+              },
+              {
+                "language": "NL",
+                "text": "Grondstabilisatie"
+              }
+            ]
+          }
+        ],
+        "cpvMainCode": {
+          "code": "45111230-9",
+          "descriptions": [
+            {
+              "language": "DE",
+              "text": "Baugrundverfestigungsarbeiten"
+            },
+            {
+              "language": "EN",
+              "text": "Ground-stabilisation work"
+            },
+            {
+              "language": "FR",
+              "text": "Travaux de stabilisation des sols"
+            },
+            {
+              "language": "NL",
+              "text": "Grondstabilisatie"
+            }
+          ]
+        },
+        "dispatchDate": "2026-01-28",
+        "dossier": {
+          "accreditations": {
+            "C": 4
+          },
+          "descriptions": [
+            {
+              "language": "FR",
+              "text": "Les travaux portent sur le renforcement de la stabilité - nouveau complexe d’étanchéité pour contrer les infiltrations et le nouveau revêtement de la zone de parking.  Visite du site (obligatoire) La visite du site est obligatoire afin de s’assurer que le soumissionnaire remet une offre en parfaite connaissance de cause.  Le soumissionnaire devra prendre directement contact avec le fonctionnaire dirigeant, Madame sabine PIERRE, Tél. : 081/77.57.26 – 0471/95.10.82 - email : sabine.pierre@province.namur.be- afin de convenir d’un rendez-vous. Une attestation de visite des lieux vous sera délivrée après cette visite. Elle devra être  jointe obligatoirement à l’offre  Si le soumissionnaire visite le site en l’absence de représentant du pouvoir adjudicateur, il joint un reportage photographique ou tout autre moyen de preuve à son offre attestant de la visite effective du site. Un soumissionnaire évincé ne pourra pas se prévaloir du défaut de visite. "
+            }
+          ],
+          "enterpriseCategories": [
+            {
+              "categoryCode": "C",
+              "levels": [
+                1,
+                4,
+                3,
+                2
+              ]
+            }
+          ],
+          "legalBasis": "D24",
+          "number": "STPI 2025/68",
+          "procurementProcedureType": "OPEN",
+          "referenceNumber": "STPI 2025/68",
+          "titles": [
+            {
+              "language": "FR",
+              "text": "Province de Namur : Travaux de rénovation de la toiture-parking du Château de Namur et le réaménagement de la zone de stationnement."
+            }
+          ]
+        },
+        "insertionDate": "2026-01-28",
+        "lots": [
+          {
+            "descriptions": [
+              {
+                "language": "FR",
+                "text": "Les travaux portent sur le renforcement de la stabilité - nouveau complexe d’étanchéité pour contrer les infiltrations et le nouveau revêtement de la zone de parking.  Visite du site (obligatoire) La visite du site est obligatoire afin de s’assurer que le soumissionnaire remet une offre en parfaite connaissance de cause.  Le soumissionnaire devra prendre directement contact avec le fonctionnaire dirigeant, Madame sabine PIERRE, Tél. : 081/77.57.26 – 0471/95.10.82 - email : sabine.pierre@province.namur.be- afin de convenir d’un rendez-vous. Une attestation de visite des lieux vous sera délivrée après cette visite. Elle devra être  jointe obligatoirement à l’offre  Si le soumissionnaire visite le site en l’absence de représentant du pouvoir adjudicateur, il joint un reportage photographique ou tout autre moyen de preuve à son offre attestant de la visite effective du site. Un soumissionnaire évincé ne pourra pas se prévaloir du défaut de visite. "
+              }
+            ],
+            "reservedExecution": [
+              "NO"
+            ],
+            "reservedParticipation": [
+              "NONE"
+            ],
+            "titles": [
+              {
+                "language": "FR",
+                "text": "STPI 2025/68 - 1"
+              }
+            ]
+          }
+        ],
+        "natures": [
+          "WORKS"
+        ],
+        "noticeIds": [
+          "fd726799-a378-49fd-b0e9-cb13d33254c3"
+        ],
+        "noticeSubType": "E4",
+        "nutsCodes": [
+          "BE352"
+        ],
+        "organisation": {
+          "organisationId": 5259,
+          "organisationNames": [
+            {
+              "language": "NL",
+              "text": "Province de Namur - Service des marchés publics"
+            },
+            {
+              "language": "DE",
+              "text": "Province de Namur - Service marchés publics"
+            },
+            {
+              "language": "FR",
+              "text": "Province de Namur - Service des marchés publics"
+            },
+            {
+              "language": "EN",
+              "text": "Province de Namur - Service des marchés publics"
+            }
+          ],
+          "tree": "200004.200020.581.5259"
+        },
+        "procedureId": "9d82323d-3be9-461b-82d7-ad4f03fc4ff2",
+        "publicationDate": "2026-01-28",
+        "publicationLanguages": [
+          "FR"
+        ],
+        "publicationReferenceNumbersBDA": [
+          "STPI 2025/68_pub02"
+        ],
+        "publicationReferenceNumbersTED": [],
+        "publicationType": "ACTIVE",
+        "publicationWorkspaceId": "9fb61e67-086e-49e6-ade8-249e9d43d485",
+        "publishedAt": [
+          "2026-01-28T09:34:45.017748"
+        ],
+        "referenceNumber": "STPI 2025/68_pub02",
+        "sentAt": [
+          "2026-01-28T09:34:45.017748"
+        ],
+        "tedPublished": false
+      },
+      {
+        "cpvAdditionalCodes": [
+          {
+            "code": "45112000-5",
+            "descriptions": [
+              {
+                "language": "EN",
+                "text": "Excavating and earthmoving work"
+              },
+              {
+                "language": "FR",
+                "text": "Travaux de fouille et de terrassement"
+              },
+              {
+                "language": "NL",
+                "text": "Graafwerkzaamheden en grondverzet"
+              },
+              {
+                "language": "DE",
+                "text": "Aushub- und Erdbewegungsarbeiten"
+              }
+            ]
+          }
+        ],
+        "cpvMainCode": {
+          "code": "45112000-5",
+          "descriptions": [
+            {
+              "language": "EN",
+              "text": "Excavating and earthmoving work"
+            },
+            {
+              "language": "FR",
+              "text": "Travaux de fouille et de terrassement"
+            },
+            {
+              "language": "NL",
+              "text": "Graafwerkzaamheden en grondverzet"
+            },
+            {
+              "language": "DE",
+              "text": "Aushub- und Erdbewegungsarbeiten"
+            }
+          ]
+        },
+        "dispatchDate": "2026-01-28",
+        "dossier": {
+          "accreditations": {},
+          "descriptions": [
+            {
+              "language": "NL",
+              "text": "Voorwerp van deze werken  Habitatherstel in functie van broekbos.  Doel van de werken  De beoogde werken kaderen in reliëfherstel van de vallei van de grote Nete.  Plaats van uitvoering  De werken vinden plaats in de provincie Antwerpen in de gemeenten Geel en Laakdal. De situering van de percelen waarop werken gepland zijn, worden weergegeven op de kaarten in bijlage.  De werken vinden deels plaats in een speciale beschermingszone (SBZ). Het gebied werd door de Europese Unie aangeduid als Habitatrichtlijngebied en maakt deel uit van het Natura 2000-netwerk. Daardoor zijn een aantal vegetaties en habitats beschermd naast een hele lijst aan zeldzame diersoorten (soorten en habitats van de Habitatrichtlijn). Deze werken zijn gericht op het herstel van deze Natura 2000 habitats.  Aard van de opdracht  De werken beslaan verschillende werkzones en omvatten:  Exotenbestrijding Dempen van voormalige weekendvijvers Ruimen van slib Inrichtend maaibeheer Dunningswerken Dempen van grachten Kaalkap en afvoer hout Afvissen Hakhoutbeheer Verwijderen omheiningen Verwijderen oeverbeschoeiing Afbraak en afvoer koterij Plaatsen van inbuizingen Plaggen "
+            }
+          ],
+          "enterpriseCategories": [],
+          "legalBasis": "D24",
+          "number": "PPP23L-165/6042/NPB_PSN_IW_GroteNeteGrondverzet_2026_DJ",
+          "procurementProcedureType": "S_NEG_W_CALL_24_81",
+          "referenceNumber": "PPP23L-165/6042/NPB_PSN_IW_GroteNeteGrondverzet_2026_DJ",
+          "titles": [
+            {
+              "language": "NL",
+              "text": "Reliëfherstel in de vallei van de Grote Nete"
+            }
+          ]
+        },
+        "insertionDate": "2026-01-28",
+        "lots": [
+          {
+            "descriptions": [
+              {
+                "language": "NL",
+                "text": "Werkzone Goorhoeve Zammelsbroek Zuid"
+              }
+            ],
+            "reservedExecution": [
+              "NO"
+            ],
+            "reservedParticipation": [
+              "NONE"
+            ],
+            "titles": [
+              {
+                "language": "NL",
+                "text": "Werkzone Goorhoeve Zammelsbroek Zuid"
+              }
+            ]
+          },
+          {
+            "descriptions": [
+              {
+                "language": "NL",
+                "text": "Werkzone Hoog Heultje"
+              }
+            ],
+            "reservedExecution": [
+              "NO"
+            ],
+            "reservedParticipation": [
+              "NONE"
+            ],
+            "titles": [
+              {
+                "language": "NL",
+                "text": "Werkzone Hoog Heultje"
+              }
+            ]
+          },
+          {
+            "descriptions": [
+              {
+                "language": "NL",
+                "text": "Werkzone Huisbroek Laakdal"
+              }
+            ],
+            "reservedExecution": [
+              "NO"
+            ],
+            "reservedParticipation": [
+              "NONE"
+            ],
+            "titles": [
+              {
+                "language": "NL",
+                "text": "Werkzone Huisbroek Laakdal"
+              }
+            ]
+          },
+          {
+            "descriptions": [
+              {
+                "language": "NL",
+                "text": "Werkzone Oosterlo Zammelsbroek"
+              }
+            ],
+            "reservedExecution": [
+              "NO"
+            ],
+            "reservedParticipation": [
+              "NONE"
+            ],
+            "titles": [
+              {
+                "language": "NL",
+                "text": "Werkzone Oosterlo Zammelsbroek"
+              }
+            ]
+          },
+          {
+            "descriptions": [
+              {
+                "language": "NL",
+                "text": "Werkzone Huisbroek Zammelsbroek"
+              }
+            ],
+            "reservedExecution": [
+              "NO"
+            ],
+            "reservedParticipation": [
+              "NONE"
+            ],
+            "titles": [
+              {
+                "language": "NL",
+                "text": "Werkzone Huisbroek Zammelsbroek"
+              }
+            ]
+          },
+          {
+            "descriptions": [
+              {
+                "language": "NL",
+                "text": "Werkzone Goorhoeve Zammelsbroek Noord"
+              }
+            ],
+            "reservedExecution": [
+              "NO"
+            ],
+            "reservedParticipation": [
+              "NONE"
+            ],
+            "titles": [
+              {
+                "language": "NL",
+                "text": "Werkzone Goorhoeve Zammelsbroek Noord"
+              }
+            ]
+          }
+        ],
+        "natures": [
+          "WORKS"
+        ],
+        "noticeIds": [
+          "bd1ab3e2-cad5-4f59-a9df-9202c9a5c08a"
+        ],
+        "noticeSubType": "16",
+        "nutsCodes": [
+          "BE212"
+        ],
+        "organisation": {
+          "organisationId": 1585,
+          "organisationNames": [
+            {
+              "language": "DE",
+              "text": "Natuurpunt Beheer vzw"
+            },
+            {
+              "language": "NL",
+              "text": "Natuurpunt Beheer vzw"
+            },
+            {
+              "language": "FR",
+              "text": "Natuurpunt Beheer vzw"
+            },
+            {
+              "language": "EN",
+              "text": "Natuurpunt Beheer vzw"
+            }
+          ],
+          "tree": "200004.200032.1585"
+        },
+        "procedureId": "ad5839f8-0c29-41ff-a9a9-e6771ebc18ea",
+        "publicationDate": "2026-01-28",
+        "publicationLanguages": [
+          "NL"
+        ],
+        "publicationReferenceNumbersBDA": [
+          "PPP23L-165/6042/NPB_PSN_IW_GroteNeteGrondverzet_2026_DJ_001"
+        ],
+        "publicationReferenceNumbersTED": [],
+        "publicationType": "ACTIVE",
+        "publicationWorkspaceId": "c6ff787c-40f3-4ee7-8507-6c56a9d54c9d",
+        "publishedAt": [
+          "2026-01-28T09:33:45.023902"
+        ],
+        "referenceNumber": "PPP23L-165/6042/NPB_PSN_IW_GroteNeteGrondverzet_2026_DJ_001",
+        "sentAt": [
+          "2026-01-28T09:33:45.023902"
+        ],
+        "tedPublished": false,
+        "vaultSubmissionDeadline": "2026-02-17T11:00:00"
+      },
+      {
+        "cpvAdditionalCodes": [
+          {
+            "code": "90000000-7",
+            "descriptions": [
+              {
+                "language": "DE",
+                "text": "Abwasser- und Abfallbeseitigungs-, Reinigungs- und Umweltschutzdienste"
+              },
+              {
+                "language": "EN",
+                "text": "Sewage, refuse, cleaning and environmental services"
+              },
+              {
+                "language": "FR",
+                "text": "Services d'évacuation des eaux usées et d'élimination des déchets, services d'hygiénisation et services relatifs à l'environnement"
+              },
+              {
+                "language": "NL",
+                "text": "Diensten inzake afvalwater, afval, reiniging en milieu"
+              }
+            ]
+          },
+          {
+            "code": "71600000-4",
+            "descriptions": [
+              {
+                "language": "NL",
+                "text": "Diensten voor technische testen, analyse en adviezen"
+              },
+              {
+                "language": "FR",
+                "text": "Services d'essais techniques, services d'analyses et services de conseil"
+              },
+              {
+                "language": "EN",
+                "text": "Technical testing, analysis and consultancy services"
+              },
+              {
+                "language": "DE",
+                "text": "Technische Tests, Analysen und Beratung"
+              }
+            ]
+          }
+        ],
+        "cpvMainCode": {
+          "code": "71600000-4",
+          "descriptions": [
+            {
+              "language": "NL",
+              "text": "Diensten voor technische testen, analyse en adviezen"
+            },
+            {
+              "language": "FR",
+              "text": "Services d'essais techniques, services d'analyses et services de conseil"
+            },
+            {
+              "language": "EN",
+              "text": "Technical testing, analysis and consultancy services"
+            },
+            {
+              "language": "DE",
+              "text": "Technische Tests, Analysen und Beratung"
+            }
+          ]
+        },
+        "dispatchDate": "2026-01-28",
+        "dossier": {
+          "accreditations": {},
+          "descriptions": [
+            {
+              "language": "NL",
+              "text": "Het voorwerp van de opdracht is de waterstaalname voor analyse en opsporing van legionella alsook testen op de drinkbaarheid van het water op de sites van het Agentschap alsook andere typen wateranalysetesten op aanvraag. De opdracht is opgesplitst in twee percelen: - Perceel 1: Waterstaalnames en legionella-analyse: 290 staalnames/jaar; - Perceel 2: Staalname en drinkbaarheidsanalyse van de waterstaalnames op onze sites: 90 staalnames/jaar. "
+            },
+            {
+              "language": "FR",
+              "text": "Le marché a pour objet le prélèvement d’échantillons d’eau pour analyse et recherche de légionnelle ainsi que la réalisation des tests de potabilité d’eau sur les sites de l’agence ainsi que la réalisation d’autres types d’analyse d’eau sur demande. Il sera divisé en 2 lots : - Lot 1 : Prélèvements d’échantillon d’eau et analyse Légionellose : 290 prélèvements/an ; - Lot 2 : Prélèvement et analyse potabilité des échantillons d’eau sur nos sites : 90 prélèvements/an ; "
+            }
+          ],
+          "enterpriseCategories": [],
+          "legalBasis": "D24",
+          "number": "25-2722",
+          "procurementProcedureType": "NEG_WO_CALL_24",
+          "referenceNumber": "25-2722",
+          "titles": [
+            {
+              "language": "NL",
+              "text": "OVERHEIDSOPDRACHT VAN DIENSTEN MET ALS VOORWERP WATERSTAALNAME VOOR ANALYSE EN OPSPOREN VAN LEGIONELLA OP DE SITES VAN HET AGENTSCHAP"
+            },
+            {
+              "language": "FR",
+              "text": "MARCHÉ PUBLIC DE SERVICES AYANT POUR OBJET LE PRELEVEMENT D’ECHANTILLONS D’EAU POUR ANALYSE ET RECHERCHE DE LEGIONELLE SUR LES SITES DE L’AGENCE "
+            }
+          ]
+        },
+        "insertionDate": "2026-01-09",
+        "lots": [
+          {
+            "descriptions": [
+              {
+                "language": "NL",
+                "text": "Staalname en drinkbaarheidsanalyse van de waterstaalnames op onze sites: 90 staalnames/jaar."
+              },
+              {
+                "language": "FR",
+                "text": "Prélèvement et analyse potabilité des échantillons d’eau sur nos sites : 90 prélèvements/an ;"
+              }
+            ],
+            "reservedExecution": [
+              "NO"
+            ],
+            "reservedParticipation": [
+              "NONE"
+            ],
+            "titles": [
+              {
+                "language": "NL",
+                "text": "25-2722 - 2"
+              },
+              {
+                "language": "FR",
+                "text": "25-2722 - 2"
+              }
+            ]
+          },
+          {
+            "descriptions": [
+              {
+                "language": "FR",
+                "text": "Prélèvements d’échantillon d’eau et analyse Légionellose : 290 prélèvements/an ;"
+              },
+              {
+                "language": "NL",
+                "text": "Waterstaalnames en legionella-analyse: 290 staalnames/jaar;"
+              }
+            ],
+            "reservedExecution": [
+              "NO"
+            ],
+            "reservedParticipation": [
+              "NONE"
+            ],
+            "titles": [
+              {
+                "language": "NL",
+                "text": "OVERHEIDSOPDRACHT VAN DIENSTEN MET ALS VOORWERP WATERSTAALNAME VOOR ANALYSE EN OPSPOREN VAN LEGIONELLA OP DE SITES VAN HET AGENTSCHAP"
+              },
+              {
+                "language": "FR",
+                "text": "MARCHÉ PUBLIC DE SERVICES AYANT POUR OBJET LE PRELEVEMENT D’ECHANTILLONS D’EAU POUR ANALYSE ET RECHERCHE DE LEGIONELLE SUR LES SITES DE L’AGENCE "
+              }
+            ]
+          }
+        ],
+        "natures": [
+          "SERVICES"
+        ],
+        "noticeIds": [
+          "ed4fd65a-c0c9-4b7e-a958-4af1b0df646e",
+          "56e31050-d18d-4222-a34f-07417b61ed6b",
+          "c0955749-1d53-49ba-91d7-b1a5eb8dd1bf"
+        ],
+        "noticeSubType": "E3",
+        "nutsCodes": [
+          "BE100"
+        ],
+        "organisation": {
+          "organisationId": 4741,
+          "organisationNames": [
+            {
+              "language": "DE",
+              "text": "Agence régionale pour la propreté - Bruxelles-Propreté"
+            },
+            {
+              "language": "NL",
+              "text": "Gewestelijk agentschap voor netheid - Net Brussel"
+            },
+            {
+              "language": "FR",
+              "text": "Agence régionale pour la propreté - Bruxelles-Propreté"
+            },
+            {
+              "language": "EN",
+              "text": "Agence régionale pour la propreté - Bruxelles-Propreté"
+            }
+          ],
+          "tree": "200003.200017.61.4741"
+        },
+        "procedureId": "38dfe2f5-7ef0-40f5-be41-7397969424c2",
+        "publicationDate": "2026-01-28",
+        "publicationLanguages": [
+          "NL",
+          "FR"
+        ],
+        "publicationReferenceNumbersBDA": [
+          "25-2722_pub01"
+        ],
+        "publicationReferenceNumbersTED": [],
+        "publicationType": "ACTIVE",
+        "publicationWorkspaceId": "af89ae08-cca7-475f-b3eb-11ba02522713",
+        "publishedAt": [
+          "2026-01-09T15:19:46.00994",
+          "2026-01-13T09:00:46.08227",
+          "2026-01-28T09:24:45.023584"
+        ],
+        "referenceNumber": "25-2722_pub01",
+        "sentAt": [
+          "2026-01-09T15:19:46.00994",
+          "2026-01-13T09:00:46.08227",
+          "2026-01-28T09:24:45.023584"
+        ],
+        "tedPublished": false,
+        "vaultSubmissionDeadline": "2026-02-13T10:00:00"
+      },
+      {
+        "cpvAdditionalCodes": [
+          {
+            "code": "34144430-1",
+            "descriptions": [
+              {
+                "language": "NL",
+                "text": "Straatveegvoertuigen"
+              },
+              {
+                "language": "DE",
+                "text": "Kehrfahrzeuge"
+              },
+              {
+                "language": "EN",
+                "text": "Road-sweeping vehicles"
+              },
+              {
+                "language": "FR",
+                "text": "Balayeuses"
+              }
+            ]
+          }
+        ],
+        "cpvMainCode": {
+          "code": "34144430-1",
+          "descriptions": [
+            {
+              "language": "NL",
+              "text": "Straatveegvoertuigen"
+            },
+            {
+              "language": "DE",
+              "text": "Kehrfahrzeuge"
+            },
+            {
+              "language": "EN",
+              "text": "Road-sweeping vehicles"
+            },
+            {
+              "language": "FR",
+              "text": "Balayeuses"
+            }
+          ]
+        },
+        "dispatchDate": "2026-01-28",
+        "dossier": {
+          "accreditations": {},
+          "descriptions": [
+            {
+              "language": "NL",
+              "text": "Het betreft de aankoop van een nieuwe, compacte, zeer wendbare, en geluidsarme veegmachine met een toegelaten totaalgewicht van maximaal 3.500 kg (rijbewijs B moet voldoende zijn). De doelstellingen van deze machine zijn het vegen van voet- en fietspaden, parkings en andere verharde terreinen met het oog op het maximaal verminderen van de voedingsbodem voor onkruiden en het verwijderen van zwerfvuil. De machine zal daartoe beschikken over een goede borstelfunctie en over een zeer goede opzuigfunctie."
+            }
+          ],
+          "enterpriseCategories": [],
+          "legalBasis": "D24",
+          "number": "PPP00L-1994/6013/2025036",
+          "procurementProcedureType": "S_NEG_W_CALL_24_81",
+          "referenceNumber": "PPP00L-1994/6013/2025036",
+          "titles": [
+            {
+              "language": "NL",
+              "text": "aankoop nieuwe veegwagen"
+            }
+          ]
+        },
+        "insertionDate": "2026-01-28",
+        "lots": [
+          {
+            "descriptions": [
+              {
+                "language": "NL",
+                "text": "Het betreft de aankoop van een nieuwe, compacte, zeer wendbare, en geluidsarme veegmachine met een toegelaten totaalgewicht van maximaal 3.500 kg (rijbewijs B moet voldoende zijn). De doelstellingen van deze machine zijn het vegen van voet- en fietspaden, parkings en andere verharde terreinen met het oog op het maximaal verminderen van de voedingsbodem voor onkruiden en het verwijderen van zwerfvuil. De machine zal daartoe beschikken over een goede borstelfunctie en over een zeer goede opzuigfunctie."
+              }
+            ],
+            "reservedExecution": [
+              "NO"
+            ],
+            "reservedParticipation": [
+              "NONE"
+            ],
+            "titles": [
+              {
+                "language": "NL",
+                "text": "aankoop nieuwe veegwagen"
+              }
+            ]
+          }
+        ],
+        "natures": [
+          "SUPPLIES"
+        ],
+        "noticeIds": [
+          "9df9d7d3-7138-45c6-9dde-743ab9d60adc"
+        ],
+        "noticeSubType": "16",
+        "nutsCodes": [
+          "BE213"
+        ],
+        "organisation": {
+          "organisationId": 214,
+          "organisationNames": [
+            {
+              "language": "EN",
+              "text": "Kasterlee"
+            },
+            {
+              "language": "FR",
+              "text": "Kasterlee"
+            },
+            {
+              "language": "DE",
+              "text": "Kasterlee"
+            },
+            {
+              "language": "NL",
+              "text": "Kasterlee"
+            }
+          ],
+          "tree": "200004.200021.214"
+        },
+        "procedureId": "b306243e-db24-402c-9043-bd0a3816b8b3",
+        "publicationDate": "2026-01-28",
+        "publicationLanguages": [
+          "NL"
+        ],
+        "publicationReferenceNumbersBDA": [
+          "PPP00L-1994/6013/2025036_001"
+        ],
+        "publicationReferenceNumbersTED": [],
+        "publicationType": "ACTIVE",
+        "publicationWorkspaceId": "ac19e7e2-80e8-44ed-9ecd-8ca3ec7a7b2d",
+        "publishedAt": [
+          "2026-01-28T09:52:45.131845"
+        ],
+        "referenceNumber": "PPP00L-1994/6013/2025036_001",
+        "sentAt": [
+          "2026-01-28T09:52:45.131845"
+        ],
+        "tedPublished": false,
+        "vaultSubmissionDeadline": "2026-02-19T11:30:00"
+      },
+      {
+        "cpvAdditionalCodes": [
+          {
+            "code": "35261000-1",
+            "descriptions": [
+              {
+                "language": "DE",
+                "text": "Informationstafeln"
+              },
+              {
+                "language": "FR",
+                "text": "Panneaux d'information"
+              },
+              {
+                "language": "EN",
+                "text": "Information panels"
+              },
+              {
+                "language": "NL",
+                "text": "Informatieborden"
+              }
+            ]
+          }
+        ],
+        "cpvMainCode": {
+          "code": "35261000-1",
+          "descriptions": [
+            {
+              "language": "DE",
+              "text": "Informationstafeln"
+            },
+            {
+              "language": "FR",
+              "text": "Panneaux d'information"
+            },
+            {
+              "language": "EN",
+              "text": "Information panels"
+            },
+            {
+              "language": "NL",
+              "text": "Informatieborden"
+            }
+          ]
+        },
+        "dispatchDate": "2026-01-28",
+        "dossier": {
+          "accreditations": {},
+          "descriptions": [
+            {
+              "language": "NL",
+              "text": "Deze raamovereenkomst betreft de levering van dragers voor infoborden binnen Plantentuin Meise. De te leveren dragers moeten volledig overeenstemmen met de reeds aanwezige modellen. Plantentuin Meise bezorgt aan de opdrachtnemer de beschikbare ontwerpen, technische plannen en voorbeelddragers. Voor de montage aan de reling, muur en spant zijn echter geen specifieke tekeningen beschikbaar. Daarnaast dient reeds eind april een 20-tal nieuwe dragers geleverd te worden. "
+            }
+          ],
+          "enterpriseCategories": [],
+          "legalBasis": "D24",
+          "number": "APM_2026_002",
+          "procurementProcedureType": "S_NEG_W_CALL_24_81",
+          "referenceNumber": "APM_2026_002",
+          "specialPurchasingTechnique": "FRAMEWORK_AGREEMENT",
+          "titles": [
+            {
+              "language": "NL",
+              "text": " Deze raamovereenkomst betreft de levering van dragers voor infoborden binnen Plantentuin Meise."
+            }
+          ]
+        },
+        "insertionDate": "2026-01-28",
+        "lots": [
+          {
+            "descriptions": [
+              {
+                "language": "NL",
+                "text": "Deze raamovereenkomst betreft de levering van dragers voor infoborden binnen Plantentuin Meise. De te leveren dragers moeten volledig overeenstemmen met de reeds aanwezige modellen. Plantentuin Meise bezorgt aan de opdrachtnemer de beschikbare ontwerpen, technische plannen en voorbeelddragers. Voor de montage aan de reling, muur en spant zijn echter geen specifieke tekeningen beschikbaar. Daarnaast dient reeds eind april een 20-tal nieuwe dragers geleverd te worden. "
+              }
+            ],
+            "reservedExecution": [
+              "NO"
+            ],
+            "reservedParticipation": [
+              "NONE"
+            ],
+            "titles": [
+              {
+                "language": "NL",
+                "text": "APM_2026_002 - 1"
+              }
+            ]
+          }
+        ],
+        "natures": [
+          "SUPPLIES"
+        ],
+        "noticeIds": [
+          "d2702701-758b-41ed-ba5d-e66956d12be0"
+        ],
+        "noticeSubType": "16",
+        "nutsCodes": [
+          "BE241"
+        ],
+        "organisation": {
+          "organisationId": 5692,
+          "organisationNames": [
+            {
+              "language": "EN",
+              "text": "Botanic Garden Meise"
+            },
+            {
+              "language": "DE",
+              "text": "Botanischer Garten Meise"
+            },
+            {
+              "language": "NL",
+              "text": "Agentschap Plantentuin Meise"
+            },
+            {
+              "language": "FR",
+              "text": "Jardin botanique Meise"
+            }
+          ],
+          "tree": "200003.200015.73.4641.5692"
+        },
+        "procedureId": "14bb3d17-05a9-441d-b344-4866b6670497",
+        "publicationDate": "2026-01-28",
+        "publicationLanguages": [
+          "NL"
+        ],
+        "publicationReferenceNumbersBDA": [
+          "APM_2026_002_pub01"
+        ],
+        "publicationReferenceNumbersTED": [],
+        "publicationType": "ACTIVE",
+        "publicationWorkspaceId": "2265836c-41b3-4c24-8838-fccf1ce10802",
+        "publishedAt": [
+          "2026-01-28T09:40:45.036098"
+        ],
+        "referenceNumber": "APM_2026_002_pub01",
+        "sentAt": [
+          "2026-01-28T09:40:45.036098"
+        ],
+        "tedPublished": false,
+        "vaultSubmissionDeadline": "2026-02-19T09:00:00"
+      },
+      {
+        "cpvAdditionalCodes": [
+          {
+            "code": "42996400-8",
+            "descriptions": [
+              {
+                "language": "EN",
+                "text": "Mixer units"
+              },
+              {
+                "language": "NL",
+                "text": "Mengeenheden"
+              },
+              {
+                "language": "DE",
+                "text": "Mischmaschinen"
+              },
+              {
+                "language": "FR",
+                "text": "Mélangeurs"
+              }
+            ]
+          }
+        ],
+        "cpvMainCode": {
+          "code": "42996400-8",
+          "descriptions": [
+            {
+              "language": "EN",
+              "text": "Mixer units"
+            },
+            {
+              "language": "NL",
+              "text": "Mengeenheden"
+            },
+            {
+              "language": "DE",
+              "text": "Mischmaschinen"
+            },
+            {
+              "language": "FR",
+              "text": "Mélangeurs"
+            }
+          ]
+        },
+        "dispatchDate": "2026-01-28",
+        "dossier": {
+          "accreditations": {},
+          "descriptions": [
+            {
+              "language": "EN",
+              "text": " Supply, installation and commissioning of a laboratory mixer under vacuum with a nominal useful volume of at least 150 liters, for advanced mixing, dispersion, and emulsification processes. "
+            },
+            {
+              "language": "NL",
+              "text": "Levering, installatie en inbedrijfstelling van een laboratorium vacuümmenger met een nuttig volume van minimaal 150 liter, bestemd voor geavanceerde meng-, dispergeer- en emulgeerprocessen."
+            }
+          ],
+          "enterpriseCategories": [],
+          "legalBasis": "D24",
+          "number": "TMK/VOPMVB/2025-040",
+          "procurementProcedureType": "S_NEG_W_CALL_24_81",
+          "referenceNumber": "TMK/VOPMVB/2025-040",
+          "titles": [
+            {
+              "language": "NL",
+              "text": "Levering, installatie en inbedrijfstelling van een laboratorium vacuümmenger"
+            },
+            {
+              "language": "EN",
+              "text": "Supply, installation and commissioning of a laboratory mixer under vacuum"
+            }
+          ]
+        },
+        "insertionDate": "2026-01-28",
+        "lots": [
+          {
+            "descriptions": [
+              {
+                "language": "NL",
+                "text": "Levering, installatie en inbedrijfstelling van een laboratorium vacuümmenger."
+              },
+              {
+                "language": "EN",
+                "text": "Supply, installation and commissioning of a laboratory mixer under vacuum. "
+              }
+            ],
+            "reservedExecution": [
+              "NO"
+            ],
+            "reservedParticipation": [
+              "NONE"
+            ],
+            "titles": [
+              {
+                "language": "NL",
+                "text": "TMK/VOPMVB/2025-040 - 1"
+              },
+              {
+                "language": "EN",
+                "text": "TMK/VOPMVB/2025-040 - 1"
+              }
+            ]
+          }
+        ],
+        "natures": [
+          "SUPPLIES"
+        ],
+        "noticeIds": [
+          "994de6ca-03dc-4a15-8449-151fcaa25a9b"
+        ],
+        "noticeSubType": "16",
+        "nutsCodes": [
+          "BE213"
+        ],
+        "organisation": {
+          "organisationId": 5098,
+          "organisationNames": [
+            {
+              "language": "DE",
+              "text": "Thomas More Kempen"
+            },
+            {
+              "language": "NL",
+              "text": "Thomas More Kempen"
+            },
+            {
+              "language": "EN",
+              "text": "Thomas More Kempen"
+            },
+            {
+              "language": "FR",
+              "text": "Thomas More Kempen"
+            }
+          ],
+          "tree": "200004.200026.771.5098"
+        },
+        "procedureId": "9d56f684-6790-46a5-96f9-2af627a7eda5",
+        "publicationDate": "2026-01-28",
+        "publicationLanguages": [
+          "EN",
+          "NL"
+        ],
+        "publicationReferenceNumbersBDA": [
+          "TMK/VOPMVB/2025-040_pub01"
+        ],
+        "publicationReferenceNumbersTED": [],
+        "publicationType": "ACTIVE",
+        "publicationWorkspaceId": "08d0c884-1ae7-43c2-87f4-cf79cc4bffbe",
+        "publishedAt": [
+          "2026-01-28T09:31:45.018353"
+        ],
+        "referenceNumber": "TMK/VOPMVB/2025-040_pub01",
+        "sentAt": [
+          "2026-01-28T09:31:45.018353"
+        ],
+        "tedPublished": false,
+        "vaultSubmissionDeadline": "2026-02-23T11:00:00"
+      },
+      {
+        "cpvAdditionalCodes": [
+          {
+            "code": "45234120-3",
+            "descriptions": [
+              {
+                "language": "DE",
+                "text": "Stadtbahnarbeiten"
+              },
+              {
+                "language": "EN",
+                "text": "Urban railway works"
+              },
+              {
+                "language": "NL",
+                "text": "Stadsspoorwegwerkzaamheden"
+              },
+              {
+                "language": "FR",
+                "text": "Ouvrages ferroviaires urbains"
+              }
+            ]
+          }
+        ],
+        "cpvMainCode": {
+          "code": "45234120-3",
+          "descriptions": [
+            {
+              "language": "DE",
+              "text": "Stadtbahnarbeiten"
+            },
+            {
+              "language": "EN",
+              "text": "Urban railway works"
+            },
+            {
+              "language": "NL",
+              "text": "Stadsspoorwegwerkzaamheden"
+            },
+            {
+              "language": "FR",
+              "text": "Ouvrages ferroviaires urbains"
+            }
+          ]
+        },
+        "dispatchDate": "2026-01-28",
+        "dossier": {
+          "accreditations": {
+            "H": 3
+          },
+          "descriptions": [
+            {
+              "language": "NL",
+              "text": "zie opdrachtdocumenten"
+            }
+          ],
+          "enterpriseCategories": [
+            {
+              "categoryCode": "H",
+              "levels": [
+                3,
+                2,
+                1
+              ]
+            }
+          ],
+          "legalBasis": "D25",
+          "number": "PG1935 103237",
+          "procurementProcedureType": "OPEN",
+          "referenceNumber": "PG1935 103237",
+          "titles": [
+            {
+              "language": "NL",
+              "text": "Bochtvernieuwing keerlus Regatta (Antwerpen)"
+            }
+          ]
+        },
+        "insertionDate": "2026-01-28",
+        "lots": [
+          {
+            "descriptions": [
+              {
+                "language": "NL",
+                "text": "zie opdrachtdocumenten"
+              }
+            ],
+            "reservedExecution": [
+              "NO"
+            ],
+            "reservedParticipation": [
+              "NONE"
+            ],
+            "titles": [
+              {
+                "language": "NL",
+                "text": "PG1935 103237 - 1"
+              }
+            ]
+          }
+        ],
+        "natures": [
+          "WORKS"
+        ],
+        "noticeIds": [
+          "a01ca045-1dde-4889-9b61-a34d594a9b0b"
+        ],
+        "noticeSubType": "21",
+        "nutsCodes": [
+          "BE211"
+        ],
+        "organisation": {
+          "organisationId": 6473,
+          "organisationNames": [
+            {
+              "language": "DE",
+              "text": "VVM De Lijn - Techniek"
+            },
+            {
+              "language": "NL",
+              "text": "VVM De Lijn - Techniek"
+            },
+            {
+              "language": "EN",
+              "text": "VVM De Lijn - Techniek"
+            },
+            {
+              "language": "FR",
+              "text": "VVM De Lijn - Techniek"
+            }
+          ],
+          "tree": "200003.200015.73.4638.5673.6473"
+        },
+        "procedureId": "b415d21a-b3b3-40d1-abe8-14189ba98565",
+        "publicationDate": "2026-01-28",
+        "publicationLanguages": [
+          "NL"
+        ],
+        "publicationReferenceNumbersBDA": [
+          "PG1935 103237_pub01"
+        ],
+        "publicationReferenceNumbersTED": [],
+        "publicationType": "ACTIVE",
+        "publicationWorkspaceId": "fa136a84-3561-403b-b6dc-a493c7e6445d",
+        "publishedAt": [
+          "2026-01-28T09:05:45.018174"
+        ],
+        "referenceNumber": "PG1935 103237_pub01",
+        "sentAt": [
+          "2026-01-28T09:05:45.018174"
+        ],
+        "tedPublished": false,
+        "vaultSubmissionDeadline": "2026-03-05T08:10:00"
+      },
+      {
+        "cpvAdditionalCodes": [
+          {
+            "code": "03114100-4",
+            "descriptions": [
+              {
+                "language": "EN",
+                "text": "Straw"
+              },
+              {
+                "language": "NL",
+                "text": "Stro"
+              },
+              {
+                "language": "DE",
+                "text": "Stroh"
+              },
+              {
+                "language": "FR",
+                "text": "Paille"
+              }
+            ]
+          }
+        ],
+        "cpvMainCode": {
+          "code": "03114100-4",
+          "descriptions": [
+            {
+              "language": "EN",
+              "text": "Straw"
+            },
+            {
+              "language": "NL",
+              "text": "Stro"
+            },
+            {
+              "language": "DE",
+              "text": "Stroh"
+            },
+            {
+              "language": "FR",
+              "text": "Paille"
+            }
+          ]
+        },
+        "dispatchDate": "2026-01-28",
+        "dossier": {
+          "accreditations": {},
+          "descriptions": [
+            {
+              "language": "FR",
+              "text": "Le marché porte sur la fourniture de paille de froment et de foin pour l’Ecole Provinciale d’Elevage et d’Equitation de Gesves. L'EPEEG a un besoin de 320 tonnes de paille et 300 tonnes de foin, cette quantité peut être variable selon le nombre de chevaux accueillis (max 120). "
+            }
+          ],
+          "enterpriseCategories": [],
+          "legalBasis": "D24",
+          "number": "EPEEG-2025/69",
+          "procurementProcedureType": "NEG_WO_CALL_24",
+          "referenceNumber": "EPEEG-2025/69",
+          "titles": [
+            {
+              "language": "FR",
+              "text": "Province de Namur: Fourniture de paille de froment et de foin pour l’Ecole Provinciale d’Elevage et d’Equitation de Gesves."
+            }
+          ]
+        },
+        "insertionDate": "2026-01-28",
+        "lots": [
+          {
+            "descriptions": [
+              {
+                "language": "FR",
+                "text": "Le marché porte sur la fourniture de paille de froment et de foin pour l’Ecole Provinciale d’Elevage et d’Equitation de Gesves. L'EPEEG a un besoin de 320 tonnes de paille et 300 tonnes de foin, cette quantité peut être variable selon le nombre de chevaux accueillis (max 120). "
+              }
+            ],
+            "titles": [
+              {
+                "language": "FR",
+                "text": "EPEEG-2025/69 - 1"
+              }
+            ]
+          }
+        ],
+        "natures": [
+          "SUPPLIES"
+        ],
+        "noticeIds": [
+          "480eb576-3b3d-47f8-894f-90a5fa434bdc"
+        ],
+        "noticeSubType": "33",
+        "nutsCodes": [
+          "BE352"
+        ],
+        "organisation": {
+          "organisationId": 5259,
+          "organisationNames": [
+            {
+              "language": "NL",
+              "text": "Province de Namur - Service des marchés publics"
+            },
+            {
+              "language": "DE",
+              "text": "Province de Namur - Service marchés publics"
+            },
+            {
+              "language": "FR",
+              "text": "Province de Namur - Service des marchés publics"
+            },
+            {
+              "language": "EN",
+              "text": "Province de Namur - Service des marchés publics"
+            }
+          ],
+          "tree": "200004.200020.581.5259"
+        },
+        "procedureId": "168b8a3a-ba7a-4866-b680-ff154b211062",
+        "publicationDate": "2026-01-28",
+        "publicationLanguages": [
+          "FR"
+        ],
+        "publicationReferenceNumbersBDA": [
+          "EPEEG-2025/69_pub01"
+        ],
+        "publicationReferenceNumbersTED": [],
+        "publicationType": "ACTIVE",
+        "publicationWorkspaceId": "fd95401e-52cd-4c94-b7f4-d517e2cc69da",
+        "publishedAt": [
+          "2026-01-28T09:08:45.026121"
+        ],
+        "referenceNumber": "EPEEG-2025/69_pub01",
+        "sentAt": [
+          "2026-01-28T09:08:45.026121"
+        ],
+        "tedPublished": false
+      },
+      {
+        "cpvAdditionalCodes": [
+          {
+            "code": "45310000-3",
+            "descriptions": [
+              {
+                "language": "FR",
+                "text": "Travaux d'équipement électrique"
+              },
+              {
+                "language": "EN",
+                "text": "Electrical installation work"
+              },
+              {
+                "language": "NL",
+                "text": "Aanleg van elektriciteit"
+              },
+              {
+                "language": "DE",
+                "text": "Installation von elektrischen Leitungen"
+              }
+            ]
+          }
+        ],
+        "cpvMainCode": {
+          "code": "45310000-3",
+          "descriptions": [
+            {
+              "language": "FR",
+              "text": "Travaux d'équipement électrique"
+            },
+            {
+              "language": "EN",
+              "text": "Electrical installation work"
+            },
+            {
+              "language": "NL",
+              "text": "Aanleg van elektriciteit"
+            },
+            {
+              "language": "DE",
+              "text": "Installation von elektrischen Leitungen"
+            }
+          ]
+        },
+        "dispatchDate": "2026-01-28",
+        "dossier": {
+          "accreditations": {
+            "P1": 3
+          },
+          "descriptions": [
+            {
+              "language": "NL",
+              "text": "PARKING VAARTKOM - RELIGHTING"
+            }
+          ],
+          "enterpriseCategories": [
+            {
+              "categoryCode": "P1",
+              "levels": [
+                3,
+                2,
+                1
+              ]
+            }
+          ],
+          "legalBasis": "D24",
+          "number": "2026-02-GEB",
+          "procurementProcedureType": "S_NEG_W_CALL_24_81",
+          "referenceNumber": "2026-02-GEB",
+          "titles": [
+            {
+              "language": "NL",
+              "text": "PARKING VAARTKOM - RELIGHTING"
+            }
+          ]
+        },
+        "insertionDate": "2026-01-05",
+        "lots": [
+          {
+            "descriptions": [
+              {
+                "language": "NL",
+                "text": "PARKING VAARTKOM - RELIGHTING"
+              }
+            ],
+            "reservedExecution": [
+              "NO"
+            ],
+            "reservedParticipation": [
+              "NONE"
+            ],
+            "titles": [
+              {
+                "language": "NL",
+                "text": "2026-02-GEB - 1"
+              }
+            ]
+          }
+        ],
+        "natures": [
+          "WORKS"
+        ],
+        "noticeIds": [
+          "97a13d69-f811-447e-b39f-7f6f99601ace",
+          "dd887b3a-fff7-4f38-bba0-1759917f4e83",
+          "f732ad4c-32fb-41c2-8b65-a29f1a768845"
+        ],
+        "noticeSubType": "16",
+        "nutsCodes": [
+          "BE242"
+        ],
+        "organisation": {
+          "organisationId": 194,
+          "organisationNames": [
+            {
+              "language": "NL",
+              "text": "Leuven"
+            },
+            {
+              "language": "FR",
+              "text": "Leuven"
+            },
+            {
+              "language": "EN",
+              "text": "Leuven"
+            },
+            {
+              "language": "DE",
+              "text": "Leuven"
+            }
+          ],
+          "tree": "200004.200021.194"
+        },
+        "procedureId": "64ac48d4-06e4-4b89-bcc2-a326422377a2",
+        "publicationDate": "2026-01-28",
+        "publicationLanguages": [
+          "NL"
+        ],
+        "publicationReferenceNumbersBDA": [
+          "2026-02-GEB_pub01"
+        ],
+        "publicationReferenceNumbersTED": [],
+        "publicationType": "ACTIVE",
+        "publicationWorkspaceId": "6c5160ea-555e-40ce-9dd6-a9142e59cc3c",
+        "publishedAt": [
+          "2026-01-28T09:41:45.017909",
+          "2026-01-05T13:39:46.013981",
+          "2026-01-15T08:29:46.014297"
+        ],
+        "referenceNumber": "2026-02-GEB_pub01",
+        "sentAt": [
+          "2026-01-28T09:41:45.017909",
+          "2026-01-05T13:39:46.013981",
+          "2026-01-15T08:29:46.014297"
+        ],
+        "tedPublished": false,
+        "vaultSubmissionDeadline": "2026-02-10T11:00:00"
+      },
+      {
+        "cpvAdditionalCodes": [
+          {
+            "code": "77000000-0",
+            "descriptions": [
+              {
+                "language": "DE",
+                "text": "Dienstleistungen in Landwirtschaft, Forstwirtschft, Gartenbau, Aquakultur und Bienenzucht"
+              },
+              {
+                "language": "NL",
+                "text": "Diensten voor land-, bos- en tuinbouw, aquicultuur en imkerij"
+              },
+              {
+                "language": "FR",
+                "text": "Services agricoles, sylvicoles, horticoles, d'aquaculture et d'apiculture"
+              },
+              {
+                "language": "EN",
+                "text": "Agricultural, forestry, horticultural, aquacultural and apicultural services"
+              }
+            ]
+          }
+        ],
+        "cpvMainCode": {
+          "code": "77000000-0",
+          "descriptions": [
+            {
+              "language": "DE",
+              "text": "Dienstleistungen in Landwirtschaft, Forstwirtschft, Gartenbau, Aquakultur und Bienenzucht"
+            },
+            {
+              "language": "NL",
+              "text": "Diensten voor land-, bos- en tuinbouw, aquicultuur en imkerij"
+            },
+            {
+              "language": "FR",
+              "text": "Services agricoles, sylvicoles, horticoles, d'aquaculture et d'apiculture"
+            },
+            {
+              "language": "EN",
+              "text": "Agricultural, forestry, horticultural, aquacultural and apicultural services"
+            }
+          ]
+        },
+        "dispatchDate": "2026-01-28",
+        "dossier": {
+          "accreditations": {},
+          "descriptions": [
+            {
+              "language": "NL",
+              "text": "groenonderhoud gebouwen"
+            }
+          ],
+          "enterpriseCategories": [],
+          "legalBasis": "D24",
+          "number": "PPP04I-716/5203/2025210",
+          "procurementProcedureType": "NEG_WO_CALL_24",
+          "referenceNumber": "PPP04I-716/5203/2025210",
+          "titles": [
+            {
+              "language": "NL",
+              "text": "groenonderhoud gebouwen"
+            }
+          ]
+        },
+        "insertionDate": "2026-01-28",
+        "lots": [
+          {
+            "descriptions": [
+              {
+                "language": "NL",
+                "text": "groenonderhoud tuin Oude Pastorij"
+              }
+            ],
+            "titles": [
+              {
+                "language": "NL",
+                "text": "groenonderhoud tuin Oude Pastorij"
+              }
+            ]
+          },
+          {
+            "descriptions": [
+              {
+                "language": "NL",
+                "text": "groenonderhoud Beukenhof"
+              }
+            ],
+            "titles": [
+              {
+                "language": "NL",
+                "text": "groenonderhoud Beukenhof"
+              }
+            ]
+          },
+          {
+            "descriptions": [
+              {
+                "language": "NL",
+                "text": "sportcomplex voetbal Kapelsestraat"
+              }
+            ],
+            "titles": [
+              {
+                "language": "NL",
+                "text": "sportcomplex voetbal Kapelsestraat"
+              }
+            ]
+          }
+        ],
+        "natures": [
+          "SERVICES"
+        ],
+        "noticeIds": [
+          "a983969c-11ae-4b0f-8a31-942a00707dd0"
+        ],
+        "noticeSubType": "E4",
+        "nutsCodes": [
+          "BE211"
+        ],
+        "organisation": {
+          "organisationId": 280,
+          "organisationNames": [
+            {
+              "language": "DE",
+              "text": "Kapellen"
+            },
+            {
+              "language": "NL",
+              "text": "Kapellen"
+            },
+            {
+              "language": "EN",
+              "text": "Kapellen"
+            },
+            {
+              "language": "FR",
+              "text": "Kapellen"
+            }
+          ],
+          "tree": "200004.200021.280"
+        },
+        "procedureId": "058c9639-9feb-40b0-b14a-5cb457f15420",
+        "publicationDate": "2026-01-28",
+        "publicationLanguages": [
+          "NL"
+        ],
+        "publicationReferenceNumbersBDA": [
+          "PPP04I-716/5203/2025210_002"
+        ],
+        "publicationReferenceNumbersTED": [],
+        "publicationType": "ACTIVE",
+        "publicationWorkspaceId": "42c07a59-a315-4be7-81aa-cf41cd0a1e45",
+        "publishedAt": [
+          "2026-01-28T10:09:45.020895"
+        ],
+        "referenceNumber": "PPP04I-716/5203/2025210_002",
+        "sentAt": [
+          "2026-01-28T10:09:45.020895"
+        ],
+        "tedPublished": false
+      },
+      {
+        "cpvAdditionalCodes": [
+          {
+            "code": "45233141-9",
+            "descriptions": [
+              {
+                "language": "EN",
+                "text": "Road-maintenance works"
+              },
+              {
+                "language": "DE",
+                "text": "Straßeninstandhaltungsarbeiten"
+              },
+              {
+                "language": "NL",
+                "text": "Wegenonderhoud"
+              },
+              {
+                "language": "FR",
+                "text": "Travaux d'entretien routier"
+              }
+            ]
+          }
+        ],
+        "cpvMainCode": {
+          "code": "45233141-9",
+          "descriptions": [
+            {
+              "language": "EN",
+              "text": "Road-maintenance works"
+            },
+            {
+              "language": "DE",
+              "text": "Straßeninstandhaltungsarbeiten"
+            },
+            {
+              "language": "NL",
+              "text": "Wegenonderhoud"
+            },
+            {
+              "language": "FR",
+              "text": "Travaux d'entretien routier"
+            }
+          ]
+        },
+        "dispatchDate": "2026-01-28",
+        "dossier": {
+          "accreditations": {},
+          "descriptions": [
+            {
+              "language": "NL",
+              "text": "Vegen van wegen, afvoer, verwerking en storten van veegafval • Vegen/onkruidborstelen van kasseistroken en klinkerverhardingen inclusief borstelen van afboordingen • Vegen/onkruidborstelen van fietspaden • Vegen/onkruidborstelen van straatgoten "
+            }
+          ],
+          "enterpriseCategories": [],
+          "legalBasis": "D24",
+          "number": "PPP05S-4017/5171/2025/060",
+          "procurementProcedureType": "NEG_WO_CALL_24",
+          "referenceNumber": "PPP05S-4017/5171/2025/060",
+          "titles": [
+            {
+              "language": "NL",
+              "text": "JC vegen van wegen, afvoer, verwerking en storten van veegafval 2026 (+2027, 2028)"
+            }
+          ]
+        },
+        "insertionDate": "2026-01-28",
+        "lots": [
+          {
+            "descriptions": [
+              {
+                "language": "NL",
+                "text": "JC vegen van wegen, afvoer, verwerking en storten van veegafval 2026 (+2027, 2028, 2029)"
+              }
+            ],
+            "titles": [
+              {
+                "language": "NL",
+                "text": "JC vegen van wegen, afvoer, verwerking en storten van veegafval 2026 (+2027, 2028, 2029)"
+              }
+            ]
+          }
+        ],
+        "natures": [
+          "WORKS"
+        ],
+        "noticeIds": [
+          "2b03ee60-7bd9-4454-8ac8-b4d8e0e01013"
+        ],
+        "noticeSubType": "E4",
+        "nutsCodes": [
+          "BE234"
+        ],
+        "organisation": {
+          "organisationId": 475,
+          "organisationNames": [
+            {
+              "language": "NL",
+              "text": "Zulte"
+            },
+            {
+              "language": "EN",
+              "text": "Zulte"
+            },
+            {
+              "language": "FR",
+              "text": "Zulte"
+            },
+            {
+              "language": "DE",
+              "text": "Zulte"
+            }
+          ],
+          "tree": "200004.200021.475"
+        },
+        "procedureId": "e9e25f52-b3fc-4daf-9b34-f931bb571ddd",
+        "publicationDate": "2026-01-28",
+        "publicationLanguages": [
+          "NL"
+        ],
+        "publicationReferenceNumbersBDA": [
+          "PPP05S-4017/5171/2025/060_002"
+        ],
+        "publicationReferenceNumbersTED": [],
+        "publicationType": "ACTIVE",
+        "publicationWorkspaceId": "77d08600-0144-495e-8d8f-6072ab3f7ca9",
+        "publishedAt": [
+          "2026-01-28T10:02:45.016916"
+        ],
+        "referenceNumber": "PPP05S-4017/5171/2025/060_002",
+        "sentAt": [
+          "2026-01-28T10:02:45.016916"
+        ],
+        "tedPublished": false
+      },
+      {
+        "cpvAdditionalCodes": [
+          {
+            "code": "45221119-9",
+            "descriptions": [
+              {
+                "language": "DE",
+                "text": "Bauarbeiten zur Erneuerung von Brücken"
+              },
+              {
+                "language": "FR",
+                "text": "Travaux de rénovation de ponts"
+              },
+              {
+                "language": "EN",
+                "text": "Bridge renewal construction work"
+              },
+              {
+                "language": "NL",
+                "text": "Brugrenovatiebouw"
+              }
+            ]
+          }
+        ],
+        "cpvMainCode": {
+          "code": "45221119-9",
+          "descriptions": [
+            {
+              "language": "DE",
+              "text": "Bauarbeiten zur Erneuerung von Brücken"
+            },
+            {
+              "language": "FR",
+              "text": "Travaux de rénovation de ponts"
+            },
+            {
+              "language": "EN",
+              "text": "Bridge renewal construction work"
+            },
+            {
+              "language": "NL",
+              "text": "Brugrenovatiebouw"
+            }
+          ]
+        },
+        "dispatchDate": "2026-01-28",
+        "dossier": {
+          "accreditations": {
+            "E": 6
+          },
+          "descriptions": [
+            {
+              "language": "FR",
+              "text": " Le présent marché est un marché de travaux et a pour objet la reconstruction de deux ouvrages détruits suite aux inondations. Il s’agit du Pont des Trois Arches et du Pont sur le Bief à Villers-sur-Lesse. Le Pont des Trois Arches est remplacé par un pont à poutre précontrainte, et le Pont sur le Bief, par un pont-cadre. Les travaux à effectuer consistent notamment en : voir le détail dans le cahier spécial des charges."
+            }
+          ],
+          "enterpriseCategories": [
+            {
+              "categoryCode": "E",
+              "levels": [
+                2,
+                1,
+                6,
+                5,
+                4,
+                3
+              ]
+            }
+          ],
+          "legalBasis": "D24",
+          "number": "SPW-MI08.1-23-723-F02__2",
+          "procurementProcedureType": "OPEN",
+          "referenceNumber": "SPW-MI08.1-23-723-F02__2",
+          "titles": [
+            {
+              "language": "FR",
+              "text": "Reconstruction du pont des 3 Arches et du pont sur le Bief à Villers-sur-Lesse"
+            }
+          ]
+        },
+        "insertionDate": "2026-01-28",
+        "lots": [
+          {
+            "descriptions": [
+              {
+                "language": "FR",
+                "text": "Le présent marché est un marché de travaux et a pour objet la reconstruction de deux ouvrages détruits suite aux inondations. Il s’agit du Pont des Trois Arches et du Pont sur le Bief à Villers-sur-Lesse. Le Pont des Trois Arches est remplacé par un pont à poutre précontrainte, et le Pont sur le Bief, par un pont-cadre."
+              }
+            ],
+            "reservedExecution": [
+              "NO"
+            ],
+            "reservedParticipation": [
+              "NONE"
+            ],
+            "titles": [
+              {
+                "language": "FR",
+                "text": "Reconstruction du pont des 3 Arches et du pont sur le Bief à Villers-sur-Lesse"
+              }
+            ]
+          }
+        ],
+        "natures": [
+          "WORKS"
+        ],
+        "noticeIds": [
+          "bf0413a6-ecd7-4cf3-b488-8404f198374a"
+        ],
+        "noticeSubType": "29",
+        "nutsCodes": [
+          "BE352"
+        ],
+        "organisation": {
+          "organisationId": 6352,
+          "organisationNames": [
+            {
+              "language": "EN",
+              "text": "Direction des Routes de Namur"
+            },
+            {
+              "language": "DE",
+              "text": "Direction des Routes de Namur"
+            },
+            {
+              "language": "FR",
+              "text": "SPW-O8.08.01 - Direction des Routes de Namur"
+            },
+            {
+              "language": "NL",
+              "text": "Direction des Routes de Namur"
+            }
+          ],
+          "tree": "200003.200016.123.5442.6352"
+        },
+        "procedureId": "f3a85234-309a-41c4-88ca-341884d492c9",
+        "publicationDate": "2026-01-28",
+        "publicationLanguages": [
+          "FR"
+        ],
+        "publicationReferenceNumbersBDA": [
+          "SPW-MI08.1-23-723-F02__2_pub02"
+        ],
+        "publicationReferenceNumbersTED": [],
+        "publicationType": "ACTIVE",
+        "publicationWorkspaceId": "4c7bf9ea-7170-48b7-8236-c7b2021dc9c2",
+        "publishedAt": [
+          "2026-01-28T10:00:45.012274"
+        ],
+        "referenceNumber": "SPW-MI08.1-23-723-F02__2_pub02",
+        "sentAt": [
+          "2026-01-28T10:00:45.012274"
+        ],
+        "tedPublished": false
+      },
+      {
+        "cpvAdditionalCodes": [
+          {
+            "code": "92622000-7",
+            "descriptions": [
+              {
+                "language": "NL",
+                "text": "Organisatie van sportevenementen"
+              },
+              {
+                "language": "EN",
+                "text": "Sports-event organisation services"
+              },
+              {
+                "language": "FR",
+                "text": "Services d'organisation de manifestations sportives"
+              },
+              {
+                "language": "DE",
+                "text": "Organisation von Sportveranstaltungen"
+              }
+            ]
+          },
+          {
+            "code": "55243000-5",
+            "descriptions": [
+              {
+                "language": "FR",
+                "text": "Services de colonies de vacances"
+              },
+              {
+                "language": "DE",
+                "text": "Dienstleistungen von Kinderferienlagern"
+              },
+              {
+                "language": "NL",
+                "text": "Vakantiekampen voor kinderen"
+              },
+              {
+                "language": "EN",
+                "text": "Children's holiday-camp services"
+              }
+            ]
+          }
+        ],
+        "cpvMainCode": {
+          "code": "92622000-7",
+          "descriptions": [
+            {
+              "language": "NL",
+              "text": "Organisatie van sportevenementen"
+            },
+            {
+              "language": "EN",
+              "text": "Sports-event organisation services"
+            },
+            {
+              "language": "FR",
+              "text": "Services d'organisation de manifestations sportives"
+            },
+            {
+              "language": "DE",
+              "text": "Organisation von Sportveranstaltungen"
+            }
+          ]
+        },
+        "dispatchDate": "2026-01-28",
+        "dossier": {
+          "accreditations": {},
+          "descriptions": [
+            {
+              "language": "NL",
+              "text": "Aanduiden van een externe organisator voor de sportkampen 2026-2028"
+            }
+          ],
+          "enterpriseCategories": [],
+          "legalBasis": "D24",
+          "number": "PPP05S-4014/5168/2025/057",
+          "procurementProcedureType": "NEG_WO_CALL_24",
+          "referenceNumber": "PPP05S-4014/5168/2025/057",
+          "titles": [
+            {
+              "language": "NL",
+              "text": "Aanduiden van een externe organisator voor de sportkampen 2026-2028"
+            }
+          ]
+        },
+        "insertionDate": "2026-01-28",
+        "lots": [
+          {
+            "descriptions": [
+              {
+                "language": "NL",
+                "text": "Aanduiden van een externe organisator voor de sportkampen 2026-2028"
+              }
+            ],
+            "titles": [
+              {
+                "language": "NL",
+                "text": "Aanduiden van een externe organisator voor de sportkampen 2026-2028"
+              }
+            ]
+          }
+        ],
+        "natures": [
+          "SERVICES"
+        ],
+        "noticeIds": [
+          "155e4c96-9a80-46f7-9229-1c9814589cf7"
+        ],
+        "noticeSubType": "E4",
+        "nutsCodes": [
+          "BE234"
+        ],
+        "organisation": {
+          "organisationId": 475,
+          "organisationNames": [
+            {
+              "language": "NL",
+              "text": "Zulte"
+            },
+            {
+              "language": "EN",
+              "text": "Zulte"
+            },
+            {
+              "language": "FR",
+              "text": "Zulte"
+            },
+            {
+              "language": "DE",
+              "text": "Zulte"
+            }
+          ],
+          "tree": "200004.200021.475"
+        },
+        "procedureId": "51dd7fd4-9d15-4928-a42f-eafd1ae4dbdc",
+        "publicationDate": "2026-01-28",
+        "publicationLanguages": [
+          "NL"
+        ],
+        "publicationReferenceNumbersBDA": [
+          "PPP05S-4014/5168/2025/057_002"
+        ],
+        "publicationReferenceNumbersTED": [],
+        "publicationType": "ACTIVE",
+        "publicationWorkspaceId": "4b610334-3432-42a4-9b5c-6fac34757040",
+        "publishedAt": [
+          "2026-01-28T10:06:45.011635"
+        ],
+        "referenceNumber": "PPP05S-4014/5168/2025/057_002",
+        "sentAt": [
+          "2026-01-28T10:06:45.011635"
+        ],
+        "tedPublished": false
+      },
+      {
+        "cpvAdditionalCodes": [
+          {
+            "code": "37535200-9",
+            "descriptions": [
+              {
+                "language": "DE",
+                "text": "Spielplatzausrüstungen"
+              },
+              {
+                "language": "NL",
+                "text": "Speeltuinuitrusting"
+              },
+              {
+                "language": "EN",
+                "text": "Playground equipment"
+              },
+              {
+                "language": "FR",
+                "text": "Équipements pour terrain de jeux"
+              }
+            ]
+          }
+        ],
+        "cpvMainCode": {
+          "code": "37535200-9",
+          "descriptions": [
+            {
+              "language": "DE",
+              "text": "Spielplatzausrüstungen"
+            },
+            {
+              "language": "NL",
+              "text": "Speeltuinuitrusting"
+            },
+            {
+              "language": "EN",
+              "text": "Playground equipment"
+            },
+            {
+              "language": "FR",
+              "text": "Équipements pour terrain de jeux"
+            }
+          ]
+        },
+        "dispatchDate": "2026-01-28",
+        "dossier": {
+          "accreditations": {},
+          "descriptions": [
+            {
+              "language": "NL",
+              "text": "Inrichten speelplein Kloosterstraat"
+            }
+          ],
+          "enterpriseCategories": [],
+          "legalBasis": "D24",
+          "number": "PPP05S-4012/5150/2025/053",
+          "procurementProcedureType": "NEG_WO_CALL_24",
+          "referenceNumber": "PPP05S-4012/5150/2025/053",
+          "titles": [
+            {
+              "language": "NL",
+              "text": "Inrichten speelplein Kloosterstraat"
+            }
+          ]
+        },
+        "insertionDate": "2026-01-28",
+        "lots": [
+          {
+            "descriptions": [
+              {
+                "language": "NL",
+                "text": "Inrichten speelplein Kloosterstraat"
+              }
+            ],
+            "titles": [
+              {
+                "language": "NL",
+                "text": "Inrichten speelplein Kloosterstraat"
+              }
+            ]
+          }
+        ],
+        "natures": [
+          "SUPPLIES"
+        ],
+        "noticeIds": [
+          "f8fab341-fe07-43fd-a1d3-6530393c2c45"
+        ],
+        "noticeSubType": "E4",
+        "nutsCodes": [
+          "BE234"
+        ],
+        "organisation": {
+          "organisationId": 475,
+          "organisationNames": [
+            {
+              "language": "NL",
+              "text": "Zulte"
+            },
+            {
+              "language": "EN",
+              "text": "Zulte"
+            },
+            {
+              "language": "FR",
+              "text": "Zulte"
+            },
+            {
+              "language": "DE",
+              "text": "Zulte"
+            }
+          ],
+          "tree": "200004.200021.475"
+        },
+        "procedureId": "b49b45c2-20ae-4a28-bc99-c4abddc5bc07",
+        "publicationDate": "2026-01-28",
+        "publicationLanguages": [
+          "NL"
+        ],
+        "publicationReferenceNumbersBDA": [
+          "PPP05S-4012/5150/2025/053_003"
+        ],
+        "publicationReferenceNumbersTED": [],
+        "publicationType": "ACTIVE",
+        "publicationWorkspaceId": "e4a76248-fcee-4242-9666-29431b25c715",
+        "publishedAt": [
+          "2026-01-28T10:05:45.016412"
+        ],
+        "referenceNumber": "PPP05S-4012/5150/2025/053_003",
+        "sentAt": [
+          "2026-01-28T10:05:45.016412"
+        ],
+        "tedPublished": false
+      },
+      {
+        "cpvAdditionalCodes": [
+          {
+            "code": "45000000-7",
+            "descriptions": [
+              {
+                "language": "EN",
+                "text": "Construction work"
+              },
+              {
+                "language": "DE",
+                "text": "Bauarbeiten"
+              },
+              {
+                "language": "FR",
+                "text": "Travaux de construction"
+              },
+              {
+                "language": "NL",
+                "text": "Bouwwerkzaamheden"
+              }
+            ]
+          }
+        ],
+        "cpvMainCode": {
+          "code": "45000000-7",
+          "descriptions": [
+            {
+              "language": "EN",
+              "text": "Construction work"
+            },
+            {
+              "language": "DE",
+              "text": "Bauarbeiten"
+            },
+            {
+              "language": "FR",
+              "text": "Travaux de construction"
+            },
+            {
+              "language": "NL",
+              "text": "Bouwwerkzaamheden"
+            }
+          ]
+        },
+        "dispatchDate": "2026-01-28",
+        "dossier": {
+          "accreditations": {
+            "D5": 1
+          },
+          "descriptions": [
+            {
+              "language": "FR",
+              "text": "Marché de travaux d'insonorisation et de réhabilitation d'un immeuble appartenant à la SOWAER et situé autour de l'aéroport de Liège - sis Rue en Bois 31 à 4460 Grâce-Hollogne"
+            }
+          ],
+          "enterpriseCategories": [
+            {
+              "categoryCode": "D5",
+              "levels": [
+                1
+              ]
+            }
+          ],
+          "legalBasis": "D25",
+          "number": "LG MDB-015",
+          "procurementProcedureType": "NEG_WO_CALL_25",
+          "referenceNumber": "LG MDB-015",
+          "titles": [
+            {
+              "language": "FR",
+              "text": "Marché de travaux d'insonorisation et de réhabilitation d'un immeuble appartenant à la SOWAER situé autour de l'aéroport de Liège"
+            }
+          ]
+        },
+        "insertionDate": "2026-01-28",
+        "lots": [
+          {
+            "descriptions": [
+              {
+                "language": "FR",
+                "text": "Travaux d'insonorisation et de réhabilitation"
+              }
+            ],
+            "titles": [
+              {
+                "language": "FR",
+                "text": "LG MDB-015 - 1"
+              }
+            ]
+          }
+        ],
+        "natures": [
+          "WORKS"
+        ],
+        "noticeIds": [
+          "ced6f717-c602-4401-89dd-8094cdd164b2"
+        ],
+        "noticeSubType": "30",
+        "nutsCodes": [
+          "BE332"
+        ],
+        "organisation": {
+          "organisationId": 5914,
+          "organisationNames": [
+            {
+              "language": "NL",
+              "text": "SOWAER Service technique - Secteurs spéciaux"
+            },
+            {
+              "language": "FR",
+              "text": "SOWAER Service technique - Secteurs spéciaux"
+            },
+            {
+              "language": "EN",
+              "text": "SOWAER Service technique - Secteurs spéciaux"
+            },
+            {
+              "language": "DE",
+              "text": "SOWAER Service technique - Secteurs spéciaux"
+            }
+          ],
+          "tree": "200004.200036.1.2409.5022.5914"
+        },
+        "procedureId": "47d4f341-c6c4-4c2c-8e02-94de8153f162",
+        "publicationDate": "2026-01-28",
+        "publicationLanguages": [
+          "FR"
+        ],
+        "publicationReferenceNumbersBDA": [
+          "LG MDB-015_pub01"
+        ],
+        "publicationReferenceNumbersTED": [],
+        "publicationType": "ACTIVE",
+        "publicationWorkspaceId": "9a76c359-2adf-4924-b23e-4da26ca8c679",
+        "publishedAt": [
+          "2026-01-28T10:06:45.122201"
+        ],
+        "referenceNumber": "LG MDB-015_pub01",
+        "sentAt": [
+          "2026-01-28T10:06:45.122201"
+        ],
+        "tedPublished": false
+      },
+      {
+        "cpvAdditionalCodes": [
+          {
+            "code": "45000000-7",
+            "descriptions": [
+              {
+                "language": "EN",
+                "text": "Construction work"
+              },
+              {
+                "language": "DE",
+                "text": "Bauarbeiten"
+              },
+              {
+                "language": "FR",
+                "text": "Travaux de construction"
+              },
+              {
+                "language": "NL",
+                "text": "Bouwwerkzaamheden"
+              }
+            ]
+          }
+        ],
+        "cpvMainCode": {
+          "code": "45000000-7",
+          "descriptions": [
+            {
+              "language": "EN",
+              "text": "Construction work"
+            },
+            {
+              "language": "DE",
+              "text": "Bauarbeiten"
+            },
+            {
+              "language": "FR",
+              "text": "Travaux de construction"
+            },
+            {
+              "language": "NL",
+              "text": "Bouwwerkzaamheden"
+            }
+          ]
+        },
+        "dispatchDate": "2026-01-28",
+        "dossier": {
+          "accreditations": {},
+          "descriptions": [
+            {
+              "language": "FR",
+              "text": "Marché de travaux d'insonorisation d'un immeuble de particulier situé autour de l'aéroport de Liège"
+            }
+          ],
+          "enterpriseCategories": [],
+          "legalBasis": "D25",
+          "number": "LG MDB-012",
+          "procurementProcedureType": "NEG_WO_CALL_25",
+          "referenceNumber": "LG MDB-012",
+          "titles": [
+            {
+              "language": "FR",
+              "text": "Marché de travaux d'insonorisation et de réhabilitation d'un immeuble SOWAER situé autour de l'aéroport de Liège"
+            }
+          ]
+        },
+        "insertionDate": "2026-01-28",
+        "lots": [
+          {
+            "descriptions": [
+              {
+                "language": "FR",
+                "text": "Travaux d'insonorisation et de réhabilitation"
+              }
+            ],
+            "titles": [
+              {
+                "language": "FR",
+                "text": "LG MDB-012 - 1"
+              }
+            ]
+          }
+        ],
+        "natures": [
+          "WORKS"
+        ],
+        "noticeIds": [
+          "1eb06bb6-6c7f-4739-801a-53c198890f24"
+        ],
+        "noticeSubType": "30",
+        "nutsCodes": [
+          "BE332"
+        ],
+        "organisation": {
+          "organisationId": 5914,
+          "organisationNames": [
+            {
+              "language": "NL",
+              "text": "SOWAER Service technique - Secteurs spéciaux"
+            },
+            {
+              "language": "FR",
+              "text": "SOWAER Service technique - Secteurs spéciaux"
+            },
+            {
+              "language": "EN",
+              "text": "SOWAER Service technique - Secteurs spéciaux"
+            },
+            {
+              "language": "DE",
+              "text": "SOWAER Service technique - Secteurs spéciaux"
+            }
+          ],
+          "tree": "200004.200036.1.2409.5022.5914"
+        },
+        "procedureId": "84a55b21-376c-4b16-8c59-39f95a034952",
+        "publicationDate": "2026-01-28",
+        "publicationLanguages": [
+          "FR"
+        ],
+        "publicationReferenceNumbersBDA": [
+          "LG MDB-012_pub01"
+        ],
+        "publicationReferenceNumbersTED": [],
+        "publicationType": "ACTIVE",
+        "publicationWorkspaceId": "a22c7008-7388-4e69-b2b2-f46553814471",
+        "publishedAt": [
+          "2026-01-28T09:52:45.015911"
+        ],
+        "referenceNumber": "LG MDB-012_pub01",
+        "sentAt": [
+          "2026-01-28T09:52:45.015911"
+        ],
+        "tedPublished": false
+      }
+    ],
+    "totalCount": 258983
+  }
+}

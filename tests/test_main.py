@@ -1,0 +1,51 @@
+"""Tests for main application routes."""
+import pytest
+from fastapi.testclient import TestClient
+
+from app.main import app
+
+client = TestClient(app)
+
+
+def test_root() -> None:
+    """Test root endpoint."""
+    response = client.get("/")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["name"] == "procurewatch-api"
+    assert data["status"] == "running"
+
+
+def test_health_ok(monkeypatch) -> None:
+    """Test health endpoint when DB is available."""
+    # Mock check_db_connection to return True
+    from app.db import session
+    original_check = session.check_db_connection
+    
+    def mock_check_ok() -> bool:
+        return True
+    
+    monkeypatch.setattr(session, "check_db_connection", mock_check_ok)
+    
+    response = client.get("/health")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "ok"
+    assert data["db"] == "ok"
+
+
+def test_health_degraded(monkeypatch) -> None:
+    """Test health endpoint when DB is unavailable."""
+    # Mock check_db_connection to return False
+    from app.db import session
+    
+    def mock_check_fail() -> bool:
+        return False
+    
+    monkeypatch.setattr(session, "check_db_connection", mock_check_fail)
+    
+    response = client.get("/health")
+    assert response.status_code == 503
+    data = response.json()
+    assert data["detail"]["status"] == "degraded"
+    assert data["detail"]["db"] == "error"

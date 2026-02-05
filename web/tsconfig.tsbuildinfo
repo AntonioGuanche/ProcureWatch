@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/api.ts","./src/main.tsx","./src/types.ts","./src/vite-env.d.ts","./src/components/toast.tsx","./src/pages/watchlistdetail.tsx","./src/pages/watchlistedit.tsx","./src/pages/watchlistform.tsx","./src/pages/watchlistlist.tsx","./src/pages/watchlistnew.tsx"],"version":"5.9.3"}

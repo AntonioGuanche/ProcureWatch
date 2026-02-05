@@ -1,0 +1,10 @@
+From: noreply@procurewatch.local
+To: user@example.com
+Subject: [ProcureWatch] Second Run — 1 new notices
+
+Watchlist: Second Run
+Filters: term=NewNotice, country=BE
+
+    NewNotice construction
+    CPV:   source_id: new-1
+    https://example.com/1
