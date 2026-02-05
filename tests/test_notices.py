@@ -33,8 +33,13 @@ def test_list_notices_empty(client):
     response = client.get("/api/notices")
     assert response.status_code == 200
     data = response.json()
-    assert isinstance(data, list)
-    assert len(data) == 0
+    assert isinstance(data, dict)
+    assert "items" in data
+    assert isinstance(data["items"], list)
+    assert len(data["items"]) == 0
+    assert "page" in data
+    assert "page_size" in data
+    assert "total" in data
 
 
 def test_list_notices_with_params(client):
@@ -42,12 +47,17 @@ def test_list_notices_with_params(client):
     response = client.get(
         "/api/notices",
         params={
-            "limit": 10,
-            "offset": 0,
+            "page": 1,
+            "page_size": 10,
             "q": "test",
             "country": "BE",
         },
     )
     assert response.status_code == 200
     data = response.json()
-    assert isinstance(data, list)
+    assert isinstance(data, dict)
+    assert "items" in data
+    assert isinstance(data["items"], list)
+    assert "page" in data
+    assert "page_size" in data
+    assert "total" in data

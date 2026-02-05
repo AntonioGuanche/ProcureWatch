@@ -42,6 +42,7 @@ class OfficialEProcurementClient:
         loc_base_url: Optional[str] = None,
         timeout_seconds: int = 30,
         endpoints: Optional[DiscoveredEndpoints] = None,
+        endpoint_confirmed: bool = False,
     ):
         self.token_url = token_url.rstrip("/")
         self.client_id = client_id
@@ -50,6 +51,8 @@ class OfficialEProcurementClient:
         self.loc_base_url = (loc_base_url or "").rstrip("/")
         self.timeout_seconds = timeout_seconds
         self._endpoints: Optional[DiscoveredEndpoints] = endpoints
+        # If endpoints are provided, consider them confirmed (no need for explicit flag)
+        self._endpoint_confirmed = endpoint_confirmed or (endpoints is not None)
 
         # In-memory token cache
         self._access_token: Optional[str] = None
@@ -136,6 +139,13 @@ class OfficialEProcurementClient:
         if not self.search_base_url:
             raise EProcurementEndpointNotConfiguredError(
                 "EPROC_SEARCH_BASE_URL is not set."
+            )
+
+        # Guard: raise error BEFORE any network call if endpoints are not confirmed
+        # If endpoints were provided via constructor, consider them confirmed
+        if not self._endpoint_confirmed and self._endpoints is None:
+            raise EProcurementEndpointNotConfiguredError(
+                "Endpoints are not confirmed. Run discovery first: python scripts/discover_eprocurement_endpoints.py"
             )
 
         endpoints = self._get_endpoints()

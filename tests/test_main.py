@@ -36,13 +36,13 @@ def test_health_ok(monkeypatch) -> None:
 
 def test_health_degraded(monkeypatch) -> None:
     """Test health endpoint when DB is unavailable."""
-    # Mock check_db_connection to return False
-    from app.db import session
+    # Mock check_db_connection to return False - patch where it's imported in health.py
+    from app.api.routes import health
     
     def mock_check_fail() -> bool:
         return False
     
-    monkeypatch.setattr(session, "check_db_connection", mock_check_fail)
+    monkeypatch.setattr(health, "check_db_connection", mock_check_fail)
     
     response = client.get("/health")
     assert response.status_code == 503

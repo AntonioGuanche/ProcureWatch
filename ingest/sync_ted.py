@@ -31,12 +31,46 @@ def _count_fetched(result: dict) -> int:
     return len(notices) if isinstance(notices, list) else 0
 
 
+def ensure_db_migrated(db_url: str) -> None:
+    """
+    Run Alembic migrations for the given DATABASE_URL.
+    Raises RuntimeError if migration fails.
+    """
+    cmd = [
+        sys.executable,
+        "-m",
+        "alembic",
+        "upgrade",
+        "head",
+    ]
+    env = os.environ.copy()
+    env["DATABASE_URL"] = db_url
+
+    proc = subprocess.run(
+        cmd,
+        cwd=str(PROJECT_ROOT),
+        capture_output=True,
+        text=True,
+        timeout=300,
+        env=env,
+    )
+
+    if proc.returncode != 0:
+        error_msg = f"Database migration failed (exit code {proc.returncode})"
+        if proc.stderr:
+            error_msg += f"\nStderr: {proc.stderr}"
+        if proc.stdout:
+            error_msg += f"\nStdout: {proc.stdout}"
+        raise RuntimeError(error_msg)
+
+
 def run_import(file_path: Path, db_url: str | None = None) -> tuple[int, int, int]:
     """
     Run ingest/import_ted.py as subprocess; parse stdout for JSON summary
     (imported_new, imported_updated, errors). Returns (imported_new, imported_updated, errors).
 
     If db_url is provided, it is passed via DATABASE_URL env var.
+    If subprocess fails (returncode != 0), prints stderr and returns (0, 0, 1).
     """
     cmd = [
         sys.executable,
@@ -55,11 +89,20 @@ def run_import(file_path: Path, db_url: str | None = None) -> tuple[int, int, in
         timeout=600,
         env=env,
     )
+
+    # If subprocess failed, report error and return error count
+    if proc.returncode != 0:
+        if proc.stderr:
+            print(f"Import subprocess failed: {proc.stderr}", file=sys.stderr)
+        if proc.stdout:
+            print(f"Import stdout: {proc.stdout}", file=sys.stderr)
+        return (0, 0, 1)
+
     stdout = proc.stdout or ""
     stderr = proc.stderr or ""
     full_output = stdout + "\n" + stderr
 
-    # Parse JSON summary line (last line with imported_new)
+    # Parse JSON summary line (last line with imported_new) only on success
     created, updated, errors = 0, 0, 0
     for line in reversed(full_output.strip().splitlines()):
         line = line.strip()
@@ -135,6 +178,19 @@ def main() -> int:
         help="Optional DATABASE_URL override for import step",
     )
     parser.add_argument(
+        "--migrate",
+        dest="do_migrate",
+        action="store_true",
+        default=True,
+        help="Run database migrations before import (default: true)",
+    )
+    parser.add_argument(
+        "--no-migrate",
+        dest="do_migrate",
+        action="store_false",
+        help="Skip database migrations before import",
+    )
+    parser.add_argument(
         "--debug",
         action="store_true",
         help="Print TED request URL, body, response status/headers/body (on non-2xx) for diagnostics",
@@ -207,6 +263,15 @@ def main() -> int:
 
     imported_new, imported_updated, errors = 0, 0, 0
     if args.do_import:
+        # Run migrations if enabled and db_url is provided
+        effective_db_url = args.db_url or os.environ.get("DATABASE_URL")
+        if args.do_migrate and effective_db_url:
+            try:
+                ensure_db_migrated(effective_db_url)
+            except RuntimeError as e:
+                print(f"Migration failed: {e}", file=sys.stderr)
+                return 1
+
         imported_new, imported_updated, errors = run_import(saved_path, db_url=args.db_url)
         print(f"Imported/updated {imported_new + imported_updated} notices")
 
