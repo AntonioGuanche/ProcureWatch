@@ -15,7 +15,26 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
+# Load .env file if present (before any imports that need env vars)
+from app.utils.env import load_env_if_present
+load_env_if_present()
+
 DEFAULT_OUT_DIR = PROJECT_ROOT / "data" / "raw" / "bosa"
+
+
+def _endpoints_confirmed() -> bool:
+    """Check if endpoints cache exists and is confirmed."""
+    try:
+        from connectors.eprocurement.openapi_discovery import cache_path
+        import json
+        cache_file = cache_path()
+        if not cache_file.exists():
+            return False
+        with open(cache_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return data.get("confirmed", False)
+    except Exception:
+        return False
 
 
 def _count_fetched(result: dict) -> int:
@@ -167,8 +186,16 @@ def main() -> int:
     )
     parser.add_argument(
         "--discover",
+        dest="do_discover",
         action="store_true",
-        help="Run OpenAPI discovery before search",
+        default=True,
+        help="Auto-run discovery if endpoints not confirmed (default: true)",
+    )
+    parser.add_argument(
+        "--no-discover",
+        dest="do_discover",
+        action="store_false",
+        help="Skip auto-discovery (will fail if endpoints not confirmed)",
     )
     parser.add_argument(
         "--force-discover",
@@ -180,10 +207,14 @@ def main() -> int:
     out_dir = args.out_dir if args.out_dir.is_absolute() else PROJECT_ROOT / args.out_dir
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    if args.discover or args.force_discover:
+    # Auto-discover endpoints if not confirmed (unless --no-discover)
+    if args.force_discover or (args.do_discover and not _endpoints_confirmed()):
         try:
-            from connectors.eprocurement.openapi_discovery import load_or_discover_endpoints
+            from connectors.eprocurement.openapi_discovery import load_or_discover_endpoints, cache_path
+            cache_file = cache_path()
+            print(f"Running endpoint discovery (cache: {cache_file})...", file=sys.stderr)
             load_or_discover_endpoints(force=args.force_discover)
+            print("Discovery complete.", file=sys.stderr)
         except Exception as e:
             print(f"BOSA discovery failed: {e}", file=sys.stderr)
             return 1

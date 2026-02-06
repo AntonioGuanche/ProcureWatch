@@ -1,0 +1,29 @@
+{
+  "confirmed": true,
+  "search_publications": {
+    "method": "GET",
+    "path": "/search/publications",
+    "style": "query_params",
+    "term_param": "terms",
+    "page_param": "page",
+    "page_size_param": "pageSize"
+  },
+  "cpv_label": {
+    "method": "GET",
+    "path": "/cpvs/{id}",
+    "code_param": "id",
+    "lang_param": null,
+    "path_params": [
+      "id"
+    ]
+  },
+  "publication_detail": {
+    "method": "GET",
+    "path": "/search/publications/byShortLink/{shortLink}",
+    "id_param": "shortLink",
+    "path_params": [
+      "shortLink"
+    ]
+  },
+  "updated_at": "2026-02-06T09:01:23.395878+00:00"
+}

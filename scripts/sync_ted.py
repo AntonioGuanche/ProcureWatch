@@ -12,6 +12,10 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+# Load .env file if present (before any imports that need env vars)
+from app.utils.env import load_env_if_present
+load_env_if_present()
+
 from ingest.sync_ted import main as sync_ted_main
 
 

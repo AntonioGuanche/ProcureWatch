@@ -7,6 +7,10 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
+# Load .env file if present (before any imports that need env vars)
+from app.utils.env import load_env_if_present
+load_env_if_present()
+
 
 def main() -> int:
     import argparse

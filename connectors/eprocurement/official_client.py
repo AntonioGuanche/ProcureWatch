@@ -70,6 +70,19 @@ class OfficialEProcurementClient:
                 force=False,
                 timeout=min(30, self.timeout_seconds),
             )
+            # If endpoints were loaded from confirmed cache, mark as confirmed
+            if self._endpoints is not None:
+                from connectors.eprocurement.openapi_discovery import cache_path
+                import json
+                cache_file = cache_path()
+                if cache_file.exists():
+                    try:
+                        with open(cache_file, "r", encoding="utf-8") as f:
+                            data = json.load(f)
+                        if data.get("confirmed", False):
+                            self._endpoint_confirmed = True
+                    except Exception:
+                        pass  # Ignore cache read errors
             return self._endpoints
         except Exception as e:
             logger.warning("Endpoint discovery failed: %s", e)

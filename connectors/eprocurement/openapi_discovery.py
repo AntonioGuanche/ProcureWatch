@@ -16,8 +16,8 @@ logger = logging.getLogger(__name__)
 DEFAULT_SEA_SWAGGER_URL = "https://public.int.fedservices.be/api/eProcurementSea/v1/doc/swagger.json"
 DEFAULT_LOC_SWAGGER_URL = "https://public.int.fedservices.be/api/eProcurementLoc/v1/doc/swagger.json"
 
-# Cache file path relative to project root
-CACHE_REL_PATH = Path("data") / "_cache" / "eprocurement_endpoints.json"
+# Cache file path relative to project root (standardized Windows-safe path)
+CACHE_REL_PATH = Path("data") / "cache" / "eprocurement_endpoints_confirmed.json"
 
 # Heuristic keywords for search publications endpoint
 SEARCH_POSITIVE_KEYWORDS = ["publication", "publications", "bda", "search"]
@@ -174,9 +174,19 @@ def _project_root() -> Path:
     return Path(__file__).resolve().parent.parent.parent
 
 
-def _cache_path() -> Path:
-    """Return absolute path to endpoints cache file."""
+def cache_path() -> Path:
+    """Get the endpoints cache file path (Windows-safe absolute)."""
     return _project_root() / CACHE_REL_PATH
+
+
+def cache_path() -> Path:
+    """Return absolute path to endpoints cache file (public API)."""
+    return _project_root() / CACHE_REL_PATH
+
+
+def _cache_path() -> Path:
+    """Return absolute path to endpoints cache file (internal, use cache_path())."""
+    return cache_path()
 
 
 def download_swagger(url: str, timeout: int = 30) -> dict[str, Any]:
@@ -560,17 +570,21 @@ def load_or_discover_endpoints(
     Load endpoints from cache or run discovery and cache result.
     If force=True, always run discovery and overwrite cache.
     """
-    cache_file = _cache_path()
+    cache_file = cache_path()
     if not force and cache_file.exists():
         try:
             with open(cache_file, "r", encoding="utf-8") as f:
                 data = json.load(f)
-            return DiscoveredEndpoints(
-                search_publications=data.get("search_publications", {}),
-                cpv_label=data.get("cpv_label", {}),
-                publication_detail=data.get("publication_detail", {}),
-                updated_at=data.get("updated_at", ""),
-            )
+            # Check if cache is confirmed (has confirmed flag and it's True)
+            if data.get("confirmed", False):
+                return DiscoveredEndpoints(
+                    search_publications=data.get("search_publications", {}),
+                    cpv_label=data.get("cpv_label", {}),
+                    publication_detail=data.get("publication_detail", {}),
+                    updated_at=data.get("updated_at", ""),
+                )
+            else:
+                logger.info("Endpoints cache exists but not confirmed, running discovery")
         except Exception as e:
             logger.warning("Failed to load endpoints cache: %s; running discovery", e)
 
@@ -604,6 +618,7 @@ def load_or_discover_endpoints(
     with open(cache_file, "w", encoding="utf-8") as f:
         json.dump(
             {
+                "confirmed": True,  # Mark as confirmed when written by discovery
                 "search_publications": search_publications,
                 "cpv_label": cpv_label,
                 "publication_detail": publication_detail,
@@ -612,5 +627,5 @@ def load_or_discover_endpoints(
             f,
             indent=2,
         )
-    logger.info("Discovered endpoints written to %s", cache_file)
+    logger.info("Discovered endpoints written to %s (confirmed=True)", cache_file)
     return discovered
