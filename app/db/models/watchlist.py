@@ -1,12 +1,14 @@
 """Watchlist (alerts) model: saved search criteria for matching notices."""
+import json
 import uuid
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import String, func
+from sqlalchemy import String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
+from app.utils.sources import DEFAULT_SOURCES
 
 
 class Watchlist(Base):
@@ -24,17 +26,15 @@ class Watchlist(Base):
         default=lambda: str(uuid.uuid4()),
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
-    is_enabled: Mapped[bool] = mapped_column(default=True, nullable=False)
-    term: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    cpv_prefix: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
-    buyer_contains: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    procedure_type: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    country: Mapped[str] = mapped_column(String(2), nullable=False, default="BE")
-    language: Mapped[Optional[str]] = mapped_column(String(2), nullable=True)
+    keywords: Mapped[Optional[str]] = mapped_column(String(1000), nullable=True, comment="Comma-separated keywords")
+    countries: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, comment="Comma-separated country codes")
+    cpv_prefixes: Mapped[Optional[str]] = mapped_column(String(200), nullable=True, comment="Comma-separated CPV prefixes")
+    sources: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+        comment="JSON array of source identifiers (e.g., [\"TED\", \"BOSA\"])",
+    )
     last_refresh_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)
-    last_refresh_status: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    notify_email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    last_notified_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         default=func.now(),
         server_default=func.now(),

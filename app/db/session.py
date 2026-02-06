@@ -6,10 +6,14 @@ from sqlalchemy.orm import sessionmaker, Session
 
 from app.core.config import settings
 from app.db.base import Base
+from app.db.db_url import resolve_db_url
+
+# Resolve database URL (handle relative SQLite paths)
+resolved_db_url = resolve_db_url(settings.database_url)
 
 # Create engine with SSL support
 engine = create_engine(
-    settings.database_url,
+    resolved_db_url,
     pool_pre_ping=True,  # Verify connections before using
     echo=False,  # Set to True for SQL query logging
 )

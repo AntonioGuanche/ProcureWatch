@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 """Import raw TED (Tenders Electronic Daily) search JSON into the database.
-Usage: python ingest/import_ted.py <path_to_raw_ted_json>
+Usage: python ingest/import_ted.py <path_to_raw_ted_json> [--db-url DATABASE_URL]
 Stores notices with source='ted.europa.eu', stable source_id, and TED notice URL.
 """
 from __future__ import annotations
 
+import argparse
 import json
+import os
+import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -13,19 +16,180 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from sqlalchemy import create_engine
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.orm.attributes import flag_modified
 
 from app.core.logging import setup_logging
+from app.db.db_url import get_default_db_url, resolve_db_url
 from app.db.models.notice import Notice
 from app.db.models.notice_cpv_additional import NoticeCpvAdditional
-from app.db.session import SessionLocal
 from app.utils.cpv import normalize_cpv
 
 setup_logging()
 
 SOURCE_NAME = "ted.europa.eu"
+
+
+def create_local_session(db_url: str | None = None):
+    """Create a local sessionmaker for the given DB URL."""
+    if db_url is None:
+        db_url = get_default_db_url()
+    else:
+        db_url = resolve_db_url(db_url)
+    
+    engine = create_engine(db_url, pool_pre_ping=True, echo=False)
+    return sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+# Try to import pycountry for country code normalization (optional)
+try:
+    import pycountry
+    HAS_PYCOUNTRY = True
+except ImportError:
+    HAS_PYCOUNTRY = False
+
+
+def pick_text(value: Any) -> str | None:
+    """
+    Extract text from multi-language dict or list.
+    If value is str, return it.
+    If dict, return value.get("eng") or value.get("fra") or first non-empty value.
+    If list, return first non-empty item.
+    Else return None.
+    """
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return value.strip() if value.strip() else None
+    if isinstance(value, dict):
+        # Prefer ENG, then FRA, then any non-empty value
+        for lang in ("eng", "ENG", "fra", "FRA", "en", "EN", "fr", "FR"):
+            text = value.get(lang)
+            if isinstance(text, str) and text.strip():
+                return text.strip()
+        # Fallback: first non-empty string value
+        for v in value.values():
+            if isinstance(v, str) and v.strip():
+                return v.strip()
+        return None
+    if isinstance(value, list):
+        for item in value:
+            result = pick_text(item)
+            if result:
+                return result
+        return None
+    return None
+
+
+def normalize_country(code: Any) -> str | None:
+    """
+    Normalize country code to ISO2 (alpha_2).
+    Accepts 2-letter, 3-letter codes, or list/tuple/set of codes.
+    If list/tuple/set: iterate and return first that normalizes.
+    If ISO2: return uppercase.
+    If ISO3: map to ISO2 via pycountry if available, else fallback dict.
+    Returns uppercase 2-letter code or None (never 'EU').
+    """
+    if not code:
+        return None
+    
+    # Handle list/tuple/set: iterate and return first that normalizes
+    if isinstance(code, (list, tuple, set)):
+        for item in code:
+            result = normalize_country(item)
+            if result:
+                return result
+        return None
+    
+    # Convert to string and normalize
+    code_str = str(code).strip().upper()
+    if not code_str:
+        return None
+    
+    # Reject 'EU' (not a valid country code)
+    if code_str == "EU":
+        return None
+    
+    # Already 2-letter ISO2
+    if len(code_str) == 2:
+        return code_str
+    
+    # 3-letter ISO3: try pycountry first
+    if len(code_str) == 3:
+        if HAS_PYCOUNTRY:
+            try:
+                country = pycountry.countries.get(alpha_3=code_str)
+                if country and country.alpha_2:
+                    return country.alpha_2.upper()
+            except (KeyError, AttributeError):
+                pass
+        
+        # Fallback dict for common EU countries (ISO3 -> ISO2)
+        iso3_to_iso2 = {
+            "BEL": "BE", "FRA": "FR", "DEU": "DE", "NLD": "NL", "LUX": "LU",
+            "ESP": "ES", "ITA": "IT", "PRT": "PT", "IRL": "IE", "DNK": "DK",
+            "SWE": "SE", "FIN": "FI", "AUT": "AT", "POL": "PL", "CZE": "CZ",
+            "SVK": "SK", "SVN": "SI", "HRV": "HR", "ROU": "RO", "BGR": "BG",
+            "GRC": "GR", "HUN": "HU", "MLT": "MT", "CYP": "CY", "EST": "EE",
+            "LVA": "LV", "LTU": "LT",
+        }
+        if code_str in iso3_to_iso2:
+            return iso3_to_iso2[code_str]
+        
+        # Unknown ISO3: return None (not 'EU')
+        return None
+    
+    # Invalid length: return None
+    return None
+
+
+def extract_cpv_main(notice: dict[str, Any]) -> str | None:
+    """
+    Extract main CPV code from notice.
+    Tries: main-classification-proc, classification-cpv, then any CPV-looking field.
+    Returns numeric code string like "45000000" if found, else None.
+    """
+    # Try main-classification-proc first
+    main = notice.get("main-classification-proc")
+    if main is not None:
+        raw = pick_text(main)
+        if raw:
+            # Extract digits only
+            digits = re.sub(r"\D", "", raw)
+            if len(digits) >= 8:
+                return digits[:8]
+    
+    # Try classification-cpv
+    cpv = notice.get("classification-cpv") or notice.get("cpv")
+    if cpv is not None:
+        raw = pick_text(cpv)
+        if raw:
+            digits = re.sub(r"\D", "", raw)
+            if len(digits) >= 8:
+                return digits[:8]
+    
+    # Try other common CPV fields
+    for key in ("mainCpv", "cpvCode", "cpvMainCode", "mainCpvCode"):
+        value = notice.get(key)
+        if value is not None:
+            raw = pick_text(value)
+            if raw:
+                digits = re.sub(r"\D", "", raw)
+                if len(digits) >= 8:
+                    return digits[:8]
+    
+    # Try CPV codes list
+    codes = notice.get("cpvCodes") or notice.get("cpv")
+    if isinstance(codes, list) and codes:
+        for code_item in codes:
+            raw = pick_text(code_item)
+            if raw:
+                digits = re.sub(r"\D", "", raw)
+                if len(digits) >= 8:
+                    return digits[:8]
+    
+    return None
 
 
 def _pick_source_id(n: dict) -> str | None:
@@ -117,18 +281,29 @@ def _notice_id(notice: dict[str, Any]) -> str | None:
 
 
 def _title(notice: dict[str, Any]) -> str:
-    """Extract title from TED notice."""
-    t = notice.get("title")
-    if isinstance(t, str) and t.strip():
-        return t[:500]
+    """Extract title from TED notice; handle multi-language dicts."""
+    # Try notice-title (TED Search API field, may be dict)
+    title = pick_text(notice.get("notice-title"))
+    if title:
+        return title[:500]
+    # Try title-proc
+    title = pick_text(notice.get("title-proc"))
+    if title:
+        return title[:500]
+    # Try title-glo
+    title = pick_text(notice.get("title-glo"))
+    if title:
+        return title[:500]
+    # Fallback to other common field names
+    title = pick_text(notice.get("title"))
+    if title:
+        return title[:500]
     for key in ("titles", "titleList"):
         items = notice.get(key)
-        if isinstance(items, list):
-            for item in items:
-                if isinstance(item, dict):
-                    text = item.get("value") or item.get("text") or ""
-                    if isinstance(text, str) and text.strip():
-                        return text[:500]
+        if items:
+            title = pick_text(items)
+            if title:
+                return title[:500]
     return "Untitled"
 
 
@@ -150,16 +325,41 @@ def _buyer_name(notice: dict[str, Any]) -> str | None:
 
 
 def _country(notice: dict[str, Any]) -> str | None:
-    """Country code (ISO2 e.g. BE); prefer buyer-country / country, else from authority, else None (caller may use 'EU')."""
-    # TED Search API field (from DEFAULT_FIELDS)
-    c = notice.get("buyer-country") or notice.get("country") or notice.get("countryCode")
-    if isinstance(c, str) and len(c) >= 2:
-        return c[:2].upper()
+    """
+    Country code (ISO2 e.g. BE); normalize from multiple fields in order.
+    Checks: buyer-country, place-of-performance-country-proc, place-of-performance-country-lot, country-origin.
+    Returns None if not found (no 'EU' fallback).
+    """
+    # Check fields in priority order
+    fields_to_check = [
+        "buyer-country",
+        "place-of-performance-country-proc",
+        "place-of-performance-country-lot",
+        "country-origin",
+    ]
+    
+    for field in fields_to_check:
+        c = notice.get(field)
+        if c:
+            normalized = normalize_country(c)
+            if normalized:
+                return normalized
+    
+    # Fallback to other common field names
+    c = notice.get("country") or notice.get("countryCode")
+    if c:
+        normalized = normalize_country(c)
+        if normalized:
+            return normalized
+    
     authority = notice.get("contractingAuthority") or notice.get("buyer")
     if isinstance(authority, dict):
         c = authority.get("country") or authority.get("countryCode")
-        if isinstance(c, str) and len(c) >= 2:
-            return c[:2].upper()
+        if c:
+            normalized = normalize_country(c)
+            if normalized:
+                return normalized
+    
     return None
 
 
@@ -172,24 +372,12 @@ def _language(notice: dict[str, Any]) -> str | None:
 
 
 def _cpv_main(notice: dict[str, Any]) -> tuple[str | None, str | None]:
-    """Return (cpv_8, display) normalized; strip hyphens from raw."""
-    raw = None
-    main = notice.get("mainCpv") or notice.get("cpvCode") or notice.get("cpvMainCode")
-    if isinstance(main, dict):
-        raw = (main.get("code") or main.get("value") or "").strip() or None
-    elif isinstance(main, str) and main.strip():
-        raw = main.strip()
-    if not raw:
-        codes = notice.get("cpvCodes") or notice.get("cpv") or []
-        if isinstance(codes, list) and codes:
-            first = codes[0]
-            if isinstance(first, dict):
-                raw = (first.get("code") or first.get("value") or "").strip() or None
-            elif isinstance(first, str):
-                raw = first.strip() or None
-    if not raw:
+    """Return (cpv_8, display) normalized; use extract_cpv_main helper."""
+    cpv_8 = extract_cpv_main(notice)
+    if not cpv_8:
         return (None, None)
-    cpv_8, _, display = normalize_cpv(raw)
+    # Create display format (8 digits)
+    display = cpv_8
     return (cpv_8, display)
 
 
@@ -216,15 +404,22 @@ def _cpv_additional(notice: dict[str, Any]) -> list[str]:
 
 def _procedure_type(notice: dict[str, Any]) -> str | None:
     """Procedure type string if present."""
-    pt = notice.get("procedureType") or notice.get("procurementProcedureType")
-    if isinstance(pt, str) and pt.strip():
-        return pt.strip()[:100]
+    pt = notice.get("procedure-type") or notice.get("procedureType") or notice.get("procurementProcedureType")
+    if pt:
+        pt_str = pick_text(pt) or (str(pt).strip() if isinstance(pt, str) else None)
+        if pt_str:
+            return pt_str[:100]
     return None
 
 
 def _published_at(notice: dict[str, Any]) -> datetime | None:
     """Publication date from notice."""
-    for key in ("publicationDate", "dispatchDate", "date", "insertionDate"):
+    # Try publication-date (TED Search API field)
+    val = notice.get("publication-date") or notice.get("publicationDate")
+    if val:
+        return parse_date(str(val))
+    # Fallback to other common field names
+    for key in ("dispatchDate", "date", "insertionDate"):
         val = notice.get(key)
         if val:
             return parse_date(str(val))
@@ -338,7 +533,7 @@ def import_notice(db: Session, notice: dict[str, Any], raw_json_str: str) -> boo
     return True
 
 
-def import_file(file_path: Path) -> tuple[int, int, int]:
+def import_file(file_path: Path, db_sessionmaker: sessionmaker[Session]) -> tuple[int, int, int]:
     """
     Load raw TED JSON (as saved by sync_ted.py), import each notice.
     Returns (imported_new, imported_updated, errors).
@@ -368,7 +563,7 @@ def import_file(file_path: Path) -> tuple[int, int, int]:
 
     print(f"\n[Processing] {file_path}")
     print(f"[Found] {len(notices)} notices")
-    db = SessionLocal()
+    db = db_sessionmaker()
     created_count = 0
     updated_count = 0
     error_count = 0
@@ -405,17 +600,18 @@ def import_file(file_path: Path) -> tuple[int, int, int]:
     return created_count, updated_count, error_count
 
 
-def import_ted_raw_files(raw_paths: list[Path]) -> tuple[int, int, int]:
+def import_ted_raw_files(raw_paths: list[Path], db_url: str | None = None) -> tuple[int, int, int]:
     """
     Import one or more TED raw JSON files.
     Wrapper around import_file for reuse from CLI or other callers.
     Returns cumulative (imported_new, imported_updated, errors).
     """
+    db_sessionmaker = create_local_session(db_url)
     total_new = 0
     total_updated = 0
     total_errors = 0
     for path in raw_paths:
-        created, updated, errors = import_file(path)
+        created, updated, errors = import_file(path, db_sessionmaker)
         total_new += created
         total_updated += updated
         total_errors += errors
@@ -435,12 +631,22 @@ def main() -> None:
         except Exception:
             pass  # Ignore if reconfigure fails
 
-    if len(sys.argv) < 2:
-        print("Usage: python ingest/import_ted.py <path_to_raw_ted_json> [more_paths...]")
-        print("Example: python ingest/import_ted.py data/raw/ted/ted_2026-02-03T12-00-00-000Z.json")
-        sys.exit(1)
-    paths = [Path(p) for p in sys.argv[1:]]
-    imported_new, imported_updated, errors = import_ted_raw_files(paths)
+    parser = argparse.ArgumentParser(
+        description="Import raw TED JSON files into the database"
+    )
+    parser.add_argument(
+        "paths",
+        nargs="+",
+        help="Path(s) to raw TED JSON file(s)",
+    )
+    parser.add_argument(
+        "--db-url",
+        help="Optional DATABASE_URL override (default: DATABASE_URL env var or sqlite:///./dev.db)",
+    )
+    args = parser.parse_args()
+
+    paths = [Path(p) for p in args.paths]
+    imported_new, imported_updated, errors = import_ted_raw_files(paths, db_url=args.db_url)
     summary = {
         "imported_new": imported_new,
         "imported_updated": imported_updated,

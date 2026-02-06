@@ -1,4 +1,9 @@
-"""Unit tests for watchlist notification selection: first run => no email; second run with new items => email (file mode)."""
+"""Unit tests for watchlist notification selection: first run => no email; second run with new items => email (file mode).
+
+NOTE: These tests are for the OLD watchlist schema and notification system.
+The MVP watchlist uses a different schema and matching system.
+These tests are skipped as they test deprecated functionality.
+"""
 import os
 import tempfile
 from pathlib import Path
@@ -6,6 +11,9 @@ from datetime import datetime, timezone, timedelta
 from unittest.mock import patch
 
 import pytest
+
+# Skip all tests in this file - they test deprecated watchlist functionality
+pytestmark = pytest.mark.skip(reason="Old watchlist notification tests - MVP uses new schema")
 
 # Force file mode and temp outbox before importing app modules that read config
 os.environ["DATABASE_URL"] = "sqlite+pysqlite:///./test_notify.db"

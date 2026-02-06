@@ -4,7 +4,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.core.logging import setup_logging
-from app.api.routes import filters, health, notices, watchlists
+from app.api.routes import filters, health, notices
+from app.api.routes import watchlists_mvp as watchlists
 
 # Setup logging
 setup_logging()

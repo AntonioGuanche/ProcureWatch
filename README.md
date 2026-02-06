@@ -43,17 +43,26 @@ Production-ready FastAPI backend for ProcureWatch, a platform that monitors publ
 4. **Set environment variables:**
    
    Create a `.env` file (copy from `.env.example` if needed):
-   ```bash
-   cp .env.example .env
+   ```powershell
+   Copy-Item .env.example .env
    ```
    
    The `.env` file is required for local development. Edit `.env` and set your `DATABASE_URL`:
    
-   **For local development (recommended):**
+   **For local development (recommended - single SQLite database):**
+   ```powershell
+   $env:DATABASE_URL="sqlite:///./dev.db"
+   ```
+   Or add to `.env`:
    ```
    DATABASE_URL=sqlite+pysqlite:///./dev.db
    ```
-   This creates a persistent `dev.db` file in the project root. Your data will persist between server restarts.
+   **Windows-safe absolute path:** If you need an absolute path (e.g. for scripts), use:
+   ```powershell
+   # Example: resolve to absolute path so all tools use the same file
+   $env:DATABASE_URL="sqlite:///C:/Users/YourName/ProcureWatch/dev.db"
+   ```
+   The app resolves `sqlite:///./dev.db` to an absolute path internally, so relative URLs are fine. This creates a persistent `dev.db` file in the project root. **All components (FastAPI app, TED/BOSA ingest, watchlists) use the same database.** Your data will persist between server restarts.
    
    **For quick tests (ephemeral):**
    ```
@@ -67,23 +76,22 @@ Production-ready FastAPI backend for ProcureWatch, a platform that monitors publ
    ```
    
    **Important:** If you switch between database URLs (e.g., from `:memory:` to `./dev.db`), you must re-run migrations:
-   ```bash
+   ```powershell
    python -m alembic upgrade head
    ```
 
-5. **Run database migrations:**
-   ```bash
+5. **Run database migrations (required once):**
+   ```powershell
    python -m alembic upgrade head
    ```
-   
-   **Note:** Run migrations after:
+   This creates all tables in `dev.db`. Run migrations after:
    - First-time setup
    - Switching database URLs
    - Pulling new migrations from the repository
 
 6. **Start the development server:**
-   ```bash
-   python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+   ```powershell
+   python -m uvicorn app.main:app --reload
    ```
    
    To stop the server, press `CTRL+C`.
@@ -100,26 +108,232 @@ Production-ready FastAPI backend for ProcureWatch, a platform that monitors publ
 
 ## Running Tests
 
-```bash
-pytest
+```powershell
+python -m pytest -q
 ```
 
 ## Database Migrations
 
-### Create a new migration:
-```bash
-alembic revision --autogenerate -m "description"
-```
+**Important:** All components (FastAPI app, TED ingest, watchlists) use the same database: `dev.db` by default.
 
-### Apply migrations:
-```bash
-alembic upgrade head
+### Apply migrations (required once):
+```powershell
+python -m alembic upgrade head
+```
+This creates all tables in `dev.db`. Run this after:
+- First-time setup
+- Pulling new migrations from the repository
+
+### Create a new migration:
+```powershell
+python -m alembic revision --autogenerate -m "description"
 ```
 
 ### Rollback last migration:
-```bash
-alembic downgrade -1
+```powershell
+python -m alembic downgrade -1
 ```
+
+## TED Data Ingestion
+
+Import TED (Tenders Electronic Daily) EU notices into `dev.db`:
+
+```powershell
+# Set database URL (if not in .env)
+$env:DATABASE_URL="sqlite:///./dev.db"
+
+# Run migrations first (if needed)
+python -m alembic upgrade head
+
+# Fetch and import TED notices
+python scripts/sync_ted.py --query "forest restoration" --limit 25 --import
+```
+
+**Note:** The `--import` flag automatically runs migrations if needed. The importer uses `dev.db` by default (or `DATABASE_URL` if set).
+
+## BOSA Data Ingestion
+
+Import BOSA e-Procurement (Belgian) notices into the same `dev.db`:
+
+```powershell
+# Set database URL (if not in .env)
+$env:DATABASE_URL="sqlite:///./dev.db"
+
+# Run migrations first (if needed)
+python -m alembic upgrade head
+
+# Fetch and import BOSA notices (requires EPROC_CLIENT_ID / EPROC_CLIENT_SECRET or discovery)
+python scripts/sync_bosa.py --query "travaux" --limit 25 --import
+```
+
+Use `--discover` or `--force-discover` if endpoints are not yet cached. Notices are stored with `source=bosa.eprocurement` and can be filtered via the API (`?sources=BOSA`) or watchlists with `sources: ["BOSA"]`.
+
+## API: Filter notices by source
+
+List notices optionally filtered by source:
+
+```powershell
+# All notices (default)
+curl "http://localhost:8000/api/notices"
+
+# TED only
+curl "http://localhost:8000/api/notices?sources=TED"
+
+# BOSA only
+curl "http://localhost:8000/api/notices?sources=BOSA"
+
+# Both (comma-separated or repeated)
+curl "http://localhost:8000/api/notices?sources=TED&sources=BOSA"
+```
+
+## Watchlists
+
+Watchlists allow you to create saved searches that automatically match notices based on keywords, countries, CPV prefixes, and **data sources** (TED, BOSA, or both).
+
+### Creating Watchlists
+
+**Create a watchlist for TED notices only:**
+```powershell
+curl -X POST http://localhost:8000/api/watchlists `
+  -H "Content-Type: application/json" `
+  -d '{"name": "TED Solar Projects", "keywords": ["solar"], "sources": ["TED"]}'
+```
+
+**Create a watchlist for BOSA notices only:**
+```powershell
+curl -X POST http://localhost:8000/api/watchlists `
+  -H "Content-Type: application/json" `
+  -d '{"name": "BOSA Infrastructure", "keywords": ["infrastructure"], "sources": ["BOSA"]}'
+```
+
+**Create a watchlist for both sources (default):**
+```powershell
+curl -X POST http://localhost:8000/api/watchlists `
+  -H "Content-Type: application/json" `
+  -d '{"name": "All Renewable Energy", "keywords": ["renewable", "energy"], "sources": ["TED", "BOSA"]}'
+```
+
+If `sources` is omitted, it defaults to `["TED", "BOSA"]`.
+
+### Refreshing and Viewing Matches
+
+```powershell
+# Refresh matches for a watchlist
+curl -X POST http://localhost:8000/api/watchlists/{watchlist_id}/refresh
+
+# View matches
+curl http://localhost:8000/api/watchlists/{watchlist_id}/matches
+```
+
+### Backfilling Sources
+
+If you have existing watchlists without sources set, run the seed script:
+
+```powershell
+python scripts/seed_watchlists_sources.py
+```
+
+This sets all watchlists to `["TED", "BOSA"]` by default.
+
+### End-to-end verification (TED, BOSA, both)
+
+After ingesting TED and BOSA notices, create three watchlists and refresh to verify matching:
+
+```powershell
+# 1) Start API
+python -m uvicorn app.main:app --reload
+
+# 2) In another terminal: ensure DB is migrated and data is present
+python -m alembic upgrade head
+python scripts/sync_ted.py --query "construction" --limit 25 --import
+python scripts/sync_bosa.py --query "travaux" --limit 25 --import
+
+# 3) Create watchlists: TED only, BOSA only, BOTH
+curl -X POST http://localhost:8000/api/watchlists -H "Content-Type: application/json" -d "{\"name\": \"TED only\", \"keywords\": [\"construction\"], \"sources\": [\"TED\"]}"
+curl -X POST http://localhost:8000/api/watchlists -H "Content-Type: application/json" -d "{\"name\": \"BOSA only\", \"keywords\": [\"travaux\"], \"sources\": [\"BOSA\"]}"
+curl -X POST http://localhost:8000/api/watchlists -H "Content-Type: application/json" -d "{\"name\": \"Both sources\", \"keywords\": [\"services\"], \"sources\": [\"TED\", \"BOSA\"]}"
+
+# 4) Refresh each watchlist (use IDs from create response)
+curl -X POST http://localhost:8000/api/watchlists/{watchlist_id}/refresh
+
+# 5) View matches
+curl http://localhost:8000/api/watchlists/{watchlist_id}/matches
+```
+
+TED-only watchlists match only `ted.europa.eu` notices; BOSA-only match only `bosa.eprocurement`; "Both" matches both sources.
+
+## BOSA e-Procurement API Configuration
+
+The ProcureWatch API supports integration with BOSA e-Procurement APIs (Search, Location, Dossier, TUS, Config) using OAuth2 Client Credentials authentication.
+
+### Environment Setup
+
+1. **Configure `.env` file:**
+   
+   Copy `.env.example` to `.env` and fill in the required values:
+   
+   ```bash
+   cp .env.example .env
+   ```
+   
+   Edit `.env` and set:
+   - `EPROCUREMENT_ENV=INT` (or `PR` for production)
+   - `EPROCUREMENT_INT_CLIENT_ID=<your_int_client_id>`
+   - `EPROCUREMENT_INT_CLIENT_SECRET=<your_int_client_secret>`
+   - `EPROCUREMENT_PR_CLIENT_ID=<your_pr_client_id>` (if using PR)
+   - `EPROCUREMENT_PR_CLIENT_SECRET=<your_pr_client_secret>` (if using PR)
+   
+   **Important:** Never commit `.env` with real secrets. The `.env` file is already in `.gitignore`.
+
+2. **Switch between INT and PR environments:**
+   
+   Set `EPROCUREMENT_ENV` in `.env`:
+   - `EPROCUREMENT_ENV=INT` for integration environment
+   - `EPROCUREMENT_ENV=PR` for production environment
+   
+   The system will automatically use the correct token URL, client credentials, and base URLs based on this setting.
+
+### Discovery and Testing
+
+1. **Discover Search API endpoints:**
+   
+   ```bash
+   python scripts/discover_eprocurement_sea.py
+   ```
+   
+   This script will:
+   - Download the Swagger/OpenAPI specification from the Search API
+   - Cache it locally in `.cache/eprocurement/sea_swagger.json`
+   - List all endpoints that contain "publication", "bda", or "search" in their path/summary/operationId
+   - If `EPROCUREMENT_ENDPOINT_CONFIRMED=true`, it will also test the first candidate endpoint
+
+2. **Enable endpoint testing:**
+   
+   After reviewing the discovered endpoints, set in `.env`:
+   ```
+   EPROCUREMENT_ENDPOINT_CONFIRMED=true
+   ```
+   
+   Then run the discovery script again to test the endpoint with a sample query.
+
+3. **Test OAuth2 token:**
+   
+   ```bash
+   python scripts/test_bosa_oauth.py
+   ```
+   
+   This verifies that OAuth2 credentials are correctly configured and can obtain an access token.
+
+### API Base URLs
+
+The following API base URLs are configured (INT/PR):
+- **Search API (Sea):** `EPROCUREMENT_INT_SEA_BASE_URL` / `EPROCUREMENT_PR_SEA_BASE_URL`
+- **Location API:** `EPROCUREMENT_INT_LOC_BASE_URL` / `EPROCUREMENT_PR_LOC_BASE_URL`
+- **Dossier API:** `EPROCUREMENT_INT_DOS_BASE_URL` / `EPROCUREMENT_PR_DOS_BASE_URL`
+- **TUS API:** `EPROCUREMENT_INT_TUS_BASE_URL` / `EPROCUREMENT_PR_TUS_BASE_URL`
+- **Config API:** `EPROCUREMENT_INT_CFG_BASE_URL` / `EPROCUREMENT_PR_CFG_BASE_URL`
+
+Default values point to the INT environment. Override in `.env` if needed.
 
 ## Render Deployment
 

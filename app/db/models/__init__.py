@@ -6,6 +6,7 @@ from app.db.models.notice_detail import NoticeDetail
 from app.db.models.notice_document import NoticeDocument
 from app.db.models.notice_lot import NoticeLot
 from app.db.models.watchlist import Watchlist
+from app.db.models.watchlist_match import WatchlistMatch
 
 __all__ = [
     "Filter",
@@ -15,4 +16,5 @@ __all__ = [
     "NoticeDocument",
     "NoticeLot",
     "Watchlist",
+    "WatchlistMatch",
 ]

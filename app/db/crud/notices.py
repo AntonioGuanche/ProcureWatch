@@ -19,9 +19,21 @@ def list_notices(
     buyer: Optional[str] = None,
     deadline_from: Optional[datetime] = None,
     deadline_to: Optional[datetime] = None,
+    sources: Optional[list[str]] = None,
 ) -> Tuple[list[Notice], int]:
-    """List notices with optional filtering. Returns (notices, total_count)."""
+    """List notices with optional filtering. Returns (notices, total_count).
+    sources: optional list of source identifiers (e.g. TED, BOSA); when provided,
+    filters Notice.source via SOURCE_TO_NOTICE_SOURCE (ted.europa.eu, bosa.eprocurement).
+    """
+    from app.utils.sources import get_notice_sources_for_watchlist
+
     query = db.query(Notice)
+
+    # Filter by source(s): TED -> ted.europa.eu, BOSA -> bosa.eprocurement
+    if sources:
+        notice_sources = get_notice_sources_for_watchlist([s.strip() for s in sources if s and str(s).strip()])
+        if notice_sources:
+            query = query.filter(Notice.source.in_(notice_sources))
 
     # Search term in title (case-insensitive)
     if q:

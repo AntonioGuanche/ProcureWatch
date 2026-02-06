@@ -32,6 +32,7 @@ async def get_notices(
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(25, ge=1, le=100, description="Items per page"),
     term: Optional[str] = Query(None, alias="q", description="Search term in title"),
+    sources: Optional[list[str]] = Query(None, description="Filter by sources (e.g. TED, BOSA); comma-separated or repeated ?sources=TED&sources=BOSA; omit for all"),
     cpv: Optional[str] = Query(None, description="Filter by CPV code (main or additional)"),
     buyer: Optional[str] = Query(None, description="Filter by buyer name"),
     deadline_from: Optional[datetime] = Query(None, description="Filter by deadline from (ISO datetime)"),
@@ -40,7 +41,13 @@ async def get_notices(
 ) -> NoticeListResponse:
     """List notices with pagination and optional filtering."""
     offset = (page - 1) * page_size
-    
+    # Parse sources: list from repeated params or comma-separated; None/empty = return all
+    sources_list: Optional[list[str]] = None
+    if sources:
+        sources_list = [s.strip() for part in sources for s in str(part).split(",") if s.strip()]
+        if not sources_list:
+            sources_list = None
+
     notices, total = list_notices(
         db,
         limit=page_size,
@@ -50,6 +57,7 @@ async def get_notices(
         buyer=buyer,
         deadline_from=deadline_from,
         deadline_to=deadline_to,
+        sources=sources_list,
     )
     
     return NoticeListResponse(

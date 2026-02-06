@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Sync TED (EU Tenders Electronic Daily): search via official API, save raw JSON,
-optionally run import_ted.py (subprocess). Emits machine-readable JSON summary:
-fetched, imported_new, imported_updated, errors, saved_path.
+Sync BOSA e-Procurement: search via official API (OAuth2), save raw JSON to data/raw/bosa,
+optionally run import_bosa (subprocess) when --import is passed.
+Emits machine-readable JSON summary: fetched, imported_new, imported_updated, errors, saved_path.
 """
 import argparse
 import json
@@ -15,40 +15,29 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-DEFAULT_OUT_DIR = PROJECT_ROOT / "data" / "raw" / "ted"
+DEFAULT_OUT_DIR = PROJECT_ROOT / "data" / "raw" / "bosa"
 
 
 def _count_fetched(result: dict) -> int:
-    """Count notices in TED result json (notices, results, items, or data)."""
+    """Count publications in BOSA result json (publications, items, results, data)."""
     raw = result.get("json", result)
-    notices = (
-        raw.get("notices")
-        or raw.get("results")
+    items = (
+        raw.get("publications")
         or raw.get("items")
+        or raw.get("results")
         or raw.get("data")
         or []
     )
-    return len(notices) if isinstance(notices, list) else 0
+    return len(items) if isinstance(items, list) else 0
 
 
 def ensure_db_migrated(db_url: str) -> None:
-    """
-    Run Alembic migrations for the given DATABASE_URL.
-    Raises RuntimeError if migration fails.
-    """
-    cmd = [
-        sys.executable,
-        "-m",
-        "alembic",
-        "upgrade",
-        "head",
-    ]
+    """Run Alembic migrations for the given DATABASE_URL. Raises RuntimeError on failure."""
+    cmd = [sys.executable, "-m", "alembic", "upgrade", "head"]
     env = os.environ.copy()
     env["DATABASE_URL"] = db_url
-    # Ensure UTF-8 encoding for Windows subprocess
     env["PYTHONUTF8"] = "1"
     env["PYTHONIOENCODING"] = "utf-8"
-
     proc = subprocess.run(
         cmd,
         cwd=str(PROJECT_ROOT),
@@ -57,7 +46,6 @@ def ensure_db_migrated(db_url: str) -> None:
         timeout=300,
         env=env,
     )
-
     if proc.returncode != 0:
         error_msg = f"Database migration failed (exit code {proc.returncode})"
         if proc.stderr:
@@ -68,29 +56,20 @@ def ensure_db_migrated(db_url: str) -> None:
 
 
 def run_import(file_path: Path, db_url: str) -> tuple[int, int, int]:
-    """
-    Run ingest/import_ted.py as subprocess; parse stdout for JSON summary
-    (imported_new, imported_updated, errors). Returns (imported_new, imported_updated, errors).
-
-    db_url is passed via --db-url flag (required).
-    If subprocess fails (returncode != 0), prints stderr and returns (0, 0, 1).
-    """
+    """Run ingest/import_bosa as subprocess. Returns (imported_new, imported_updated, errors)."""
     from app.db.db_url import resolve_db_url
     resolved_db_url = resolve_db_url(db_url)
-    
     cmd = [
         sys.executable,
         "-m",
-        "ingest.import_ted",
+        "ingest.import_bosa",
         str(file_path),
         "--db-url",
         resolved_db_url,
     ]
     env = os.environ.copy()
-    # Ensure UTF-8 encoding for Windows subprocess
     env["PYTHONUTF8"] = "1"
     env["PYTHONIOENCODING"] = "utf-8"
-
     proc = subprocess.run(
         cmd,
         cwd=str(PROJECT_ROOT),
@@ -99,20 +78,13 @@ def run_import(file_path: Path, db_url: str) -> tuple[int, int, int]:
         timeout=600,
         env=env,
     )
-
-    # If subprocess failed, report error and return error count
     if proc.returncode != 0:
         if proc.stderr:
-            print(f"Import subprocess failed: {proc.stderr}", file=sys.stderr)
+            print(proc.stderr, file=sys.stderr)
         if proc.stdout:
-            print(f"Import stdout: {proc.stdout}", file=sys.stderr)
+            print(proc.stdout, file=sys.stderr)
         return (0, 0, 1)
-
-    stdout = proc.stdout or ""
-    stderr = proc.stderr or ""
-    full_output = stdout + "\n" + stderr
-
-    # Parse JSON summary line (last line with imported_new) only on success
+    full_output = (proc.stdout or "") + "\n" + (proc.stderr or "")
     created, updated, errors = 0, 0, 0
     for line in reversed(full_output.strip().splitlines()):
         line = line.strip()
@@ -132,33 +104,26 @@ def run_import(file_path: Path, db_url: str) -> tuple[int, int, int]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Sync TED: search, save raw JSON, optionally import into DB.",
+        description="Sync BOSA e-Procurement: search, save raw JSON, optionally import into DB.",
     )
     parser.add_argument(
         "--query",
         "--term",
         dest="query",
-        default="construction",
-        help="Search term or expert query",
+        default="travaux",
+        help="Search term",
     )
     parser.add_argument(
         "--limit",
         type=int,
         default=25,
-        help="Maximum number of notices to fetch (page size)",
+        help="Page size (max notices to fetch)",
     )
-    # Backwards compatible page / page-size flags (page stays at 1 by default)
     parser.add_argument(
         "--page",
         type=int,
         default=1,
-        help="Page number (default: 1). For multi-page collection, run multiple times.",
-    )
-    parser.add_argument(
-        "--page-size",
-        type=int,
-        default=None,
-        help="Deprecated: use --limit instead. If set, overrides --limit.",
+        help="Page number (default: 1)",
     )
     parser.add_argument(
         "--out",
@@ -166,7 +131,7 @@ def main() -> int:
         dest="out_dir",
         type=Path,
         default=DEFAULT_OUT_DIR,
-        help="Output directory for raw TED JSON (default: data/raw/ted)",
+        help="Output directory for raw BOSA JSON (default: data/raw/bosa)",
     )
     parser.add_argument(
         "--import",
@@ -201,71 +166,40 @@ def main() -> int:
         help="Skip database migrations before import",
     )
     parser.add_argument(
-        "--debug",
-        action="store_true",
-        help="Print TED request URL, body, response status/headers/body (on non-2xx) for diagnostics",
-    )
-    parser.add_argument(
         "--discover",
         action="store_true",
-        help="Run OpenAPI discovery before search (fetch spec and cache endpoint descriptor)",
+        help="Run OpenAPI discovery before search",
     )
     parser.add_argument(
         "--force-discover",
         action="store_true",
-        help="Force discovery and overwrite cached TED endpoints, then run search",
+        help="Force discovery and overwrite cached endpoints, then run search",
     )
     args = parser.parse_args()
 
     out_dir = args.out_dir if args.out_dir.is_absolute() else PROJECT_ROOT / args.out_dir
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    # 0) Optional: run discovery first
     if args.discover or args.force_discover:
         try:
-            from connectors.ted.openapi_discovery import TEDDiscoveryError, load_or_discover_endpoints
-            from app.core.config import settings
-            load_or_discover_endpoints(
-                force=args.force_discover,
-                host=settings.ted_search_base_url or None,
-                timeout=settings.ted_timeout_seconds,
-            )
-        except TEDDiscoveryError as e:
-            print(f"TED discovery failed: {e}", file=sys.stderr)
-            print(
-                "Hint: Ensure TED_SEARCH_BASE_URL points to the API host (e.g. https://ted.europa.eu) and the host serves an OpenAPI spec.",
-                file=sys.stderr,
-            )
-            return 1
+            from connectors.eprocurement.openapi_discovery import load_or_discover_endpoints
+            load_or_discover_endpoints(force=args.force_discover)
         except Exception as e:
-            print(f"TED discovery failed: {e}", file=sys.stderr)
+            print(f"BOSA discovery failed: {e}", file=sys.stderr)
             return 1
 
-    # Resolve effective page size
-    page_size = args.page_size if args.page_size is not None else args.limit
-    if page_size <= 0:
-        page_size = 1
-
-    # 1) Search TED
+    page_size = max(1, args.limit)
     try:
-        from connectors.ted import search_ted_notices
-
-        result = search_ted_notices(
-            term=args.query,
-            page=args.page,
-            page_size=page_size,
-            debug=args.debug,
-        )
+        from connectors.eprocurement.client import search_publications
+        result = search_publications(term=args.query, page=args.page, page_size=page_size)
     except Exception as e:
-        print(f"TED search failed: {e}", file=sys.stderr)
+        print(f"BOSA search failed: {e}", file=sys.stderr)
         return 1
 
     fetched = _count_fetched(result)
-
-    # 2) Save raw JSON
     now = datetime.now(timezone.utc)
     ts = now.strftime("%Y-%m-%dT%H-%M-%S-") + f"{now.microsecond // 1000:03d}Z"
-    raw_filename = f"ted_{ts}.json"
+    raw_filename = f"bosa_{ts}.json"
     saved_path = out_dir / raw_filename
     with open(saved_path, "w", encoding="utf-8") as f:
         json.dump(result, f, ensure_ascii=False, indent=2)
@@ -273,22 +207,18 @@ def main() -> int:
 
     imported_new, imported_updated, errors = 0, 0, 0
     if args.do_import:
-        # Resolve effective DB URL: --db-url > DATABASE_URL env > default dev.db
         from app.db.db_url import get_default_db_url, resolve_db_url
         effective_db_url = args.db_url or os.environ.get("DATABASE_URL") or get_default_db_url()
         effective_db_url = resolve_db_url(effective_db_url)
-        
         if args.do_migrate:
             try:
                 ensure_db_migrated(effective_db_url)
             except RuntimeError as e:
                 print(f"Migration failed: {e}", file=sys.stderr)
                 return 1
-
         imported_new, imported_updated, errors = run_import(saved_path, db_url=effective_db_url)
         print(f"Imported/updated {imported_new + imported_updated} notices")
 
-    # 4) JSON summary
     summary = {
         "fetched": fetched,
         "imported_new": imported_new,

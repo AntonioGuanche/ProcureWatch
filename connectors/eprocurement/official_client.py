@@ -1,7 +1,9 @@
 """Official Belgian e-Procurement API client (OAuth2 client_credentials)."""
+import json
 import logging
 import time
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Optional
 
 import requests
@@ -124,6 +126,78 @@ class OfficialEProcurementClient:
         """Return headers with Bearer token."""
         token = self.get_access_token()
         return {"Authorization": f"Bearer {token}", "Accept": "application/json"}
+
+    def request(
+        self,
+        method: str,
+        url: str,
+        *,
+        params: Optional[dict[str, Any]] = None,
+        json_data: Optional[dict[str, Any]] = None,
+        headers: Optional[dict[str, str]] = None,
+        timeout: Optional[int] = None,
+    ) -> requests.Response:
+        """
+        Make an authenticated HTTP request with Bearer token.
+        Adds Authorization header and Accept: application/json.
+        Does NOT log secrets or token.
+        """
+        self._require_credentials()
+        auth_headers = self._auth_headers()
+        if headers:
+            auth_headers.update(headers)
+        timeout = timeout or self.timeout_seconds
+        return requests.request(
+            method=method.upper(),
+            url=url,
+            params=params,
+            json=json_data,
+            headers=auth_headers,
+            timeout=timeout,
+        )
+
+    def discover_openapi(self, swagger_url: str, cache_dir: Optional[Path] = None) -> dict[str, Any]:
+        """
+        Download and cache OpenAPI/Swagger JSON from URL.
+        Caches to .cache/eprocurement/{env}/sea_swagger.json (or custom cache_dir).
+        Returns parsed swagger dict.
+        """
+        if cache_dir is None:
+            cache_dir = Path(".cache/eprocurement")
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        cache_file = cache_dir / "sea_swagger.json"
+
+        # Try to load from cache first
+        if cache_file.exists():
+            try:
+                with open(cache_file, "r", encoding="utf-8") as f:
+                    cached = json.load(f)
+                    logger.debug("Loaded swagger from cache: %s", cache_file)
+                    return cached
+            except (json.JSONDecodeError, IOError) as e:
+                logger.warning("Failed to load cached swagger: %s", e)
+
+        # Download swagger JSON
+        try:
+            response = requests.get(swagger_url, timeout=self.timeout_seconds)
+            response.raise_for_status()
+            swagger_data = response.json()
+        except requests.RequestException as e:
+            logger.error("Failed to download swagger from %s: %s", swagger_url, e)
+            raise
+        except json.JSONDecodeError as e:
+            logger.error("Invalid JSON in swagger response: %s", e)
+            raise ValueError(f"Invalid JSON in swagger response: {e}") from e
+
+        # Cache the swagger data
+        try:
+            with open(cache_file, "w", encoding="utf-8") as f:
+                json.dump(swagger_data, f, indent=2)
+            logger.debug("Cached swagger to: %s", cache_file)
+        except IOError as e:
+            logger.warning("Failed to cache swagger: %s", e)
+
+        return swagger_data
 
     def search_publications(
         self,
