@@ -513,6 +513,11 @@ def discover_cpv_label_endpoint(spec: dict[str, Any]) -> list[CandidateEndpoint]
             score += 2.0
         if code_param:
             score += 2.0
+            # Bonus: prefer endpoints where code_param indicates "code" over generic "id"
+            if code_param.lower() in ("code", "cpvcode", "cpv_code"):
+                score += 1.0
+            elif code_param.lower() == "id":
+                score -= 0.5  # Slight penalty for generic "id"
         if lang_param:
             score += 1.0
         if "description" in text or "label" in text:
@@ -565,10 +570,12 @@ def load_or_discover_endpoints(
     sea_swagger_url: Optional[str] = None,
     loc_swagger_url: Optional[str] = None,
     timeout: int = 30,
+    confirmed: bool = False,
 ) -> DiscoveredEndpoints:
     """
     Load endpoints from cache or run discovery and cache result.
     If force=True, always run discovery and overwrite cache.
+    If confirmed=True, write cache with confirmed=True flag.
     """
     cache_file = cache_path()
     if not force and cache_file.exists():
@@ -618,14 +625,15 @@ def load_or_discover_endpoints(
     with open(cache_file, "w", encoding="utf-8") as f:
         json.dump(
             {
-                "confirmed": True,  # Mark as confirmed when written by discovery
+                "confirmed": confirmed,  # Use passed confirmed flag (default False)
                 "search_publications": search_publications,
                 "cpv_label": cpv_label,
                 "publication_detail": publication_detail,
                 "updated_at": updated_at,
+                "source": "openapi_discovery",
             },
             f,
             indent=2,
         )
-    logger.info("Discovered endpoints written to %s (confirmed=True)", cache_file)
+    logger.info("Discovered endpoints written to %s (confirmed=%s)", cache_file, confirmed)
     return discovered

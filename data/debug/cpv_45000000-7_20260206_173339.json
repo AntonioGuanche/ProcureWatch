@@ -1,0 +1,15 @@
+{
+  "error": {
+    "fsbTransactionId": "aYYX4pIZ5BtjpYQqjU639gAAAEE",
+    "code": "50000",
+    "descriptionNL": "Internal Server Error",
+    "descriptionFR": "Internal Server Error",
+    "descriptionEN": "Internal Server Error",
+    "detail": {
+      "instance": "96b97ba3-9218-40c2-93b6-67130b163745",
+      "title": "INTERNAL_SERVER_ERROR",
+      "status": 500,
+      "detail": "HTTP 404 Not Found"
+    }
+  }
+}

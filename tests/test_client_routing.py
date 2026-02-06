@@ -16,7 +16,7 @@ from connectors.eprocurement.client import (
     get_publication_detail,
     reset_client,
 )
-from connectors.eprocurement.official_client import EProcurementCredentialsError
+from connectors.eprocurement.exceptions import EProcurementCredentialsError
 from connectors.eprocurement.playwright_client import PlaywrightEProcurementClient
 
 
@@ -37,6 +37,17 @@ def _make_settings(mode: str, client_id: str | None, client_secret: str | None) 
     s.eproc_search_base_url = "https://search.example.com"
     s.eproc_loc_base_url = "https://loc.example.com"
     s.eproc_timeout_seconds = 30
+    # Mock new canonicalization methods
+    s._resolve_eproc_env_name = MagicMock(return_value="INT")
+    s.resolve_eproc_official_config = MagicMock(return_value={
+        "token_url": "https://token.example.com",
+        "client_id": client_id,
+        "client_secret": client_secret,
+        "search_base_url": "https://search.example.com",
+        "loc_base_url": "https://loc.example.com",
+        "env_name": "INT",
+    })
+    s.validate_eproc_official_config = MagicMock()
     return s
 
 
@@ -59,12 +70,14 @@ def test_playwright_mode_force_playwright() -> None:
 
 
 def test_official_mode_requires_credentials() -> None:
-    """EPROC_MODE=official without credentials raises EProcurementCredentialsError."""
+    """EPROC_MODE=official without credentials raises ValueError (from validate_eproc_official_config)."""
     mock_settings = _make_settings("official", None, None)
+    # Make validate_eproc_official_config raise ValueError
+    mock_settings.validate_eproc_official_config.side_effect = ValueError("Credentials required")
     with patch("app.core.config.settings", mock_settings):
-        with pytest.raises(EProcurementCredentialsError) as exc_info:
+        with pytest.raises(ValueError) as exc_info:
             _get_client()
-        assert "EPROC_MODE=official" in str(exc_info.value)
+        assert "credentials" in str(exc_info.value).lower() or "required" in str(exc_info.value).lower()
 
 
 def test_official_mode_uses_official_client_when_credentials_set() -> None:

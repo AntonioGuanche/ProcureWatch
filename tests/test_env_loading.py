@@ -144,8 +144,8 @@ def test_endpoints_cache_confirmed_flag():
                 }
             }
             
-            # Run discovery
-            endpoints = load_or_discover_endpoints(force=True)
+            # Run discovery with confirmed=True
+            endpoints = load_or_discover_endpoints(force=True, confirmed=True)
             
             # Check cache was written with confirmed flag
             assert cache_file.exists()

@@ -11,11 +11,11 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from connectors.eprocurement.official_client import (
+from connectors.eprocurement.exceptions import (
     EProcurementCredentialsError,
     EProcurementEndpointNotConfiguredError,
-    OfficialEProcurementClient,
 )
+from connectors.eprocurement.official_client import OfficialEProcurementClient
 
 
 def test_get_access_token_requires_credentials() -> None:
@@ -101,13 +101,9 @@ def test_get_access_token_refresh_before_expiry() -> None:
 
 def test_search_publications_raises_when_endpoint_pending() -> None:
     """search_publications raises EProcurementEndpointNotConfiguredError when endpoint not confirmed."""
-    with patch("requests.post") as mock_post:
-        mock_post.return_value.status_code = 200
-        mock_post.return_value.json.return_value = {
-            "access_token": "tok",
-            "expires_in": 3600,
-        }
-
+    # Mock endpoint confirmation to return False
+    with patch("connectors.eprocurement.official_client.OfficialEProcurementClient._endpoints_confirmed_from_env", return_value=False), \
+         patch("connectors.eprocurement.official_client.OfficialEProcurementClient._endpoints_confirmed_from_cache", return_value=False):
         client = OfficialEProcurementClient(
             token_url="https://example.com/token",
             client_id="id",
@@ -116,4 +112,4 @@ def test_search_publications_raises_when_endpoint_pending() -> None:
         )
         with pytest.raises(EProcurementEndpointNotConfiguredError) as exc_info:
             client.search_publications(term="travaux", page=1, page_size=25)
-        assert "pending" in str(exc_info.value).lower() or "endpoint" in str(exc_info.value).lower()
+        assert "confirmed" in str(exc_info.value).lower() or "endpoint" in str(exc_info.value).lower()

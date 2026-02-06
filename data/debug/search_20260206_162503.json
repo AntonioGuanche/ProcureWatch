@@ -1,0 +1,757 @@
+{
+  "metadata": {
+    "term": "construction",
+    "page": 1,
+    "pageSize": 5,
+    "timestamp": "2026-02-06T15:25:03.307213+00:00",
+    "url": "https://public.int.fedservices.be/api/eProcurementSea/v1/search/publications?terms=construction&page=1&pageSize=5",
+    "status": 200,
+    "totalCount": 4809
+  },
+  "json": {
+    "publications": [
+      {
+        "cpvAdditionalCodes": [
+          {
+            "code": "45236119-7",
+            "descriptions": [
+              {
+                "language": "NL",
+                "text": "Herstelwerkzaamheden op sportvelden"
+              },
+              {
+                "language": "DE",
+                "text": "Ausbesserungsarbeiten an Sportplätzen"
+              },
+              {
+                "language": "EN",
+                "text": "Repair work on sports fields"
+              },
+              {
+                "language": "FR",
+                "text": "Travaux de réparation de terrains de sports"
+              }
+            ]
+          }
+        ],
+        "cpvMainCode": {
+          "code": "45236119-7",
+          "descriptions": [
+            {
+              "language": "NL",
+              "text": "Herstelwerkzaamheden op sportvelden"
+            },
+            {
+              "language": "DE",
+              "text": "Ausbesserungsarbeiten an Sportplätzen"
+            },
+            {
+              "language": "EN",
+              "text": "Repair work on sports fields"
+            },
+            {
+              "language": "FR",
+              "text": "Travaux de réparation de terrains de sports"
+            }
+          ]
+        },
+        "dossier": {
+          "accreditations": {},
+          "descriptions": [
+            {
+              "language": "NL",
+              "text": "Démolition et évacuation de l’ancien revêtement,? Démolition et évacuation de l’ancienne couche amortissante,? Reprofilage de la fondation en empierrement,? Pose d’une couche amortissante,? Pose d’un revêtement en gazon synthétique"
+            }
+          ],
+          "enterpriseCategories": [],
+          "legalBasis": "D24",
+          "number": "26/10/2023 16:33 - PPP001",
+          "procurementProcedureType": "OPEN",
+          "referenceNumber": "26/10/2023 16:33 - PPP001",
+          "titles": [
+            {
+              "language": "NL",
+              "text": "Travaux de reconstruction suite aux inondations de juillet 2021 – Reconstruction du terrain synthétique du RRC Mormont "
+            }
+          ]
+        },
+        "insertionDate": "2023-11-30",
+        "lots": [
+          {
+            "descriptions": [
+              {
+                "language": "NL",
+                "text": "Travaux de reconstruction suite aux inondations de juillet 2021 – Reconstruction du terrain synthétique du RRC Mormont "
+              }
+            ],
+            "reservedExecution": [
+              "NO"
+            ],
+            "reservedParticipation": [
+              "NONE"
+            ],
+            "titles": [
+              {
+                "language": "NL",
+                "text": "Travaux de reconstruction suite aux inondations de juillet 2021 – Reconstruction du terrain synthétique du RRC Mormont "
+              }
+            ]
+          }
+        ],
+        "natures": [
+          "WORKS"
+        ],
+        "noticeIds": [
+          "74263dad-594a-4de1-aeae-29778e0df3ed"
+        ],
+        "noticeSubType": "16",
+        "nutsCodes": [
+          "BE343"
+        ],
+        "organisation": {
+          "organisationId": 3301,
+          "organisationNames": [
+            {
+              "language": "FR",
+              "text": "3PNLD"
+            },
+            {
+              "language": "NL",
+              "text": "3PNLD"
+            }
+          ],
+          "tree": "200004.200036.481.3301"
+        },
+        "procedureId": "f74b0e83-1aa0-4528-9e49-e94408ddff77",
+        "publicationDate": "2023-10-26",
+        "publicationLanguages": [
+          "NL"
+        ],
+        "publicationReferenceNumbersBDA": [
+          "26/10/2023 16:33 - PPP001_26/10/2023 16:33 - PPP001"
+        ],
+        "publicationReferenceNumbersTED": [],
+        "publicationType": "ACTIVE",
+        "publicationWorkspaceId": "77fcde7a-62a9-4462-b11a-472b4d9fb0bd",
+        "publishedAt": [
+          "2023-10-26T16:32:00.021843"
+        ],
+        "referenceNumber": "26/10/2023 16:33 - PPP001_26/10/2023 16:33 - PPP001",
+        "sentAt": [
+          "2023-10-26T16:31:54.518161"
+        ],
+        "tedPublished": false,
+        "vaultSubmissionDeadline": "2023-11-03T11:00:00"
+      },
+      {
+        "cpvAdditionalCodes": [
+          {
+            "code": "45000000-7",
+            "descriptions": [
+              {
+                "language": "EN",
+                "text": "Construction work"
+              },
+              {
+                "language": "FR",
+                "text": "Travaux de construction"
+              },
+              {
+                "language": "NL",
+                "text": "Bouwwerkzaamheden"
+              },
+              {
+                "language": "DE",
+                "text": "Bauarbeiten"
+              }
+            ]
+          }
+        ],
+        "cpvMainCode": {
+          "code": "45000000-7",
+          "descriptions": [
+            {
+              "language": "EN",
+              "text": "Construction work"
+            },
+            {
+              "language": "FR",
+              "text": "Travaux de construction"
+            },
+            {
+              "language": "NL",
+              "text": "Bouwwerkzaamheden"
+            },
+            {
+              "language": "DE",
+              "text": "Bauarbeiten"
+            }
+          ]
+        },
+        "dossier": {
+          "accreditations": {},
+          "descriptions": [
+            {
+              "language": "FR",
+              "text": "Le marché comprend tous les travaux nécessaires à la reconstruction de l'école du Merlo sise rue du Merlo 16 à 1180 Bruxelles.\n\nL’entreprise comporte tous les travaux, les fournitures, les transports, la main d’œuvre et les moyens d’exécution pour une construction complète et impeccable, rien omis ni excepté.  "
+            },
+            {
+              "language": "NL",
+              "text": "De opdracht omvat alle noodzakelijke werken voor de herbouw van de Merloschool gelegen Merlostraat 16 te 1180 Brussel.\n\nDe aanneming omvat alle werkzaamheden, leveringen, vervoer, handwerk en uitvoeringsmiddelen voor een volledig en onberispelijk bouwwerk, niets weggelaten of uitgezonderd.\n"
+            }
+          ],
+          "enterpriseCategories": [],
+          "legalBasis": "D24",
+          "number": "9/26/2023 3:26 PM 3PID2068 2023-054",
+          "procurementProcedureType": "OPEN",
+          "referenceNumber": "9/26/2023 3:26 PM 3PID2068 2023-054",
+          "titles": [
+            {
+              "language": "FR",
+              "text": "Reconstruction école"
+            },
+            {
+              "language": "NL",
+              "text": "Heraanleg school test CL26092023"
+            }
+          ]
+        },
+        "insertionDate": "2023-11-30",
+        "lots": [
+          {
+            "descriptions": [
+              {
+                "language": "FR",
+                "text": "Reconstruction école"
+              },
+              {
+                "language": "NL",
+                "text": "Heraanleg school test CL26092023"
+              }
+            ],
+            "reservedExecution": [
+              "NO"
+            ],
+            "reservedParticipation": [
+              "NONE"
+            ],
+            "titles": [
+              {
+                "language": "FR",
+                "text": "Reconstruction école"
+              },
+              {
+                "language": "NL",
+                "text": "Heraanleg school test CL26092023"
+              }
+            ]
+          }
+        ],
+        "natures": [
+          "WORKS"
+        ],
+        "noticeIds": [
+          "a80fa82b-5395-4930-88b0-72941b9a157d"
+        ],
+        "noticeSubType": "16",
+        "nutsCodes": [
+          "BE100"
+        ],
+        "organisation": {
+          "organisationId": 3303,
+          "organisationNames": [
+            {
+              "language": "FR",
+              "text": "3PNLDFRA"
+            },
+            {
+              "language": "NL",
+              "text": "3PNLDFRA"
+            }
+          ],
+          "tree": "200004.200036.481.3303"
+        },
+        "procedureId": "016f45b5-91ba-4429-b84b-05e12c62ac85",
+        "publicationDate": "2023-09-27",
+        "publicationLanguages": [
+          "FR",
+          "NL"
+        ],
+        "publicationReferenceNumbersBDA": [],
+        "publicationReferenceNumbersTED": [
+          "9/26/2023 3:26 PM 3PID2068 2023-054_9/26/2023 3:26 PM - PPP0C4"
+        ],
+        "publicationType": "ACTIVE",
+        "publicationWorkspaceId": "b977f1e4-75d0-4a78-ab5a-05e79d6608ef",
+        "publishedAt": [
+          "2023-09-27T15:15:08.963606"
+        ],
+        "referenceNumber": "9/26/2023 3:26 PM 3PID2068 2023-054_9/26/2023 3:26 PM - PPP0C4",
+        "sentAt": [
+          "2023-09-26T15:25:38.122342"
+        ],
+        "tedPublished": true,
+        "vaultSubmissionDeadline": "2023-10-30T11:30:00"
+      },
+      {
+        "cpvAdditionalCodes": [
+          {
+            "code": "45000000-7",
+            "descriptions": [
+              {
+                "language": "EN",
+                "text": "Construction work"
+              },
+              {
+                "language": "FR",
+                "text": "Travaux de construction"
+              },
+              {
+                "language": "NL",
+                "text": "Bouwwerkzaamheden"
+              },
+              {
+                "language": "DE",
+                "text": "Bauarbeiten"
+              }
+            ]
+          }
+        ],
+        "cpvMainCode": {
+          "code": "45000000-7",
+          "descriptions": [
+            {
+              "language": "EN",
+              "text": "Construction work"
+            },
+            {
+              "language": "FR",
+              "text": "Travaux de construction"
+            },
+            {
+              "language": "NL",
+              "text": "Bouwwerkzaamheden"
+            },
+            {
+              "language": "DE",
+              "text": "Bauarbeiten"
+            }
+          ]
+        },
+        "dossier": {
+          "accreditations": {},
+          "descriptions": [
+            {
+              "language": "FR",
+              "text": "Le marché comprend tous les travaux nécessaires à la reconstruction de l'école du Merlo sise rue du Merlo 16 à 1180 Bruxelles.\n\nL’entreprise comporte tous les travaux, les fournitures, les transports, la main d’œuvre et les moyens d’exécution pour une construction complète et impeccable, rien omis ni excepté.  "
+            },
+            {
+              "language": "NL",
+              "text": "De opdracht omvat alle noodzakelijke werken voor de herbouw van de Merloschool gelegen Merlostraat 16 te 1180 Brussel.\n\nDe aanneming omvat alle werkzaamheden, leveringen, vervoer, handwerk en uitvoeringsmiddelen voor een volledig en onberispelijk bouwwerk, niets weggelaten of uitgezonderd.\n"
+            }
+          ],
+          "enterpriseCategories": [],
+          "legalBasis": "D24",
+          "number": "9/27/2023 2:40 PM 3PID2077 12547854",
+          "procurementProcedureType": "OPEN",
+          "referenceNumber": "9/27/2023 2:40 PM 3PID2077 12547854",
+          "titles": [
+            {
+              "language": "FR",
+              "text": "Reconstruction hôpital"
+            },
+            {
+              "language": "NL",
+              "text": "Heraanleg ziekenhuis est CL27092023"
+            }
+          ]
+        },
+        "insertionDate": "2023-11-30",
+        "lots": [
+          {
+            "descriptions": [
+              {
+                "language": "FR",
+                "text": "Reconstruction hôpital"
+              },
+              {
+                "language": "NL",
+                "text": "Heraanleg ziekenhuis est CL27092023"
+              }
+            ],
+            "reservedExecution": [
+              "NO"
+            ],
+            "reservedParticipation": [
+              "NONE"
+            ],
+            "titles": [
+              {
+                "language": "FR",
+                "text": "Reconstruction hôpital"
+              },
+              {
+                "language": "NL",
+                "text": "Heraanleg ziekenhuis est CL27092023"
+              }
+            ]
+          }
+        ],
+        "natures": [
+          "WORKS"
+        ],
+        "noticeIds": [
+          "d1935587-f4c3-4202-8663-0f37595564ef"
+        ],
+        "noticeSubType": "16",
+        "nutsCodes": [
+          "BE100"
+        ],
+        "organisation": {
+          "organisationId": 3303,
+          "organisationNames": [
+            {
+              "language": "FR",
+              "text": "3PNLDFRA"
+            },
+            {
+              "language": "NL",
+              "text": "3PNLDFRA"
+            }
+          ],
+          "tree": "200004.200036.481.3303"
+        },
+        "procedureId": "932df4c1-4d4d-428a-98f6-63c97fcdb187",
+        "publicationDate": "2023-09-28",
+        "publicationLanguages": [
+          "FR",
+          "NL"
+        ],
+        "publicationReferenceNumbersBDA": [],
+        "publicationReferenceNumbersTED": [
+          "9/27/2023 2:40 PM 3PID2077 12547854_9/27/2023 2:40 PM - PPP0C4"
+        ],
+        "publicationType": "ACTIVE",
+        "publicationWorkspaceId": "a80d3504-1f37-4be9-adea-03d2d9f0c128",
+        "publishedAt": [
+          "2023-09-28T16:15:16.125131"
+        ],
+        "referenceNumber": "9/27/2023 2:40 PM 3PID2077 12547854_9/27/2023 2:40 PM - PPP0C4",
+        "sentAt": [
+          "2023-09-27T14:38:50.852527"
+        ],
+        "tedPublished": true,
+        "vaultSubmissionDeadline": "2023-10-31T14:00:00"
+      },
+      {
+        "cpvAdditionalCodes": [
+          {
+            "code": "45212000-6",
+            "descriptions": [
+              {
+                "language": "EN",
+                "text": "Construction work for buildings relating to leisure, sports, culture, lodging and restaurants"
+              },
+              {
+                "language": "DE",
+                "text": "Bauarbeiten für Gebäude, die der Freizeitgestaltung, dem Sport, der Kultur, der Unterbringung und Verpflegung dienen"
+              },
+              {
+                "language": "NL",
+                "text": "Gebouwen voor vrijetijdsbesteding, sport, cultuur, logies en restaurant"
+              },
+              {
+                "language": "FR",
+                "text": "Travaux de construction de bâtiments destinés aux loisirs, aux sports, à la culture, à l'hébergement et de restaurants"
+              }
+            ]
+          }
+        ],
+        "cpvMainCode": {
+          "code": "45212000-6",
+          "descriptions": [
+            {
+              "language": "EN",
+              "text": "Construction work for buildings relating to leisure, sports, culture, lodging and restaurants"
+            },
+            {
+              "language": "DE",
+              "text": "Bauarbeiten für Gebäude, die der Freizeitgestaltung, dem Sport, der Kultur, der Unterbringung und Verpflegung dienen"
+            },
+            {
+              "language": "NL",
+              "text": "Gebouwen voor vrijetijdsbesteding, sport, cultuur, logies en restaurant"
+            },
+            {
+              "language": "FR",
+              "text": "Travaux de construction de bâtiments destinés aux loisirs, aux sports, à la culture, à l'hébergement et de restaurants"
+            }
+          ]
+        },
+        "dossier": {
+          "accreditations": {},
+          "descriptions": [
+            {
+              "language": "FR",
+              "text": "Construction d'un hall sportif, aménagement des abords et équipements sportifs"
+            }
+          ],
+          "enterpriseCategories": [],
+          "legalBasis": "D24",
+          "number": "e7e8b2e7-0ecb-4098-9a07-0ef82a7f669e",
+          "procurementProcedureType": "NEG_WO_CALL_24",
+          "referenceNumber": "e7e8b2e7-0ecb-4098-9a07-0ef82a7f669e",
+          "titles": [
+            {
+              "language": "FR",
+              "text": "Construction d'un hall sportif, aménagement des abords et équipements sportifs"
+            }
+          ]
+        },
+        "insertionDate": "2023-11-30",
+        "lots": [
+          {
+            "descriptions": [
+              {
+                "language": "FR",
+                "text": "LOT 2 : ABORDS"
+              }
+            ],
+            "titles": [
+              {
+                "language": "FR",
+                "text": "LOT 2 : ABORDS"
+              }
+            ]
+          },
+          {
+            "descriptions": [
+              {
+                "language": "FR",
+                "text": "LOT 1 : ARCHITECTURE - Construction d’un hall sportif"
+              }
+            ],
+            "titles": [
+              {
+                "language": "FR",
+                "text": "LOT 1 : ARCHITECTURE - Construction d’un hall sportif"
+              }
+            ]
+          },
+          {
+            "descriptions": [
+              {
+                "language": "FR",
+                "text": "LOT 3: EQUIPEMENTS SPORTIFS"
+              }
+            ],
+            "titles": [
+              {
+                "language": "FR",
+                "text": "LOT 3: EQUIPEMENTS SPORTIFS"
+              }
+            ]
+          }
+        ],
+        "natures": [
+          "WORKS"
+        ],
+        "noticeIds": [
+          "c3ea98da-c9b1-4b54-9ec2-c0dc508eebd2"
+        ],
+        "noticeSubType": "BE-E4",
+        "nutsCodes": [
+          "BE332"
+        ],
+        "organisation": {
+          "organisationId": 3302,
+          "organisationNames": [
+            {
+              "language": "NL",
+              "text": "3PFRA"
+            },
+            {
+              "language": "FR",
+              "text": "3PFRA"
+            }
+          ],
+          "tree": "200004.200036.481.3302"
+        },
+        "procedureId": "5c263c0c-9d5d-41de-9fa5-c7569c405c0e",
+        "publicationDate": "2023-11-29",
+        "publicationLanguages": [
+          "FR"
+        ],
+        "publicationReferenceNumbersBDA": [
+          "e7e8b2e7-0ecb-4098-9a07-0ef82a7f669e_002"
+        ],
+        "publicationReferenceNumbersTED": [],
+        "publicationType": "ACTIVE",
+        "publicationWorkspaceId": "ef7d213a-6c51-437e-bd6a-811cac795a4a",
+        "publishedAt": [
+          "2023-11-29T08:00:00.066213"
+        ],
+        "referenceNumber": "e7e8b2e7-0ecb-4098-9a07-0ef82a7f669e_002",
+        "sentAt": [
+          "2023-11-29T07:58:58.477234"
+        ],
+        "tedPublished": false
+      },
+      {
+        "cpvAdditionalCodes": [
+          {
+            "code": "45212000-6",
+            "descriptions": [
+              {
+                "language": "EN",
+                "text": "Construction work for buildings relating to leisure, sports, culture, lodging and restaurants"
+              },
+              {
+                "language": "DE",
+                "text": "Bauarbeiten für Gebäude, die der Freizeitgestaltung, dem Sport, der Kultur, der Unterbringung und Verpflegung dienen"
+              },
+              {
+                "language": "NL",
+                "text": "Gebouwen voor vrijetijdsbesteding, sport, cultuur, logies en restaurant"
+              },
+              {
+                "language": "FR",
+                "text": "Travaux de construction de bâtiments destinés aux loisirs, aux sports, à la culture, à l'hébergement et de restaurants"
+              }
+            ]
+          }
+        ],
+        "cpvMainCode": {
+          "code": "45212000-6",
+          "descriptions": [
+            {
+              "language": "EN",
+              "text": "Construction work for buildings relating to leisure, sports, culture, lodging and restaurants"
+            },
+            {
+              "language": "DE",
+              "text": "Bauarbeiten für Gebäude, die der Freizeitgestaltung, dem Sport, der Kultur, der Unterbringung und Verpflegung dienen"
+            },
+            {
+              "language": "NL",
+              "text": "Gebouwen voor vrijetijdsbesteding, sport, cultuur, logies en restaurant"
+            },
+            {
+              "language": "FR",
+              "text": "Travaux de construction de bâtiments destinés aux loisirs, aux sports, à la culture, à l'hébergement et de restaurants"
+            }
+          ]
+        },
+        "dossier": {
+          "accreditations": {},
+          "descriptions": [
+            {
+              "language": "FR",
+              "text": "Construction d'un hall sportif, aménagement des abords et équipements sportifs"
+            }
+          ],
+          "enterpriseCategories": [],
+          "legalBasis": "D24",
+          "number": "e7e8b2e7-0ecb-4098-9a07-0ef82a7f669e",
+          "procurementProcedureType": "NEG_WO_CALL_24",
+          "referenceNumber": "e7e8b2e7-0ecb-4098-9a07-0ef82a7f669e",
+          "titles": [
+            {
+              "language": "FR",
+              "text": "Construction d'un hall sportif, aménagement des abords et équipements sportifs"
+            }
+          ]
+        },
+        "insertionDate": "2023-11-30",
+        "lots": [
+          {
+            "descriptions": [
+              {
+                "language": "FR",
+                "text": "LOT 2 : ABORDS"
+              }
+            ],
+            "titles": [
+              {
+                "language": "FR",
+                "text": "LOT 2 : ABORDS"
+              }
+            ]
+          },
+          {
+            "descriptions": [
+              {
+                "language": "FR",
+                "text": "LOT 1 : ARCHITECTURE - Construction d’un hall sportif"
+              }
+            ],
+            "titles": [
+              {
+                "language": "FR",
+                "text": "LOT 1 : ARCHITECTURE - Construction d’un hall sportif"
+              }
+            ]
+          },
+          {
+            "descriptions": [
+              {
+                "language": "FR",
+                "text": "LOT 3: EQUIPEMENTS SPORTIFS"
+              }
+            ],
+            "titles": [
+              {
+                "language": "FR",
+                "text": "LOT 3: EQUIPEMENTS SPORTIFS"
+              }
+            ]
+          }
+        ],
+        "natures": [
+          "WORKS"
+        ],
+        "noticeIds": [
+          "3bb5dfc0-ec2d-4b30-804e-1ef2aaae5cad"
+        ],
+        "noticeSubType": "BE-E4",
+        "nutsCodes": [
+          "BE332"
+        ],
+        "organisation": {
+          "organisationId": 3302,
+          "organisationNames": [
+            {
+              "language": "NL",
+              "text": "3PFRA"
+            },
+            {
+              "language": "FR",
+              "text": "3PFRA"
+            }
+          ],
+          "tree": "200004.200036.481.3302"
+        },
+        "procedureId": "5c263c0c-9d5d-41de-9fa5-c7569c405c0e",
+        "publicationDate": "2023-11-29",
+        "publicationLanguages": [
+          "FR"
+        ],
+        "publicationReferenceNumbersBDA": [
+          "e7e8b2e7-0ecb-4098-9a07-0ef82a7f669e_001"
+        ],
+        "publicationReferenceNumbersTED": [],
+        "publicationType": "ACTIVE",
+        "publicationWorkspaceId": "096aca89-0904-4480-b2e9-e1002c3ddae3",
+        "publishedAt": [
+          "2023-11-29T07:46:00.022483"
+        ],
+        "referenceNumber": "e7e8b2e7-0ecb-4098-9a07-0ef82a7f669e_001",
+        "sentAt": [
+          "2023-11-29T07:45:37.829519"
+        ],
+        "tedPublished": false
+      }
+    ],
+    "totalCount": 4809
+  }
+}

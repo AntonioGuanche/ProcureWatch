@@ -3,11 +3,21 @@
 import sys
 from pathlib import Path
 
-# Ensure project root is on path
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(PROJECT_ROOT))
+# Determine repo root and load .env explicitly before any imports
+REPO_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO_ROOT))
 
-# Load .env file if present (before any imports that need env vars)
+# Load .env explicitly for standalone script execution
+_env_file = REPO_ROOT / ".env"
+if _env_file.exists():
+    try:
+        from dotenv import load_dotenv
+        load_dotenv(_env_file, override=False)
+    except ImportError:
+        # python-dotenv not installed - that's OK, pydantic-settings will load it
+        pass
+
+# Also use the utility function for consistency
 from app.utils.env import load_env_if_present
 load_env_if_present()
 
@@ -34,6 +44,11 @@ def main() -> int:
         action="store_true",
         help="Force discovery and overwrite cache file",
     )
+    parser.add_argument(
+        "--confirm",
+        action="store_true",
+        help="Mark discovered endpoints as confirmed (required for API calls)",
+    )
     args = parser.parse_args()
 
     try:
@@ -41,6 +56,7 @@ def main() -> int:
             force=args.force,
             sea_swagger_url=DEFAULT_SEA_SWAGGER_URL,
             loc_swagger_url=DEFAULT_LOC_SWAGGER_URL,
+            confirmed=args.confirm,
         )
     except Exception as e:
         print(f"Discovery failed: {e}", file=sys.stderr)
@@ -117,6 +133,23 @@ def main() -> int:
         print(f"\n(Could not re-fetch candidates for display: {e})")
 
     print(f"\nCache written. updated_at={endpoints.updated_at}")
+    
+    # Check if confirmed
+    from connectors.eprocurement.openapi_discovery import cache_path
+    import json
+    cache_file = cache_path()
+    if cache_file.exists():
+        try:
+            with open(cache_file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            if data.get("confirmed", False):
+                print("✓ Endpoints marked as CONFIRMED. API calls are now enabled.")
+            else:
+                print("⚠ Endpoints NOT confirmed. Run with --confirm to enable API calls.")
+                print("  Example: python scripts/discover_eprocurement_endpoints.py --confirm")
+        except Exception:
+            pass
+    
     return 0
 
 

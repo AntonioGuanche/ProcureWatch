@@ -36,6 +36,11 @@ class Settings(BaseSettings):
         "https://public.int.fedservices.be/api/eProcurementLoc/v1",
         validation_alias="EPROC_LOC_BASE_URL",
     )
+    eproc_dos_base_url: str = Field(
+        "https://public.int.fedservices.be/api/eProcurementDos/v1",
+        validation_alias="EPROC_DOS_BASE_URL",
+    )
+    eproc_cpv_probe: bool = Field(False, validation_alias="EPROC_CPV_PROBE")
     eproc_timeout_seconds: int = Field(30, validation_alias="EPROC_TIMEOUT_SECONDS")
 
     # BOSA e-Procurement OAuth2 (Client Credentials) - separate INT/PR environments
@@ -188,5 +193,168 @@ class Settings(BaseSettings):
             return self.eprocurement_pr_loc_base_url
         return self.eprocurement_int_loc_base_url
 
+    def _resolve_eproc_env_name(self) -> str:
+        """Resolve eProcurement environment name (INT or PR)."""
+        env_name = (self.eprocurement_env or "INT").strip().upper()
+        if env_name not in ("INT", "PR"):
+            env_name = "INT"  # Default to INT
+        return env_name
+
+    @staticmethod
+    def is_placeholder(value: str | None) -> bool:
+        """
+        Check if a value is a placeholder (should be ignored in config resolution).
+        
+        Returns True for:
+        - None / empty / whitespace-only strings
+        - Common placeholder patterns: "__REPLACE_ME__", "REPLACE_ME", "CHANGEME"
+        - Values starting with "__REPLACE_ME"
+        """
+        if not value:
+            return True
+        
+        value_stripped = value.strip()
+        if not value_stripped:
+            return True
+        
+        # Common placeholder patterns (case-insensitive)
+        placeholders = {
+            "__REPLACE_ME__",
+            "REPLACE_ME",
+            "CHANGEME",
+            "__CHANGEME__",
+            "YOUR_VALUE_HERE",
+            "SET_ME",
+        }
+        
+        if value_stripped.upper() in {p.upper() for p in placeholders}:
+            return True
+        
+        # Values starting with "__REPLACE_ME" (with optional trailing characters)
+        if value_stripped.upper().startswith("__REPLACE_ME"):
+            return True
+        
+        return False
+
+    def resolve_eproc_official_config(self) -> dict[str, Optional[str]]:
+        """
+        Canonicalize eProcurement 'official' mode configuration.
+        Returns dict with: token_url, client_id, client_secret, search_base_url, loc_base_url.
+        
+        Resolution order:
+        1. Legacy EPROC_* vars override everything (backward compatibility)
+        2. EPROCUREMENT_ENV determines which INT/PR vars to use
+        3. Defaults derived from environment if not set
+        
+        Raises ValueError if in official mode and credentials are missing/invalid.
+        """
+        env_name = self._resolve_eproc_env_name()
+        
+        # Resolve token_url: EPROC_OAUTH_TOKEN_URL > EPROCUREMENT_{INT,PR}_TOKEN_URL
+        # Legacy override only if present and not a placeholder
+        token_url: Optional[str] = None
+        if (
+            self.eproc_oauth_token_url
+            and not self.is_placeholder(self.eproc_oauth_token_url)
+            and self.eproc_oauth_token_url != "https://public.int.fedservices.be/api/oauth2/token"
+        ):
+            token_url = self.eproc_oauth_token_url
+        elif env_name == "PR":
+            token_url = self.eprocurement_pr_token_url
+        else:
+            token_url = self.eprocurement_int_token_url
+        
+        # Resolve client_id: EPROC_CLIENT_ID > EPROCUREMENT_{INT,PR}_CLIENT_ID
+        # Legacy override only if present and not a placeholder
+        client_id: Optional[str] = None
+        if self.eproc_client_id and not self.is_placeholder(self.eproc_client_id):
+            client_id = self.eproc_client_id
+        elif env_name == "PR":
+            client_id = self.eprocurement_pr_client_id
+        else:
+            client_id = self.eprocurement_int_client_id
+        
+        # Resolve client_secret: EPROC_CLIENT_SECRET > EPROCUREMENT_{INT,PR}_CLIENT_SECRET
+        # Legacy override only if present and not a placeholder
+        client_secret: Optional[str] = None
+        if self.eproc_client_secret and not self.is_placeholder(self.eproc_client_secret):
+            client_secret = self.eproc_client_secret
+        elif env_name == "PR":
+            client_secret = self.eprocurement_pr_client_secret
+        else:
+            client_secret = self.eprocurement_int_client_secret
+        
+        # Resolve search_base_url: EPROC_SEARCH_BASE_URL > EPROCUREMENT_{INT,PR}_SEA_BASE_URL > default
+        search_base_url: Optional[str] = None
+        if self.eproc_search_base_url and self.eproc_search_base_url != "https://public.int.fedservices.be/api/eProcurementSea/v1":
+            search_base_url = self.eproc_search_base_url
+        elif env_name == "PR":
+            search_base_url = self.eprocurement_pr_sea_base_url
+        else:
+            search_base_url = self.eprocurement_int_sea_base_url
+        
+        # Resolve loc_base_url: EPROC_LOC_BASE_URL > EPROCUREMENT_{INT,PR}_LOC_BASE_URL > default
+        loc_base_url: Optional[str] = None
+        if self.eproc_loc_base_url and self.eproc_loc_base_url != "https://public.int.fedservices.be/api/eProcurementLoc/v1":
+            loc_base_url = self.eproc_loc_base_url
+        elif env_name == "PR":
+            loc_base_url = self.eprocurement_pr_loc_base_url
+        else:
+            loc_base_url = self.eprocurement_int_loc_base_url
+
+        # Resolve dos_base_url: EPROC_DOS_BASE_URL > EPROCUREMENT_{INT,PR}_DOS_BASE_URL > default
+        dos_base_url: Optional[str] = None
+        if self.eproc_dos_base_url and self.eproc_dos_base_url != "https://public.int.fedservices.be/api/eProcurementDos/v1":
+            dos_base_url = self.eproc_dos_base_url
+        elif env_name == "PR":
+            dos_base_url = self.eprocurement_pr_dos_base_url
+        else:
+            dos_base_url = self.eprocurement_int_dos_base_url
+
+        return {
+            "token_url": token_url,
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "search_base_url": search_base_url,
+            "loc_base_url": loc_base_url,
+            "dos_base_url": dos_base_url,
+            "env_name": env_name,
+        }
+
+    def validate_eproc_official_config(self) -> None:
+        """
+        Validate eProcurement official mode configuration.
+        Raises ValueError with clear message if credentials are missing or invalid.
+        """
+        if self.eproc_mode.lower() not in ("official", "auto"):
+            return  # Only validate for official/auto mode
+        
+        config = self.resolve_eproc_official_config()
+        client_id = config["client_id"]
+        client_secret = config["client_secret"]
+        env_name = config["env_name"]
+        
+        # Check if credentials are missing or placeholders
+        if not client_id or not client_secret:
+            raise ValueError(
+                f"eProcurement official mode requires credentials. "
+                f"Set EPROCUREMENT_{env_name}_CLIENT_ID/EPROCUREMENT_{env_name}_CLIENT_SECRET in .env. "
+                f"Note: Legacy EPROC_CLIENT_ID/EPROC_CLIENT_SECRET placeholders are ignored."
+            )
+        
+        if self.is_placeholder(client_id) or self.is_placeholder(client_secret):
+            raise ValueError(
+                f"eProcurement credentials contain placeholder values. "
+                f"Set real values in .env for EPROCUREMENT_{env_name}_CLIENT_ID/EPROCUREMENT_{env_name}_CLIENT_SECRET. "
+                f"Note: Legacy EPROC_CLIENT_ID/EPROC_CLIENT_SECRET placeholders are ignored."
+            )
+
 
 settings = Settings()
+
+# Validate on import if in official mode (fail fast)
+try:
+    settings.validate_eproc_official_config()
+except ValueError:
+    # Don't crash on import - validation happens when client is created
+    pass

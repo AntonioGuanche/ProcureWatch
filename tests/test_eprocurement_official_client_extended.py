@@ -6,10 +6,10 @@ from unittest.mock import Mock, patch
 import pytest
 import requests
 
-from connectors.eprocurement.official_client import (
+from connectors.eprocurement.exceptions import (
     EProcurementCredentialsError,
-    OfficialEProcurementClient,
 )
+from connectors.eprocurement.official_client import OfficialEProcurementClient
 
 
 @pytest.fixture

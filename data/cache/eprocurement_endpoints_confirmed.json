@@ -1,5 +1,5 @@
 {
-  "confirmed": true,
+  "confirmed": false,
   "search_publications": {
     "method": "GET",
     "path": "/search/publications",
@@ -25,5 +25,6 @@
       "shortLink"
     ]
   },
-  "updated_at": "2026-02-06T09:01:23.395878+00:00"
+  "updated_at": "2026-02-06T16:44:02.516091+00:00",
+  "source": "openapi_discovery"
 }

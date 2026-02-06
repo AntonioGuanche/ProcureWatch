@@ -2,11 +2,11 @@
 import logging
 from typing import Any, Optional
 
-from connectors.eprocurement.official_client import (
+from connectors.eprocurement.exceptions import (
     EProcurementCredentialsError,
     EProcurementEndpointNotConfiguredError,
-    OfficialEProcurementClient,
 )
+from connectors.eprocurement.official_client import OfficialEProcurementClient
 from connectors.eprocurement.playwright_client import (
     PlaywrightCollectorError,
     PlaywrightEProcurementClient,
@@ -29,20 +29,17 @@ def _get_client():  # noqa: ANN202
     from app.core.config import settings
 
     mode = (getattr(settings, "eproc_mode", None) or "auto").strip().lower()
-    client_id = getattr(settings, "eproc_client_id", None) or ""
-    client_secret = getattr(settings, "eproc_client_secret", None) or ""
 
     if mode == "official":
-        if not client_id or not client_secret:
-            raise EProcurementCredentialsError(
-                "EPROC_MODE=official requires EPROC_CLIENT_ID and EPROC_CLIENT_SECRET."
-            )
+        # Use canonicalized config
+        config = settings.resolve_eproc_official_config()
+        settings.validate_eproc_official_config()
         _client = OfficialEProcurementClient(
-            token_url=settings.eproc_oauth_token_url,
-            client_id=client_id,
-            client_secret=client_secret,
-            search_base_url=settings.eproc_search_base_url,
-            loc_base_url=settings.eproc_loc_base_url,
+            token_url=config["token_url"],
+            client_id=config["client_id"],
+            client_secret=config["client_secret"],
+            search_base_url=config["search_base_url"],
+            loc_base_url=config["loc_base_url"],
             timeout_seconds=settings.eproc_timeout_seconds,
         )
         _provider_name = "official"
@@ -56,26 +53,26 @@ def _get_client():  # noqa: ANN202
         return _client, _provider_name
 
     # auto: use official if credentials present, else playwright
-    if client_id and client_secret:
-        try:
+    try:
+        config = settings.resolve_eproc_official_config()
+        if config["client_id"] and config["client_secret"]:
+            settings.validate_eproc_official_config()
             _client = OfficialEProcurementClient(
-                token_url=settings.eproc_oauth_token_url,
-                client_id=client_id,
-                client_secret=client_secret,
-                search_base_url=settings.eproc_search_base_url,
-                loc_base_url=settings.eproc_loc_base_url,
+                token_url=config["token_url"],
+                client_id=config["client_id"],
+                client_secret=config["client_secret"],
+                search_base_url=config["search_base_url"],
+                loc_base_url=config["loc_base_url"],
+                dos_base_url=config.get("dos_base_url"),
                 timeout_seconds=settings.eproc_timeout_seconds,
+                cpv_probe=settings.eproc_cpv_probe,
             )
             _provider_name = "official"
             logger.info("e-Procurement provider: official (auto, credentials found)")
             return _client, _provider_name
-        except Exception as e:
-            logger.warning("Official client init failed in auto mode: %s; falling back to playwright", e)
-            _client = PlaywrightEProcurementClient(timeout_seconds=settings.eproc_timeout_seconds)
-            _provider_name = "playwright"
-            logger.info("e-Procurement provider: playwright (auto fallback)")
-            return _client, _provider_name
-
+    except (ValueError, EProcurementCredentialsError) as e:
+        logger.warning("Official client init failed in auto mode: %s; falling back to playwright", e)
+    
     _client = PlaywrightEProcurementClient(timeout_seconds=settings.eproc_timeout_seconds)
     _provider_name = "playwright"
     logger.info("e-Procurement provider: playwright (auto, no credentials)")
