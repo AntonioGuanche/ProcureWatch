@@ -31,7 +31,7 @@ def _get_client():  # noqa: ANN202
     mode = (getattr(settings, "eproc_mode", None) or "auto").strip().lower()
 
     if mode == "official":
-        # Use canonicalized config
+        # Use canonicalized config (same keys as auto, including dos_base_url)
         config = settings.resolve_eproc_official_config()
         settings.validate_eproc_official_config()
         _client = OfficialEProcurementClient(
@@ -40,7 +40,9 @@ def _get_client():  # noqa: ANN202
             client_secret=config["client_secret"],
             search_base_url=config["search_base_url"],
             loc_base_url=config["loc_base_url"],
+            dos_base_url=config.get("dos_base_url"),
             timeout_seconds=settings.eproc_timeout_seconds,
+            cpv_probe=settings.eproc_cpv_probe,
         )
         _provider_name = "official"
         logger.info("e-Procurement provider: official (OAuth2)")

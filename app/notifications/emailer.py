@@ -21,13 +21,20 @@ def _outbox_dir() -> Path:
     return p
 
 
+def _email_mode() -> str:
+    """Parse EMAIL_MODE: strip whitespace and comments (e.g. 'file # use outbox' -> 'file'), default 'file'."""
+    raw = getattr(settings, "email_mode", None) or os.environ.get("EMAIL_MODE") or "file"
+    mode = str(raw).split("#")[0].strip().lower()
+    return mode if mode else "file"
+
+
 def send_email(to: str, subject: str, body: str, from_addr: Optional[str] = None) -> None:
     """
     Send email: if EMAIL_MODE=file write to EMAIL_OUTBOX_DIR with timestamped .txt (include headers).
     If EMAIL_MODE=smtp send via smtplib (TLS if EMAIL_SMTP_USE_TLS).
     """
     from_addr = from_addr or settings.email_from or "noreply@procurewatch.local"
-    mode = (settings.email_mode or "file").strip().lower()
+    mode = _email_mode()
 
     if mode == "file":
         _send_email_file(to=to, subject=subject, body=body, from_addr=from_addr)
@@ -37,23 +44,66 @@ def send_email(to: str, subject: str, body: str, from_addr: Optional[str] = None
 
 def _send_email_file(to: str, subject: str, body: str, from_addr: str) -> None:
     """Write email to outbox as timestamped .txt file (headers + body)."""
+    _write_email_to_outbox(to=to, subject=subject, body=body, from_addr=from_addr, content_type="text/plain")
+
+
+def _write_email_to_outbox(
+    to: str,
+    subject: str,
+    body: str,
+    from_addr: str,
+    content_type: str = "text/plain",
+) -> None:
+    """Write email to outbox as timestamped file (headers + body)."""
     outbox = _outbox_dir()
     outbox.mkdir(parents=True, exist_ok=True)
     now = datetime.now(timezone.utc)
     ts = now.strftime("%Y-%m-%dT%H-%M-%S-") + f"{now.microsecond // 1000:03d}Z"
-    filename = f"email_{ts}.txt"
+    ext = "html" if "html" in content_type else "txt"
+    filename = f"email_{ts}.{ext}"
     path = outbox / filename
-    content = f"From: {from_addr}\nTo: {to}\nSubject: {subject}\n\n{body}"
+    ct = f"{content_type}; charset=utf-8" if "charset" not in content_type else content_type
+    content = f"From: {from_addr}\nTo: {to}\nSubject: {subject}\nContent-Type: {ct}\n\n{body}"
     path.write_text(content, encoding="utf-8")
 
 
-def _send_email_smtp(to: str, subject: str, body: str, from_addr: str) -> None:
-    """Send email via SMTP (TLS if configured)."""
+def send_email_html(
+    to: str,
+    subject: str,
+    html_body: str,
+    from_addr: Optional[str] = None,
+) -> None:
+    """
+    Send HTML email: if EMAIL_MODE=file write to outbox with Content-Type: text/html; else SMTP sends MIMEText(html).
+    Uses same mode parsing as send_email() (strip whitespace and comments).
+    """
+    from_addr = from_addr or settings.email_from or "noreply@procurewatch.local"
+    mode = _email_mode()
+    if mode == "file":
+        _write_email_to_outbox(
+            to=to,
+            subject=subject,
+            body=html_body,
+            from_addr=from_addr,
+            content_type="text/html; charset=utf-8",
+        )
+    else:
+        _send_email_smtp(to=to, subject=subject, body=html_body, from_addr=from_addr, subtype="html")
+
+
+def _send_email_smtp(
+    to: str,
+    subject: str,
+    body: str,
+    from_addr: str,
+    subtype: str = "plain",
+) -> None:
+    """Send email via SMTP (TLS if configured). subtype: 'plain' or 'html'."""
     host = settings.email_smtp_host
     port = settings.email_smtp_port or (587 if settings.email_smtp_use_tls else 25)
     if not host:
         raise ValueError("EMAIL_SMTP_HOST is required when EMAIL_MODE=smtp")
-    msg = MIMEText(body, "plain", "utf-8")
+    msg = MIMEText(body, subtype, "utf-8")
     msg["Subject"] = subject
     msg["From"] = from_addr
     msg["To"] = to
@@ -68,3 +118,4 @@ def _send_email_smtp(to: str, subject: str, body: str, from_addr: str) -> None:
             if settings.email_smtp_username and settings.email_smtp_password:
                 server.login(settings.email_smtp_username, settings.email_smtp_password)
             server.sendmail(from_addr, [to], msg.as_string())
+    return None

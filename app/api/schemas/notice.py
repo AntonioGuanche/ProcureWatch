@@ -1,6 +1,6 @@
 """Notice schemas."""
-from datetime import datetime
-from typing import List, Optional
+from datetime import date, datetime
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, model_validator
 
@@ -50,6 +50,32 @@ class NoticeListResponse(BaseModel):
     page: int
     page_size: int
     items: List[NoticeRead]
+
+
+class NoticeSearchItem(BaseModel):
+    """Single notice row for GET /api/notices/search (Lovable table)."""
+
+    id: str
+    title: Optional[str] = None
+    source: str
+    cpv_main_code: Optional[str] = None
+    organisation_names: Optional[Dict[str, str]] = None
+    publication_date: Optional[str] = None  # ISO date YYYY-MM-DD
+    deadline: Optional[str] = None  # ISO datetime or date
+    reference_number: Optional[str] = None
+    description: Optional[str] = None  # Truncated to 200 chars for list view
+
+    model_config = {"from_attributes": True}
+
+
+class NoticeSearchResponse(BaseModel):
+    """Paginated search result for GET /api/notices/search."""
+
+    items: List[NoticeSearchItem]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
 
 
 class NoticeDetailRead(BaseModel):
@@ -132,3 +158,66 @@ class NoticeDocumentListResponse(BaseModel):
     page: int
     page_size: int
     items: List[NoticeDocumentRead]
+
+
+# --- Manual refresh (POST /api/notices/refresh) ---
+
+
+class RefreshSearchCriteria(BaseModel):
+    """Search criteria for notice refresh (BOSA + TED)."""
+
+    keywords: Optional[str] = None
+    cpv_codes: Optional[List[str]] = None
+    publication_date_from: Optional[str] = None  # ISO date "YYYY-MM-DD"
+    publication_date_to: Optional[str] = None
+    page: Optional[int] = 1
+    page_size: Optional[int] = 25
+
+
+class RefreshRequest(BaseModel):
+    """Body for POST /api/notices/refresh."""
+
+    sources: Optional[List[str]] = None  # ["BOSA", "TED"] or omit for all
+    search_criteria: Optional[RefreshSearchCriteria] = None
+
+
+class RefreshSourceStats(BaseModel):
+    """Per-source stats (bosa / ted)."""
+
+    created: int = 0
+    updated: int = 0
+    skipped: int = 0
+    errors: List[dict] = []
+
+
+class RefreshResponse(BaseModel):
+    """Response for synchronous refresh (200) or completed job."""
+
+    status: str = "success"
+    stats: dict  # bosa, ted, total_created, total_updated
+    duration_seconds: float = 0.0
+
+
+class RefreshAcceptedResponse(BaseModel):
+    """Response for async refresh (202 Accepted)."""
+
+    status: str = "accepted"
+    job_id: str
+    message: str = "Refresh started in background. Poll GET /api/notices/refresh/jobs/{job_id} for result."
+
+
+class RefreshJobStatusResponse(BaseModel):
+    """Response for GET /api/notices/refresh/jobs/{job_id}."""
+
+    job_id: str
+    status: str  # pending | running | completed | failed
+    result: Optional[RefreshResponse] = None
+    created_at: Optional[datetime] = None
+
+
+class NoticeStatsResponse(BaseModel):
+    """Response for GET /api/notices/stats."""
+
+    total_notices: int
+    by_source: dict  # e.g. {"BOSA_EPROC": 805, "TED_EU": 442}
+    last_import: Optional[str] = None  # ISO datetime of most recent updated_at

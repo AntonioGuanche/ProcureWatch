@@ -10,8 +10,9 @@ from alembic import context
 from app.core.config import settings
 from app.db.base import Base
 
-# Import all models so that Alembic can detect them
-from app.db.models import Filter, Notice, NoticeCpvAdditional  # noqa: F401
+# Import all models so that Alembic can detect them (notices table from ProcurementNotice)
+from app.db.models import Filter, NoticeCpvAdditional  # noqa: F401
+from app.models.notice import ProcurementNotice  # noqa: F401
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

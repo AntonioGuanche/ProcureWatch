@@ -10,9 +10,9 @@ from app.db.base import Base
 
 
 class Notice(Base):
-    """Procurement notice model."""
+    """Legacy notice model (old schema). Table renamed to notices_old to avoid conflict with ProcurementNotice."""
 
-    __tablename__ = "notices"
+    __tablename__ = "notices_old"
 
     id: Mapped[str] = mapped_column(
         String(36),
@@ -52,9 +52,10 @@ class Notice(Base):
     )
 
     __table_args__ = (
-        UniqueConstraint("source", "source_id", name="uq_notice_source_source_id"),
-        Index("ix_notices_published_at", "published_at"),
-        Index("ix_notices_deadline_at", "deadline_at"),
-        Index("ix_notices_cpv", "cpv"),
-        Index("ix_notices_cpv_main_code", "cpv_main_code"),
+        UniqueConstraint("source", "source_id", name="uq_notice_old_source_source_id"),
+        Index("ix_notices_old_published_at", "published_at"),
+        Index("ix_notices_old_deadline_at", "deadline_at"),
+        Index("ix_notices_old_cpv", "cpv"),
+        Index("ix_notices_old_cpv_main_code", "cpv_main_code"),
+        {"extend_existing": True},
     )

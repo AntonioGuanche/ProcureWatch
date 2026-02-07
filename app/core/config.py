@@ -18,8 +18,10 @@ class Settings(BaseSettings):
     app_name: str = "procurewatch-api"
     database_url: str = Field(
         default="sqlite:///./dev.db",
-        validation_alias=AliasChoices("DATABASE_URL", "database_url")
+        validation_alias=AliasChoices("DATABASE_URL", "database_url"),
     )
+    # Railway provides PORT; default for local
+    port: int = Field(default=8000, validation_alias=AliasChoices("PORT", "port"))
     allowed_origins: str = "*"
     log_level: str = "INFO"
 
@@ -119,6 +121,11 @@ class Settings(BaseSettings):
     email_smtp_use_tls: bool = Field(True, validation_alias="EMAIL_SMTP_USE_TLS")
     email_outbox_dir: str = Field("data/outbox", validation_alias="EMAIL_OUTBOX_DIR")
 
+    # JWT (mock auth for Lovable; real user management later)
+    jwt_secret_key: str = Field("change-me-in-production", validation_alias="JWT_SECRET_KEY")
+    jwt_expiry_days: int = Field(7, validation_alias="JWT_EXPIRY_DAYS")
+    jwt_algorithm: str = Field("HS256", validation_alias="JWT_ALGORITHM")
+
     @field_validator("database_url")
     @classmethod
     def normalize_database_url(cls, v: str) -> str:
@@ -150,6 +157,13 @@ class Settings(BaseSettings):
             v = re.sub(r"sslmode=[^&]+", "sslmode=require", v)
 
         return v
+
+    @property
+    def database_url_sync(self) -> str:
+        """Get synchronous database URL for SQLAlchemy (e.g. Railway Postgres)."""
+        if self.database_url.startswith("postgresql://"):
+            return self.database_url.replace("postgresql://", "postgresql+psycopg2://", 1)
+        return self.database_url
 
     @property
     def allowed_origins_list(self) -> list[str]:

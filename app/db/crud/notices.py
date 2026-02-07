@@ -1,8 +1,8 @@
 """CRUD operations for notices."""
 from datetime import datetime
-from typing import Optional, Tuple
+from typing import Any, Optional, Tuple
 
-from sqlalchemy import or_
+from sqlalchemy import or_, text
 from sqlalchemy.orm import Session
 
 from app.db.models.notice import Notice
@@ -84,3 +84,24 @@ def list_notices(
 def get_notice_by_id(db: Session, notice_id: str) -> Optional[Notice]:
     """Get a notice by ID."""
     return db.query(Notice).filter(Notice.id == notice_id).first()
+
+
+def get_notice_stats(db: Session) -> dict[str, Any]:
+    """
+    Aggregate stats for notices table (source, updated_at columns).
+    Returns total_notices, by_source (e.g. BOSA_EPROC, TED_EU), last_import (ISO datetime).
+    Uses raw SQL to avoid importing a second model for the same table.
+    """
+    total_row = db.execute(text("SELECT COUNT(*) FROM notices")).scalar()
+    total = int(total_row) if total_row is not None else 0
+    rows = db.execute(text("SELECT source, COUNT(*) FROM notices GROUP BY source")).fetchall()
+    by_source = {str(row[0]): int(row[1]) for row in rows}
+    last_row = db.execute(text("SELECT MAX(updated_at) FROM notices")).scalar()
+    last_import = None
+    if last_row is not None:
+        last_import = last_row.isoformat() if hasattr(last_row, "isoformat") else str(last_row)
+    return {
+        "total_notices": total,
+        "by_source": by_source,
+        "last_import": last_import,
+    }

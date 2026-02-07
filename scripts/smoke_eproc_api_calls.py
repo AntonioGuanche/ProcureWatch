@@ -66,6 +66,35 @@ def print_config_section(config: dict[str, Any]) -> None:
     print(f"Client Secret: {mask_value(config['client_secret'])}")
     print(f"Search Base URL: {config['search_base_url']}")
     print(f"Location Base URL: {config['loc_base_url']}")
+    dos_url = config.get("dos_base_url")
+    print(f"DOS Base URL: {dos_url or '(not set)'}")
+    print()
+
+
+def print_config_check(config: dict[str, Any], token: Optional[str] = None) -> None:
+    """
+    Print configuration validation block (Environment, DOS URL, token preview, status).
+    Token is shown as first 30 chars then masked; no secrets beyond that.
+    """
+    env = config.get("env_name") or "—"
+    dos_url = config.get("dos_base_url") or "(not set)"
+    if token:
+        preview = token[:30] + "...***" if len(token) > 30 else "***"
+        token_str = f"{preview} ({len(token)} chars)"
+    else:
+        token_str = "(not retrieved)"
+    urls_ok = bool(
+        config.get("token_url")
+        and config.get("search_base_url")
+        and config.get("loc_base_url")
+        and config.get("dos_base_url")
+    )
+    status = "✅ Ready" if (urls_ok and token) else "⚠️ Not ready"
+    print("🔧 Configuration Check:")
+    print(f"├─ Environment: {env}")
+    print(f"├─ DOS URL: {dos_url}")
+    print(f"├─ Token: {token_str}")
+    print(f"└─ Status: {status}")
     print()
 
 
@@ -480,7 +509,6 @@ Examples:
 
     print_config_section(config)
 
-    # Test token retrieval
     client = OfficialEProcurementClient(
         token_url=config["token_url"],
         client_id=config["client_id"],
@@ -492,6 +520,15 @@ Examples:
         cpv_probe=settings.eproc_cpv_probe,
     )
 
+    # Config validation: resolve DOS URL, env, token preview, URL status
+    token_for_check: Optional[str] = None
+    try:
+        token_for_check = client.get_access_token()
+    except Exception:
+        pass
+    print_config_check(config, token_for_check)
+
+    # Test token retrieval
     token_ok, _ = test_token_retrieval(client)
     if not token_ok:
         return 2
