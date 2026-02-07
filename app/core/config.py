@@ -138,13 +138,11 @@ class Settings(BaseSettings):
         if v.startswith("postgres://"):
             v = v.replace("postgres://", "postgresql+psycopg://", 1)
 
-        # Convert postgresql:// to postgresql+psycopg:// (if not already using psycopg)
-        if v.startswith("postgresql://") and not v.startswith("postgresql+psycopg://"):
+        # Convert postgresql:// to postgresql+psycopg:// (Railway compatibility)
+        if v.startswith("postgresql://"):
             v = v.replace("postgresql://", "postgresql+psycopg://", 1)
-
-        # Ensure postgresql+psycopg://
-        if not v.startswith("postgresql+psycopg://"):
-            raise ValueError("DATABASE_URL must start with postgresql://, postgresql+psycopg://, or sqlite")
+        elif not v.startswith("postgresql+psycopg://"):
+            raise ValueError("DATABASE_URL must start with postgresql:// or sqlite://")
 
         # Ensure sslmode=require is present for PostgreSQL connections
         if "sslmode=" not in v:
