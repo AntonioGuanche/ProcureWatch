@@ -2,8 +2,8 @@
 import json
 from typing import Any, Optional
 
-from app.db.models.notice import Notice
-from app.db.models.notice_detail import NoticeDetail
+from app.models.notice import Notice  # alias for ProcurementNotice
+from app.models.notice_detail import NoticeDetail
 
 
 def pick_text(value: Any) -> str | None:
@@ -19,12 +19,10 @@ def pick_text(value: Any) -> str | None:
     if isinstance(value, str):
         return value.strip() if value.strip() else None
     if isinstance(value, dict):
-        # Prefer ENG, then FRA, then any non-empty value
         for lang in ("eng", "ENG", "fra", "FRA", "en", "EN", "fr", "FR"):
             text = value.get(lang)
             if isinstance(text, str) and text.strip():
                 return text.strip()
-        # Fallback: first non-empty string value
         for v in value.values():
             if isinstance(v, str) and v.strip():
                 return v.strip()
@@ -38,53 +36,84 @@ def pick_text(value: Any) -> str | None:
     return None
 
 
-def build_searchable_text(notice: Notice, notice_detail: Optional[NoticeDetail] = None) -> str:
+def build_searchable_text(
+    notice: Notice, notice_detail: Optional[NoticeDetail] = None
+) -> str:
     """
     Build searchable text from notice for keyword matching.
     Includes:
-    - Notice.title
-    - Raw JSON fields (notice-title, title-proc, title-glo, description-glo, description-proc) via pick_text()
-    - Optional notice_details content if present
+    - Notice.title and Notice.description
+    - raw_data fields (notice-title, title-proc, description, keywords, etc.)
+    - Optional notice_detail content if present
     """
     parts = []
-    
-    # Add notice title
+
+    # Add notice title and description
     if notice.title:
         parts.append(notice.title)
-    
-    # Extract from raw_json if available
-    if notice.raw_json:
+    if notice.description:
+        parts.append(notice.description)
+
+    # Extract from raw_data (ProcurementNotice stores this as a JSON dict)
+    raw_data = notice.raw_data
+    if isinstance(raw_data, dict):
+        for field in ("notice-title", "title-proc", "title-glo"):
+            text = pick_text(raw_data.get(field))
+            if text and text not in parts:
+                parts.append(text)
+        for field in (
+            "description-glo",
+            "description-proc",
+            "description",
+            "dossier_title",
+            "organisation_name",
+        ):
+            text = pick_text(raw_data.get(field))
+            if text and text not in parts:
+                parts.append(text)
+        # Include BOSA keywords if present
+        keywords = raw_data.get("keywords")
+        if isinstance(keywords, list):
+            for kw in keywords:
+                if isinstance(kw, str) and kw.strip():
+                    parts.append(kw.strip())
+    elif isinstance(raw_data, str) and raw_data.strip():
+        # Fallback: try parsing as JSON string (legacy data)
         try:
-            raw_data = json.loads(notice.raw_json)
-            # Try various title fields
-            for field in ("notice-title", "title-proc", "title-glo"):
-                text = pick_text(raw_data.get(field))
-                if text and text not in parts:
-                    parts.append(text)
-            # Try description fields
-            for field in ("description-glo", "description-proc", "description"):
-                text = pick_text(raw_data.get(field))
-                if text and text not in parts:
-                    parts.append(text)
+            parsed = json.loads(raw_data)
+            if isinstance(parsed, dict):
+                for field in ("notice-title", "title-proc", "title-glo"):
+                    text = pick_text(parsed.get(field))
+                    if text and text not in parts:
+                        parts.append(text)
+                for field in (
+                    "description-glo",
+                    "description-proc",
+                    "description",
+                ):
+                    text = pick_text(parsed.get(field))
+                    if text and text not in parts:
+                        parts.append(text)
         except (json.JSONDecodeError, AttributeError, TypeError):
             pass
-    
+
     # Extract from notice_detail if available
     if notice_detail and notice_detail.raw_json:
         try:
             detail_data = json.loads(notice_detail.raw_json)
-            # Try various title fields
             for field in ("notice-title", "title-proc", "title-glo"):
                 text = pick_text(detail_data.get(field))
                 if text and text not in parts:
                     parts.append(text)
-            # Try description fields
-            for field in ("description-glo", "description-proc", "description"):
+            for field in (
+                "description-glo",
+                "description-proc",
+                "description",
+            ):
                 text = pick_text(detail_data.get(field))
                 if text and text not in parts:
                     parts.append(text)
         except (json.JSONDecodeError, AttributeError, TypeError):
             pass
-    
-    # Join all parts with spaces
+
     return " ".join(parts).lower()

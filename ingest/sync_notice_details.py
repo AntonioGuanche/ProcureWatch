@@ -84,7 +84,7 @@ def main() -> int:
         for notice in notices_to_sync:
             processed += 1
             source_id = notice.source_id
-            source = notice.source or "publicprocurement.be"
+            source = notice.source or "BOSA_EPROC"
             try:
                 detail_json = get_publication_detail(source_id)
                 if detail_json is None:

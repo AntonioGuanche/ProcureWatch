@@ -16,10 +16,10 @@ os.environ["DATABASE_URL"] = "sqlite+pysqlite:///./test_import_ted.db"
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from app.db.base import Base
+from app.models.base import Base
 from app.db.session import engine
-from app.db.models.notice import Notice
-from app.db.models.notice_cpv_additional import NoticeCpvAdditional
+from app.models.notice import Notice
+from app.models.notice_cpv_additional import NoticeCpvAdditional
 from ingest.import_ted import create_local_session
 
 
@@ -89,7 +89,7 @@ def test_import_ted_inserts_notices_with_source_and_url(db_schema, raw_ted_file)
     # Start clean so we get 2 new inserts (test-order independent)
     db = SessionLocal()
     try:
-        db.query(Notice).filter(Notice.source == "ted.europa.eu").delete()
+        db.query(Notice).filter(Notice.source == "TED_EU").delete()
         db.commit()
     finally:
         db.close()
@@ -101,13 +101,13 @@ def test_import_ted_inserts_notices_with_source_and_url(db_schema, raw_ted_file)
 
     db = SessionLocal()
     try:
-        notices = db.query(Notice).filter(Notice.source == "ted.europa.eu").order_by(Notice.source_id).all()
+        notices = db.query(Notice).filter(Notice.source == "TED_EU").order_by(Notice.source_id).all()
         assert len(notices) == 2
         ids = [n.source_id for n in notices]
         assert "TED-NOTICE-001" in ids
         assert "TED-NOTICE-002" in ids
         for n in notices:
-            assert n.source == "ted.europa.eu"
+            assert n.source == "TED_EU"
             assert n.title in ("Solar panels supply", "PV installation works")
             assert n.url and isinstance(n.url, str) and n.url.startswith("http")
             assert "ted.europa.eu" in n.url
@@ -122,7 +122,7 @@ def test_import_ted_dedupe_updates_last_seen_at(db_schema, raw_ted_file):
     SessionLocal = _get_test_sessionmaker()
     db = SessionLocal()
     try:
-        db.query(Notice).filter(Notice.source == "ted.europa.eu").delete()
+        db.query(Notice).filter(Notice.source == "TED_EU").delete()
         db.commit()
     finally:
         db.close()
@@ -131,12 +131,12 @@ def test_import_ted_dedupe_updates_last_seen_at(db_schema, raw_ted_file):
     db = SessionLocal()
     try:
         notice = db.query(Notice).filter(
-            Notice.source == "ted.europa.eu",
+            Notice.source == "TED_EU",
             Notice.source_id == "TED-NOTICE-001",
         ).first()
         assert notice is not None
-        first_seen = notice.first_seen_at
-        last_seen_before = notice.last_seen_at
+        created = notice.created_at
+        updated_before_2 = notice.updated_at
         updated_before = notice.updated_at
     finally:
         db.close()
@@ -151,12 +151,12 @@ def test_import_ted_dedupe_updates_last_seen_at(db_schema, raw_ted_file):
     db = SessionLocal()
     try:
         notice = db.query(Notice).filter(
-            Notice.source == "ted.europa.eu",
+            Notice.source == "TED_EU",
             Notice.source_id == "TED-NOTICE-001",
         ).first()
         assert notice is not None
-        assert notice.first_seen_at == first_seen  # unchanged
-        assert notice.last_seen_at >= last_seen_before  # updated
+        assert notice.created_at == created  # unchanged
+        assert notice.updated_at >= updated_before_2  # updated
         assert notice.updated_at >= updated_before  # updated
     finally:
         db.close()
@@ -192,7 +192,7 @@ def test_import_ted_buyer_country_maps_to_notice_country(db_schema, tmp_path):
     SessionLocal = _get_test_sessionmaker()
     db = SessionLocal()
     try:
-        db.query(Notice).filter(Notice.source == "ted.europa.eu").delete()
+        db.query(Notice).filter(Notice.source == "TED_EU").delete()
         db.commit()
     finally:
         db.close()
@@ -206,11 +206,11 @@ def test_import_ted_buyer_country_maps_to_notice_country(db_schema, tmp_path):
     db = SessionLocal()
     try:
         notice = db.query(Notice).filter(
-            Notice.source == "ted.europa.eu",
+            Notice.source == "TED_EU",
             Notice.source_id == "TED-BE-123",
         ).first()
         assert notice is not None
-        assert notice.country == "BE"
+        assert "BE" in (notice.nuts_codes or [])
     finally:
         db.close()
 
@@ -242,7 +242,7 @@ def test_import_ted_uses_publication_number_when_notice_id_missing(db_schema, tm
     SessionLocal = _get_test_sessionmaker()
     db = SessionLocal()
     try:
-        db.query(Notice).filter(Notice.source == "ted.europa.eu").delete()
+        db.query(Notice).filter(Notice.source == "TED_EU").delete()
         db.commit()
     finally:
         db.close()
@@ -257,12 +257,12 @@ def test_import_ted_uses_publication_number_when_notice_id_missing(db_schema, tm
     db = SessionLocal()
     try:
         notice = db.query(Notice).filter(
-            Notice.source == "ted.europa.eu",
+            Notice.source == "TED_EU",
             Notice.source_id == "TED-PUB-999",
         ).first()
         assert notice is not None
         assert notice.title.startswith("No noticeId")
-        assert notice.country == "FR"
+        assert "FR" in (notice.nuts_codes or [])
     finally:
         db.close()
 
@@ -293,7 +293,7 @@ def test_import_ted_maps_ted_search_api_fields(db_schema, tmp_path):
     SessionLocal = _get_test_sessionmaker()
     db = SessionLocal()
     try:
-        db.query(Notice).filter(Notice.source == "ted.europa.eu").delete()
+        db.query(Notice).filter(Notice.source == "TED_EU").delete()
         db.commit()
     finally:
         db.close()
@@ -308,12 +308,12 @@ def test_import_ted_maps_ted_search_api_fields(db_schema, tmp_path):
     db = SessionLocal()
     try:
         notice = db.query(Notice).filter(
-            Notice.source == "ted.europa.eu",
+            Notice.source == "TED_EU",
             Notice.source_id == "TED-SEARCH-001",
         ).first()
         assert notice is not None
         assert notice.title == "Solar Panel Installation Project"
-        assert notice.country == "BE"
+        assert "BE" in (notice.nuts_codes or [])
         assert notice.cpv_main_code == "45261200"
     finally:
         db.close()
@@ -345,7 +345,7 @@ def test_import_ted_maps_main_classification_proc_dict(db_schema, tmp_path):
     SessionLocal = _get_test_sessionmaker()
     db = SessionLocal()
     try:
-        db.query(Notice).filter(Notice.source == "ted.europa.eu").delete()
+        db.query(Notice).filter(Notice.source == "TED_EU").delete()
         db.commit()
     finally:
         db.close()
@@ -360,12 +360,12 @@ def test_import_ted_maps_main_classification_proc_dict(db_schema, tmp_path):
     db = SessionLocal()
     try:
         notice = db.query(Notice).filter(
-            Notice.source == "ted.europa.eu",
+            Notice.source == "TED_EU",
             Notice.source_id == "TED-DICT-CPV-001",
         ).first()
         assert notice is not None
         assert notice.title == "Test Notice"
-        assert notice.country == "FR"
+        assert "FR" in (notice.nuts_codes or [])
         assert notice.cpv_main_code == "71000000"
     finally:
         db.close()
@@ -397,7 +397,7 @@ def test_import_ted_notice_title_dict_chooses_eng(db_schema, tmp_path):
     SessionLocal = _get_test_sessionmaker()
     db = SessionLocal()
     try:
-        db.query(Notice).filter(Notice.source == "ted.europa.eu").delete()
+        db.query(Notice).filter(Notice.source == "TED_EU").delete()
         db.commit()
     finally:
         db.close()
@@ -412,7 +412,7 @@ def test_import_ted_notice_title_dict_chooses_eng(db_schema, tmp_path):
     db = SessionLocal()
     try:
         notice = db.query(Notice).filter(
-            Notice.source == "ted.europa.eu",
+            Notice.source == "TED_EU",
             Notice.source_id == "TED-MULTILANG-001",
         ).first()
         assert notice is not None
@@ -447,7 +447,7 @@ def test_import_ted_buyer_country_3_letter_normalized(db_schema, tmp_path):
     SessionLocal = _get_test_sessionmaker()
     db = SessionLocal()
     try:
-        db.query(Notice).filter(Notice.source == "ted.europa.eu").delete()
+        db.query(Notice).filter(Notice.source == "TED_EU").delete()
         db.commit()
     finally:
         db.close()
@@ -462,11 +462,11 @@ def test_import_ted_buyer_country_3_letter_normalized(db_schema, tmp_path):
     db = SessionLocal()
     try:
         notice = db.query(Notice).filter(
-            Notice.source == "ted.europa.eu",
+            Notice.source == "TED_EU",
             Notice.source_id == "TED-3LETTER-001",
         ).first()
         assert notice is not None
-        assert notice.country == "MT"  # Should normalize MLT to MT
+        assert "MT" in (notice.nuts_codes or [])  # Should normalize MLT to MT
     finally:
         db.close()
 
@@ -533,7 +533,7 @@ def test_import_ted_extract_cpv_from_classification_cpv(db_schema, tmp_path):
     SessionLocal = _get_test_sessionmaker()
     db = SessionLocal()
     try:
-        db.query(Notice).filter(Notice.source == "ted.europa.eu").delete()
+        db.query(Notice).filter(Notice.source == "TED_EU").delete()
         db.commit()
     finally:
         db.close()
@@ -548,7 +548,7 @@ def test_import_ted_extract_cpv_from_classification_cpv(db_schema, tmp_path):
     db = SessionLocal()
     try:
         notice = db.query(Notice).filter(
-            Notice.source == "ted.europa.eu",
+            Notice.source == "TED_EU",
             Notice.source_id == "TED-CLASS-CPV-001",
         ).first()
         assert notice is not None

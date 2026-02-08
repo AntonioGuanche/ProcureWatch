@@ -13,11 +13,11 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from sqlalchemy.orm import Session
 
-from app.db.models.notice import Notice
+from app.models.notice import Notice
 from app.db.session import SessionLocal
 
 
-SOURCE_NAME = "publicprocurement.be"
+SOURCE_NAME = "BOSA_EPROC"
 
 
 def parse_date_from_detail(value: Any) -> Optional[datetime]:

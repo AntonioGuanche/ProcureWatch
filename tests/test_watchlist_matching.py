@@ -16,10 +16,10 @@ pytestmark = pytest.mark.skip(reason="Old watchlist schema tests - MVP uses new 
 from sqlalchemy.orm import Session
 
 from app.db.session import SessionLocal, engine
-from app.db.base import Base
-from app.db.models.notice import Notice
-from app.db.models.notice_cpv_additional import NoticeCpvAdditional
-from app.db.models.watchlist import Watchlist
+from app.models.base import Base
+from app.models.notice import Notice
+from app.models.notice_cpv_additional import NoticeCpvAdditional
+from app.models.watchlist import Watchlist
 from app.db.crud.watchlists import list_notices_for_watchlist
 
 

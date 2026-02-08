@@ -9,11 +9,11 @@ from unittest.mock import patch
 import pytest
 
 from app.db.session import SessionLocal, engine
-from app.db.base import Base
-from app.db.models.notice import Notice
-from app.db.models.notice_detail import NoticeDetail
-from app.db.models.notice_lot import NoticeLot
-from app.db.models.notice_document import NoticeDocument
+from app.models.base import Base
+from app.models.notice import Notice
+from app.models.notice_detail import NoticeDetail
+from app.models.notice_lot import NoticeLot
+from app.models.notice_document import NoticeDocument
 
 
 @pytest.fixture(scope="module")
@@ -41,10 +41,10 @@ def test_sync_notice_details_mock_fetch(db_schema):
     db = SessionLocal()
     try:
         n = Notice(
-            source="publicprocurement.be",
+            source="BOSA_EPROC",
             source_id="PPP-FAKE-001",
+            publication_workspace_id="ws-PPP-FAKE-001",
             title="Fake Notice",
-            country="BE",
             url="https://example.com/1",
         )
         db.add(n)

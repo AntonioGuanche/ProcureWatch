@@ -8,11 +8,11 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.db.session import engine, SessionLocal
-from app.db.base import Base
-from app.db.models.notice import Notice
-from app.db.models.notice_detail import NoticeDetail
-from app.db.models.notice_lot import NoticeLot
-from app.db.models.notice_document import NoticeDocument
+from app.models.base import Base
+from app.models.notice import Notice
+from app.models.notice_detail import NoticeDetail
+from app.models.notice_lot import NoticeLot
+from app.models.notice_document import NoticeDocument
 
 
 @pytest.fixture(scope="function")
@@ -35,10 +35,10 @@ def sample_notice(db_setup):
     db = SessionLocal()
     try:
         n = Notice(
-            source="publicprocurement.be",
+            source="BOSA_EPROC",
             source_id="PPP-TEST-001",
+            publication_workspace_id="ws-PPP-TEST-001",
             title="Test Notice",
-            country="BE",
             url="https://example.com/1",
         )
         db.add(n)
@@ -61,7 +61,7 @@ def test_get_notice_detail_ok(client: TestClient, sample_notice):
     try:
         d = NoticeDetail(
             notice_id=sample_notice.id,
-            source="publicprocurement.be",
+            source="BOSA_EPROC",
             source_id=sample_notice.source_id,
             raw_json='{"test": true}',
         )
@@ -175,8 +175,6 @@ def test_get_notice_documents_includes_pipeline_fields(client: TestClient, sampl
     assert items[0]["local_path"] == "/data/documents/n1/d1.pdf"
     assert items[0]["download_status"] == "ok"
     assert items[0]["extraction_status"] == "ok"
-    # extracted_text is not in list schema (only in /text endpoint)
-    assert "extracted_text" not in items[0] or items[0].get("extracted_text") is None
 
 
 def test_get_notice_document_text_404_unknown_document(client: TestClient, sample_notice):

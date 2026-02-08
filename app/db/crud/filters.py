@@ -5,7 +5,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from app.api.schemas.filter import FilterCreate, FilterUpdate
-from app.db.models.filter import Filter
+from app.models.filter import Filter
 
 
 def create_filter(db: Session, data: FilterCreate) -> Filter:

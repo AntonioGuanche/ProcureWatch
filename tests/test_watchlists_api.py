@@ -17,9 +17,9 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.db.session import engine, SessionLocal
-from app.db.base import Base
-from app.db.models.notice import Notice
-from app.db.models.watchlist import Watchlist
+from app.models.base import Base
+from app.models.notice import Notice
+from app.models.watchlist import Watchlist
 
 
 @pytest.fixture(scope="function")
@@ -129,7 +129,7 @@ def test_preview_with_notices(client: TestClient, db_setup):
     # Insert a notice directly so we have data
     db = SessionLocal()
     try:
-        from app.db.models.notice import Notice
+        from app.models.notice import Notice
         n = Notice(
             source="publicprocurement.be",
             source_id="test-1",

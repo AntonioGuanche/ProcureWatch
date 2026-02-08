@@ -6,8 +6,8 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from app.db.models.notice import Notice
-from app.db.models.notice_cpv_additional import NoticeCpvAdditional
+from app.models.notice import Notice
+from app.models.notice_cpv_additional import NoticeCpvAdditional
 from app.db.session import SessionLocal
 from app.utils.cpv import normalize_cpv
 

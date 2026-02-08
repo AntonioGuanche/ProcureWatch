@@ -11,9 +11,9 @@ import pytest
 from pypdf import PdfWriter
 
 from app.db.session import SessionLocal, engine
-from app.db.base import Base
-from app.db.models.notice import Notice
-from app.db.models.notice_document import NoticeDocument
+from app.models.base import Base
+from app.models.notice import Notice
+from app.models.notice_document import NoticeDocument
 
 
 @pytest.fixture(scope="module")
@@ -29,10 +29,10 @@ def test_fetch_and_extract_mock_downloader(db_schema, tmp_path):
     db = SessionLocal()
     try:
         n = Notice(
-            source="publicprocurement.be",
+            source="BOSA_EPROC",
             source_id="PPP-FAKE-001",
+            publication_workspace_id="ws-PPP-FAKE-001",
             title="Fake Notice",
-            country="BE",
             url="https://example.com/1",
         )
         db.add(n)
@@ -92,6 +92,6 @@ def test_fetch_and_extract_mock_downloader(db_schema, tmp_path):
         assert doc_after.download_status == "ok"
         assert doc_after.file_size == len(fake_pdf_bytes)
         assert doc_after.extraction_status == "ok"
-        assert doc_after.extracted_text is not None  # may be "" for blank page
+        assert doc_after.extracted_text is not None
     finally:
         db.close()

@@ -3,14 +3,14 @@ import json
 from datetime import datetime, timezone
 from typing import Any, Optional, Tuple
 
-from sqlalchemy import and_, or_, func
+from sqlalchemy import and_, cast, or_, func, String
 from sqlalchemy.orm import Session
 
-from app.db.models.notice import Notice
-from app.db.models.notice_cpv_additional import NoticeCpvAdditional
-from app.db.models.notice_detail import NoticeDetail
-from app.db.models.watchlist import Watchlist
-from app.db.models.watchlist_match import WatchlistMatch
+from app.models.notice import Notice  # alias for ProcurementNotice
+from app.models.notice_cpv_additional import NoticeCpvAdditional
+from app.models.notice_detail import NoticeDetail
+from app.models.watchlist import Watchlist
+from app.models.watchlist_match import WatchlistMatch
 from app.utils.searchable_text import build_searchable_text
 from app.utils.sources import DEFAULT_SOURCES, get_notice_sources_for_watchlist
 
@@ -128,30 +128,36 @@ def delete_watchlist(db: Session, watchlist_id: str) -> bool:
 
 def _match_keywords_sql(query, keywords: list[str]) -> Tuple[Any, list[str]]:
     """
-    Add SQL filters for keyword matching (title OR description from notice_detail or raw_json).
+    Add SQL filters for keyword matching (title OR description).
     Returns (modified_query, matched_keywords_list_for_explanation).
-    Note: This is a simplified version - full description matching requires JSON extraction which is complex in SQL.
-    For MVP, we match on title primarily, with raw_json fallback handled in Python for matched notices.
     """
     if not keywords:
         return query, []
-    
-    # Build OR conditions for each keyword in title (case-insensitive)
+
     keyword_conditions = []
     for keyword in keywords:
         keyword_conditions.append(Notice.title.ilike(f"%{keyword}%"))
-    
+        keyword_conditions.append(Notice.description.ilike(f"%{keyword}%"))
+
     if keyword_conditions:
         query = query.filter(or_(*keyword_conditions))
-    
+
     return query, keywords
 
 
 def _match_countries_sql(query, countries: list[str]) -> Tuple[Any, Optional[str]]:
-    """Add SQL filter for country matching. Returns (modified_query, matched_country_for_explanation)."""
+    """Add SQL filter for country matching via NUTS codes (JSON array).
+    NUTS codes start with 2-letter country code (e.g. BE, FR, NL)."""
     if not countries:
         return query, None
-    query = query.filter(Notice.country.in_([c.upper() for c in countries]))
+    # Match NUTS codes containing country prefix in JSON array
+    country_conditions = []
+    for c in countries:
+        country_conditions.append(
+            cast(Notice.nuts_codes, String).ilike(f'%"{c.upper()}%')
+        )
+    if country_conditions:
+        query = query.filter(or_(*country_conditions))
     return query, countries[0] if countries else None
 
 
@@ -162,8 +168,7 @@ def _match_cpv_prefixes_sql(query, cpv_prefixes: list[str]) -> Tuple[Any, list[s
     """
     if not cpv_prefixes:
         return query, []
-    
-    # Build conditions for each prefix
+
     cpv_conditions = []
     for prefix in cpv_prefixes:
         prefix_clean = prefix.replace("-", "").strip()
@@ -171,12 +176,11 @@ def _match_cpv_prefixes_sql(query, cpv_prefixes: list[str]) -> Tuple[Any, list[s
             continue
         # Match main CPV (normalized, no hyphens)
         cpv_conditions.append(
-            func.replace(func.replace(Notice.cpv_main_code, "-", ""), " ", "").like(f"{prefix_clean}%")
+            func.replace(
+                func.replace(Notice.cpv_main_code, "-", ""), " ", ""
+            ).like(f"{prefix_clean}%")
         )
-        cpv_conditions.append(
-            func.replace(func.replace(Notice.cpv, "-", ""), " ", "").like(f"{prefix_clean}%")
-        )
-    
+
     if cpv_conditions:
         # Also check additional CPVs via join
         query = query.outerjoin(
@@ -188,29 +192,30 @@ def _match_cpv_prefixes_sql(query, cpv_prefixes: list[str]) -> Tuple[Any, list[s
             prefix_clean = prefix.replace("-", "").strip()
             if prefix_clean:
                 additional_conditions.append(
-                    func.replace(func.replace(NoticeCpvAdditional.cpv_code, "-", ""), " ", "").like(f"{prefix_clean}%")
+                    func.replace(
+                        func.replace(NoticeCpvAdditional.cpv_code, "-", ""), " ", ""
+                    ).like(f"{prefix_clean}%")
                 )
         if additional_conditions:
             cpv_conditions.extend(additional_conditions)
         query = query.filter(or_(*cpv_conditions)).distinct()
-    
+
     return query, cpv_prefixes
 
 
 def _match_sources_sql(query, sources: list[str]) -> Any:
     """
     Add SQL filter for source matching.
-    Converts watchlist source identifiers (TED, BOSA) to notice.source values.
+    Converts watchlist source identifiers (TED, BOSA) to ProcurementNotice.source values.
     """
     if not sources:
-        # If empty, default to both (should not happen due to validation, but safe fallback)
         notice_sources = get_notice_sources_for_watchlist(DEFAULT_SOURCES)
     else:
         notice_sources = get_notice_sources_for_watchlist(sources)
-    
+
     if notice_sources:
         query = query.filter(Notice.source.in_(notice_sources))
-    
+
     return query
 
 
@@ -230,33 +235,31 @@ def _build_matched_on_explanation(
     return ", ".join(parts) if parts else "no filters"
 
 
-def _check_keyword_in_searchable_text(notice: Notice, keywords: list[str], db: Session) -> list[str]:
+def _check_keyword_in_searchable_text(
+    notice: Notice, keywords: list[str], db: Session
+) -> list[str]:
     """
-    Check if keywords appear in searchable text (title + raw_json + notice_detail).
+    Check if keywords appear in searchable text (title + raw_data + notice_detail).
     Returns list of matched keywords.
-    Uses build_searchable_text for comprehensive matching.
     """
     if not keywords:
         return []
-    
-    # Get notice_detail if available
+
     detail = db.query(NoticeDetail).filter(NoticeDetail.notice_id == notice.id).first()
-    
-    # Build searchable text
     searchable_text = build_searchable_text(notice, detail)
-    
+
     matched = []
     searchable_lower = searchable_text.lower()
     for keyword in keywords:
         if keyword.lower() in searchable_lower:
             matched.append(keyword)
-    
+
     return matched
 
 
 def refresh_watchlist_matches(db: Session, watchlist: Watchlist) -> dict[str, int]:
     """
-    Recompute and store matches for a watchlist idempotently using SQL where possible.
+    Recompute and store matches for a watchlist idempotently.
     Deletes existing matches, then recomputes and stores new ones.
     Returns dict with counts: matched, added.
     """
@@ -264,67 +267,56 @@ def refresh_watchlist_matches(db: Session, watchlist: Watchlist) -> dict[str, in
     countries = _parse_array(watchlist.countries)
     cpv_prefixes = _parse_array(watchlist.cpv_prefixes)
     sources = _parse_sources_json(watchlist.sources)
-    
-    # Delete existing matches (idempotent: clear old matches)
-    db.query(WatchlistMatch).filter(WatchlistMatch.watchlist_id == watchlist.id).delete()
-    
-    # Build SQL query with filters applied
+
+    # Delete existing matches (idempotent)
+    db.query(WatchlistMatch).filter(
+        WatchlistMatch.watchlist_id == watchlist.id
+    ).delete()
+
     query = db.query(Notice)
-    
-    # Apply source filter first (most restrictive)
     query = _match_sources_sql(query, sources)
-    
-    # Apply keyword filter (title match in SQL)
     query, matched_keywords_for_explanation = _match_keywords_sql(query, keywords)
-    
-    # Apply country filter
     query, matched_country_for_explanation = _match_countries_sql(query, countries)
-    
-    # Apply CPV prefix filter
-    query, matched_cpv_prefixes_for_explanation = _match_cpv_prefixes_sql(query, cpv_prefixes)
-    
-    # Execute query to get candidate notices
+    query, matched_cpv_prefixes_for_explanation = _match_cpv_prefixes_sql(
+        query, cpv_prefixes
+    )
+
     candidate_notices = query.all()
     matched_count = 0
-    
-    # For each candidate, verify keyword match using searchable text, and build explanation
+
     for notice in candidate_notices:
-        # If keywords provided, check if ALL keywords match in searchable text (AND logic)
         matched_keywords = []
         if keywords:
-            # Use searchable text for comprehensive matching
             matched_keywords = _check_keyword_in_searchable_text(notice, keywords, db)
-            
-            # Require ALL keywords to match (AND logic)
             if len(matched_keywords) < len(keywords):
-                continue  # Not all keywords matched
-        
-        # Determine which CPV prefix matched (if any)
+                continue  # Not all keywords matched (AND logic)
+
         matched_cpv = []
         if cpv_prefixes:
-            main_cpv = (notice.cpv_main_code or notice.cpv or "").replace("-", "").strip()
+            main_cpv = (notice.cpv_main_code or "").replace("-", "").strip()
             for prefix in cpv_prefixes:
                 prefix_clean = prefix.replace("-", "").strip()
                 if prefix_clean and main_cpv.startswith(prefix_clean):
                     matched_cpv.append(prefix)
                     continue
-                # Check additional CPVs
-                additional = db.query(NoticeCpvAdditional).filter(
-                    NoticeCpvAdditional.notice_id == notice.id
-                ).all()
+                additional = (
+                    db.query(NoticeCpvAdditional)
+                    .filter(NoticeCpvAdditional.notice_id == notice.id)
+                    .all()
+                )
                 for add_cpv in additional:
-                    if add_cpv.cpv_code and add_cpv.cpv_code.replace("-", "").startswith(prefix_clean):
+                    if add_cpv.cpv_code and add_cpv.cpv_code.replace(
+                        "-", ""
+                    ).startswith(prefix_clean):
                         matched_cpv.append(prefix)
                         break
-        
-        # Build explanation
+
         matched_on = _build_matched_on_explanation(
             matched_keywords if keywords else [],
             matched_country_for_explanation,
             matched_cpv if cpv_prefixes else [],
         )
-        
-        # Create match record
+
         match = WatchlistMatch(
             watchlist_id=watchlist.id,
             notice_id=notice.id,
@@ -332,11 +324,10 @@ def refresh_watchlist_matches(db: Session, watchlist: Watchlist) -> dict[str, in
         )
         db.add(match)
         matched_count += 1
-    
-    # Update watchlist last_refresh_at
+
     watchlist.last_refresh_at = datetime.now(timezone.utc)
     db.commit()
-    
+
     return {"matched": matched_count, "added": matched_count}
 
 
@@ -357,7 +348,9 @@ def list_watchlist_matches(
     )
     total = query.count()
     results = (
-        query.order_by(Notice.published_at.desc().nulls_last(), Notice.updated_at.desc())
+        query.order_by(
+            Notice.publication_date.desc().nulls_last(), Notice.updated_at.desc()
+        )
         .offset(offset)
         .limit(limit)
         .all()

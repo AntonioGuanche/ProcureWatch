@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.db.session import engine, Base, SessionLocal
-from app.db.models.notice import Notice
+from app.models.notice import Notice
 
 # Create tables for tests
 @pytest.fixture(scope="function")
@@ -37,16 +37,18 @@ def notices_ted_and_bosa(db_setup):
         db.query(Notice).delete()
         db.add(
             Notice(
-                source="ted.europa.eu",
+                source="TED_EU",
                 source_id="ted-1",
+                publication_workspace_id="ws-ted-1",
                 title="TED notice",
                 url="https://ted.europa.eu/1",
             )
         )
         db.add(
             Notice(
-                source="bosa.eprocurement",
+                source="BOSA_EPROC",
                 source_id="bosa-1",
+                publication_workspace_id="ws-bosa-1",
                 title="BOSA notice",
                 url="https://bosa.be/1",
             )
@@ -100,17 +102,17 @@ def test_list_notices_sources_filter(client, notices_ted_and_bosa):
     assert r_all.json()["total"] == 2
     assert len(r_all.json()["items"]) == 2
 
-    # sources=TED: only ted.europa.eu
+    # sources=TED: only TED_EU
     r_ted = client.get("/api/notices", params={"page_size": 10, "sources": "TED"})
     assert r_ted.status_code == 200
     assert r_ted.json()["total"] == 1
-    assert r_ted.json()["items"][0]["source"] == "ted.europa.eu"
+    assert r_ted.json()["items"][0]["source"] == "TED_EU"
 
-    # sources=BOSA: only bosa.eprocurement
+    # sources=BOSA: only BOSA_EPROC
     r_bosa = client.get("/api/notices", params={"page_size": 10, "sources": "BOSA"})
     assert r_bosa.status_code == 200
     assert r_bosa.json()["total"] == 1
-    assert r_bosa.json()["items"][0]["source"] == "bosa.eprocurement"
+    assert r_bosa.json()["items"][0]["source"] == "BOSA_EPROC"
 
     # sources=TED,BOSA: both
     r_both = client.get("/api/notices", params={"page_size": 10, "sources": "TED,BOSA"})

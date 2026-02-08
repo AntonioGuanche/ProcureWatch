@@ -6,8 +6,8 @@ from typing import Any, Optional
 from sqlalchemy import false, func, or_
 from sqlalchemy.orm import Session
 
-from app.db.models.watchlist import Watchlist
-from app.db.models.watchlist_match import WatchlistMatch
+from app.models.watchlist import Watchlist
+from app.models.watchlist_match import WatchlistMatch
 from app.models.notice import ProcurementNotice
 
 # Map watchlist source identifiers (TED, BOSA) to notice.source column (ProcurementNotice schema)

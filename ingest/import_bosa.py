@@ -22,13 +22,13 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from app.core.logging import setup_logging
 from app.db.db_url import get_default_db_url, resolve_db_url
-from app.db.models.notice import Notice
-from app.db.models.notice_cpv_additional import NoticeCpvAdditional
+from app.models.notice import Notice
+from app.models.notice_cpv_additional import NoticeCpvAdditional
 from app.utils.cpv import normalize_cpv
 
 setup_logging()
 
-SOURCE_NAME = "bosa.eprocurement"
+SOURCE_NAME = "BOSA_EPROC"
 DEFAULT_COUNTRY = "BE"
 
 
@@ -226,12 +226,20 @@ def import_publication(
     now = datetime.now(timezone.utc)
     title = _title(pub)
     buyer_name = _buyer_name(pub)
-    country = DEFAULT_COUNTRY
     cpv_main_code, cpv_display, cpv_additional_codes = _cpv_codes(pub)
     procedure_type = _procedure_type(pub)
     published_at = _published_at(pub)
     deadline_at = _deadline_at(pub)
     url = _url(pub, source_id)
+
+    # Map to ProcurementNotice columns
+    organisation_names = {"default": buyer_name} if buyer_name else None
+    nuts_codes = [DEFAULT_COUNTRY]
+    publication_date = published_at.date() if published_at else None
+    try:
+        raw_data = json.loads(raw_json_str) if raw_json_str else None
+    except (json.JSONDecodeError, TypeError):
+        raw_data = None
 
     existing = db.query(Notice).filter(
         Notice.source == SOURCE_NAME,
@@ -240,36 +248,31 @@ def import_publication(
 
     if existing:
         existing.title = title
-        existing.buyer_name = buyer_name
-        existing.country = country
-        existing.cpv = cpv_display
+        existing.organisation_names = organisation_names
+        existing.nuts_codes = nuts_codes
         existing.cpv_main_code = cpv_main_code
-        existing.procedure_type = procedure_type
-        existing.published_at = published_at
-        existing.deadline_at = deadline_at
+        existing.notice_type = procedure_type
+        existing.publication_date = publication_date
+        existing.deadline = deadline_at
         existing.url = url
-        existing.raw_json = raw_json_str
-        existing.last_seen_at = now
+        existing.raw_data = raw_data
         existing.updated_at = now
-        flag_modified(existing, "last_seen_at")
         flag_modified(existing, "updated_at")
         notice_obj = existing
     else:
         notice_obj = Notice(
             source=SOURCE_NAME,
             source_id=source_id,
+            publication_workspace_id=source_id,
             title=title,
-            buyer_name=buyer_name,
-            country=country,
-            cpv=cpv_display,
+            organisation_names=organisation_names,
+            nuts_codes=nuts_codes,
             cpv_main_code=cpv_main_code,
-            procedure_type=procedure_type,
-            published_at=published_at,
-            deadline_at=deadline_at,
+            notice_type=procedure_type,
+            publication_date=publication_date,
+            deadline=deadline_at,
             url=url,
-            raw_json=raw_json_str,
-            first_seen_at=now,
-            last_seen_at=now,
+            raw_data=raw_data,
         )
         db.add(notice_obj)
 

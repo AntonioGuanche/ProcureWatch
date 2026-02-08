@@ -5,11 +5,11 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Any, Optional
 
-from sqlalchemy import Boolean, Date, DateTime, Index, Numeric, String, Text, UniqueConstraint, func
+from sqlalchemy import Boolean, Date, DateTime, Numeric, String, Text, func
 from sqlalchemy.types import JSON
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.base import Base
+from app.models.base import Base
 
 
 class NoticeSource(str, enum.Enum):
@@ -90,12 +90,13 @@ class ProcurementNotice(Base):
         nullable=False,
     )
 
-    __table_args__ = (
-        UniqueConstraint("source_id", name="uq_notices_source_id"),
-        Index("ix_notices_publication_workspace_id", "publication_workspace_id"),
-        Index("ix_notices_cpv_main_code", "cpv_main_code"),
-        Index("ix_notices_publication_date", "publication_date"),
-        Index("ix_notices_deadline", "deadline"),
-        Index("ix_notices_title", "title"),
-        {"extend_existing": True},  # Coexist with app.db.models.notice.Notice mapping same table
-    )
+    # Indexes are defined via index=True on each mapped_column above.
+    # UniqueConstraint on source_id is handled by unique=True on the column.
+    __table_args__: tuple = ()
+
+
+# --- Backward-compatibility alias ---
+# Legacy code (CRUD, scripts, tests) imports "Notice". Point it to ProcurementNotice
+# so all queries target the correct "notices" table.
+Notice = ProcurementNotice
+

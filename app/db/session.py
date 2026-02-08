@@ -5,7 +5,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, Session
 
 from app.core.config import settings
-from app.db.base import Base
+from app.models.base import Base
 from app.db.db_url import resolve_db_url
 
 # Resolve database URL (handle relative SQLite paths)

@@ -5,9 +5,9 @@ from typing import Optional, Tuple
 from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
-from app.db.models.notice import Notice
-from app.db.models.notice_cpv_additional import NoticeCpvAdditional
-from app.db.models.watchlist import Watchlist
+from app.models.notice import Notice
+from app.models.notice_cpv_additional import NoticeCpvAdditional
+from app.models.watchlist import Watchlist
 
 
 def create_watchlist(

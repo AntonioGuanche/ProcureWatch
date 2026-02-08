@@ -4,9 +4,9 @@ from typing import Any, Optional, Tuple
 
 from sqlalchemy.orm import Session
 
-from app.db.models.notice_detail import NoticeDetail
-from app.db.models.notice_document import NoticeDocument
-from app.db.models.notice_lot import NoticeLot
+from app.models.notice_detail import NoticeDetail
+from app.models.notice_document import NoticeDocument
+from app.models.notice_lot import NoticeLot
 
 
 def get_notice_detail_by_notice_id(db: Session, notice_id: str) -> Optional[NoticeDetail]:

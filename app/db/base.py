@@ -1,7 +1,4 @@
-"""SQLAlchemy base class for models."""
-from sqlalchemy.orm import DeclarativeBase
+"""Backward-compat shim. Real Base is in app.models.base."""
+from app.models.base import Base  # noqa: F401
 
-
-class Base(DeclarativeBase):
-    """Base class for all database models."""
-    pass
+__all__ = ["Base"]

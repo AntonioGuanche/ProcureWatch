@@ -13,10 +13,10 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.db.db_url import get_default_db_url, resolve_db_url
-from app.db.models.notice import Notice
-from app.db.models.watchlist import Watchlist
-from app.db.models.watchlist_match import WatchlistMatch
-from app.db.models.notice_detail import NoticeDetail
+from app.models.notice import Notice
+from app.models.watchlist import Watchlist
+from app.models.watchlist_match import WatchlistMatch
+from app.models.notice_detail import NoticeDetail
 from app.utils.searchable_text import build_searchable_text
 
 

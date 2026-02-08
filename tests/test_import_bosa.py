@@ -9,8 +9,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.db.db_url import get_default_db_url, resolve_db_url
-from app.db.base import Base
-from app.db.models.notice import Notice
+from app.models.base import Base
+from app.models.notice import Notice
 
 
 def _test_db_url():
@@ -71,11 +71,11 @@ def test_import_bosa_single_publication(db):
     finally:
         path.unlink(missing_ok=True)
 
-    notice = db.query(Notice).filter(Notice.source == "bosa.eprocurement", Notice.source_id == "bosa-test-123").first()
+    notice = db.query(Notice).filter(Notice.source == "BOSA_EPROC", Notice.source_id == "bosa-test-123").first()
     assert notice is not None
     assert notice.title == "Test publication"
-    assert notice.buyer_name == "Test Authority"
-    assert notice.country == "BE"
+    assert notice.organisation_names == {"default": "Test Authority"}
+    assert "BE" in (notice.nuts_codes or [])
     assert notice.url == "https://public.fedservices.be/pub/123"
 
 
@@ -104,7 +104,7 @@ def test_import_bosa_uses_items_key(db):
     finally:
         path.unlink(missing_ok=True)
 
-    notice = db.query(Notice).filter(Notice.source == "bosa.eprocurement", Notice.source_id == "bosa-items-456").first()
+    notice = db.query(Notice).filter(Notice.source == "BOSA_EPROC", Notice.source_id == "bosa-items-456").first()
     assert notice is not None
     assert notice.title == "Item-based notice"
-    assert notice.country == "BE"
+    assert "BE" in (notice.nuts_codes or [])

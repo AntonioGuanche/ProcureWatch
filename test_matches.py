@@ -1,5 +1,5 @@
 ﻿from app.db.session import SessionLocal
-from app.db.models.watchlist_match import WatchlistMatch
+from app.models.watchlist_match import WatchlistMatch
 from app.models.notice import ProcurementNotice
 
 db = SessionLocal()

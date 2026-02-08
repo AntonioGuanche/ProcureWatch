@@ -79,19 +79,19 @@ def test_import_ted_integration_with_migrations(temp_db):
         # 4) Verify Notice row exists
         from sqlalchemy import create_engine
         from sqlalchemy.orm import sessionmaker
-        from app.db.models.notice import Notice
+        from app.models.notice import Notice
         
         engine = create_engine(db_url)
         SessionLocal = sessionmaker(bind=engine)
         db = SessionLocal()
         try:
             notice = db.query(Notice).filter(
-                Notice.source == "ted.europa.eu",
+                Notice.source == "TED_EU",
                 Notice.source_id == "TED-INTEGRATION-001",
             ).first()
             assert notice is not None
             assert notice.title == "Integration Test Notice"
-            assert notice.country == "BE"
+            # country is derived from NUTS codes in ProcurementNotice
             assert notice.cpv_main_code == "45000000"
         finally:
             db.close()

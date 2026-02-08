@@ -40,14 +40,14 @@ def set_outbox_env(outbox_dir):
 def db_schema():
     """Create tables once for the module."""
     from app.db.session import engine
-    from app.db.base import Base
+    from app.models.base import Base
     Base.metadata.create_all(bind=engine)
     yield
     Base.metadata.drop_all(bind=engine)
 
 
 def _add_notice(db, source_id: str, title: str, country: str = "BE", created_at: datetime | None = None):
-    from app.db.models.notice import Notice
+    from app.models.notice import Notice
     n = Notice(
         source="publicprocurement.be",
         source_id=source_id,
@@ -64,7 +64,7 @@ def _add_notice(db, source_id: str, title: str, country: str = "BE", created_at:
 
 
 def _add_watchlist(db, name: str, term: str | None = None, notify_email: str | None = None, last_refresh_at=None, last_notified_at=None):
-    from app.db.models.watchlist import Watchlist
+    from app.models.watchlist import Watchlist
     wl = Watchlist(
         name=name,
         is_enabled=True,

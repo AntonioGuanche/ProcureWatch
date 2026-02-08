@@ -23,13 +23,13 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from app.core.logging import setup_logging
 from app.db.db_url import get_default_db_url, resolve_db_url
-from app.db.models.notice import Notice
-from app.db.models.notice_cpv_additional import NoticeCpvAdditional
+from app.models.notice import Notice
+from app.models.notice_cpv_additional import NoticeCpvAdditional
 from app.utils.cpv import normalize_cpv
 
 setup_logging()
 
-SOURCE_NAME = "ted.europa.eu"
+SOURCE_NAME = "TED_EU"
 
 
 def create_local_session(db_url: str | None = None):
@@ -467,27 +467,33 @@ def import_notice(db: Session, notice: dict[str, Any], raw_json_str: str) -> boo
     deadline_at = _deadline_at(notice)
     url = _ted_url(source_id, notice)
 
+    # Map to ProcurementNotice columns
+    organisation_names = {"default": buyer_name} if buyer_name else None
+    nuts_codes = [country] if country else None
+    publication_languages = [language] if language else None
+    publication_date = published_at.date() if published_at else None
+    try:
+        raw_data = json.loads(raw_json_str) if raw_json_str else None
+    except (json.JSONDecodeError, TypeError):
+        raw_data = None
+
     existing = db.query(Notice).filter(
         Notice.source == SOURCE_NAME,
         Notice.source_id == source_id,
     ).first()
 
     if existing:
-        # Touch semantics: always refresh last_seen_at and updated_at on re-import
         existing.title = title
-        existing.buyer_name = buyer_name
-        existing.country = country
-        existing.language = language
-        existing.cpv = cpv_display
+        existing.organisation_names = organisation_names
+        existing.nuts_codes = nuts_codes
+        existing.publication_languages = publication_languages
         existing.cpv_main_code = cpv_main_code
-        existing.procedure_type = procedure_type
-        existing.published_at = published_at
-        existing.deadline_at = deadline_at
+        existing.notice_type = procedure_type
+        existing.publication_date = publication_date
+        existing.deadline = deadline_at
         existing.url = url
-        existing.raw_json = raw_json_str
-        existing.last_seen_at = now
+        existing.raw_data = raw_data
         existing.updated_at = now
-        flag_modified(existing, "last_seen_at")
         flag_modified(existing, "updated_at")
         notice_obj = existing
         print(f"  [Updated] {source_id}")
@@ -495,19 +501,17 @@ def import_notice(db: Session, notice: dict[str, Any], raw_json_str: str) -> boo
         notice_obj = Notice(
             source=SOURCE_NAME,
             source_id=source_id,
+            publication_workspace_id=source_id,
             title=title,
-            buyer_name=buyer_name,
-            country=country,
-            language=language,
-            cpv=cpv_display,
+            organisation_names=organisation_names,
+            nuts_codes=nuts_codes,
+            publication_languages=publication_languages,
             cpv_main_code=cpv_main_code,
-            procedure_type=procedure_type,
-            published_at=published_at,
-            deadline_at=deadline_at,
+            notice_type=procedure_type,
+            publication_date=publication_date,
+            deadline=deadline_at,
             url=url,
-            raw_json=raw_json_str,
-            first_seen_at=now,
-            last_seen_at=now,
+            raw_data=raw_data,
         )
         db.add(notice_obj)
         print(f"  [Created] {source_id}")

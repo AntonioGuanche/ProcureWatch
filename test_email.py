@@ -1,6 +1,6 @@
 from app.db.session import SessionLocal
-from app.db.models.watchlist import Watchlist
-from app.db.models.watchlist_match import WatchlistMatch
+from app.models.watchlist import Watchlist
+from app.models.watchlist_match import WatchlistMatch
 from app.models.notice import ProcurementNotice
 from app.services.notification_service import send_watchlist_notification
 

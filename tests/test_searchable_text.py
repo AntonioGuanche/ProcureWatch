@@ -6,9 +6,9 @@ os.environ["DATABASE_URL"] = "sqlite+pysqlite:///./test_searchable_text.db"
 
 import pytest
 
-from app.db.base import Base
-from app.db.models.notice import Notice
-from app.db.models.notice_detail import NoticeDetail
+from app.models.base import Base
+from app.models.notice import Notice
+from app.models.notice_detail import NoticeDetail
 from app.db.session import SessionLocal, engine
 from app.utils.searchable_text import build_searchable_text, pick_text
 
@@ -48,8 +48,9 @@ def test_build_searchable_text_includes_title(db_schema):
     try:
         notice = Notice(
             id="test-1",
-            source="ted.europa.eu",
+            source="TED_EU",
             source_id="TED-001",
+            publication_workspace_id="ws-TED-001",
             title="Solar Panel Installation",
             url="https://example.com/1",
         )
@@ -62,21 +63,22 @@ def test_build_searchable_text_includes_title(db_schema):
         db.close()
 
 
-def test_build_searchable_text_includes_raw_json_fields(db_schema):
-    """build_searchable_text extracts fields from raw_json."""
+def test_build_searchable_text_includes_raw_data_fields(db_schema):
+    """build_searchable_text extracts fields from raw_data."""
     db = SessionLocal()
     try:
-        raw_data = {
+        raw = {
             "notice-title": {"eng": "Wind Energy Project", "fra": "Projet d'énergie éolienne"},
             "description-glo": "Large scale wind farm development",
         }
         notice = Notice(
             id="test-2",
-            source="ted.europa.eu",
+            source="TED_EU",
             source_id="TED-002",
+            publication_workspace_id="ws-TED-002",
             title="Untitled",
             url="https://example.com/2",
-            raw_json=json.dumps(raw_data),
+            raw_data=raw,
         )
         db.add(notice)
         db.commit()
@@ -94,8 +96,9 @@ def test_build_searchable_text_includes_notice_detail(db_schema):
     try:
         notice = Notice(
             id="test-3",
-            source="ted.europa.eu",
+            source="TED_EU",
             source_id="TED-003",
+            publication_workspace_id="ws-TED-003",
             title="Test Notice",
             url="https://example.com/3",
         )
@@ -108,7 +111,7 @@ def test_build_searchable_text_includes_notice_detail(db_schema):
         }
         detail = NoticeDetail(
             notice_id=notice.id,
-            source="ted.europa.eu",
+            source="TED_EU",
             source_id="TED-003",
             raw_json=json.dumps(detail_data),
         )

@@ -34,9 +34,6 @@ from app.db.crud.notice_detail import (
     list_lots_by_notice_id,
 )
 from app.db.session import SessionLocal, get_db
-# Import ProcurementNotice BEFORE crud.notices so "notices" table is registered with
-# ProcurementNotice columns (organisation_names, publication_date); otherwise the old
-# Notice model (buyer_name) wins and query.count() raises "no such column: notices.buyer_name"
 from app.models.notice import NoticeSource, ProcurementNotice
 from app.db.crud.notices import get_notice_by_id, get_notice_stats, list_notices
 from app.services.notice_service import NoticeService

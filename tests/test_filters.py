@@ -17,9 +17,12 @@ def db_setup():
     Base.metadata.create_all(bind=engine)
     yield
     Base.metadata.drop_all(bind=engine)
-    # Clean up test database file
+    engine.dispose()
     if os.path.exists("test.db"):
-        os.remove("test.db")
+        try:
+            os.remove("test.db")
+        except PermissionError:
+            pass
 
 
 @pytest.fixture

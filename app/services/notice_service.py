@@ -9,8 +9,8 @@ from sqlalchemy.orm import Session
 
 from app.connectors.eproc_connector import fetch_publication_workspace
 from app.connectors.ted_connector import search_ted_notices as search_ted_notices_app
-from app.db.models.notice_cpv_additional import NoticeCpvAdditional
-from app.db.models.notice_lot import NoticeLot
+from app.models.notice_cpv_additional import NoticeCpvAdditional
+from app.models.notice_lot import NoticeLot
 from connectors.eprocurement.client import search_publications as search_publications_bosa
 from app.models.notice import NoticeSource, ProcurementNotice
 

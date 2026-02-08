@@ -14,7 +14,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.db.db_url import get_default_db_url, resolve_db_url
-from app.db.models.notice import Notice
+from app.models.notice import Notice
 from ingest.import_ted import normalize_country
 
 

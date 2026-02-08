@@ -8,10 +8,10 @@ from alembic import context
 
 # Import settings and base
 from app.core.config import settings
-from app.db.base import Base
+from app.models.base import Base
 
 # Import all models so that Alembic can detect them (notices table from ProcurementNotice)
-from app.db.models import Filter, NoticeCpvAdditional  # noqa: F401
+from app.models import Filter, NoticeCpvAdditional  # noqa: F401
 from app.models.notice import ProcurementNotice  # noqa: F401
 
 # this is the Alembic Config object, which provides

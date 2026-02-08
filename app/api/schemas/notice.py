@@ -8,23 +8,25 @@ from app.utils.cpv import normalize_cpv
 
 
 class NoticeRead(BaseModel):
-    """Schema for reading a notice. cpv_main_code is 8-digit; cpv is display (########-# or ########)."""
+    """Schema for reading a notice (matches ProcurementNotice model)."""
 
     id: str
     source: str
     source_id: str
-    title: str
-    buyer_name: Optional[str] = None
-    country: Optional[str] = None
-    language: Optional[str] = None
-    cpv: Optional[str] = None  # Display format "########-#" or "########"
-    cpv_main_code: Optional[str] = None  # 8-digit string
-    procedure_type: Optional[str] = None
-    published_at: Optional[datetime] = None
-    deadline_at: Optional[datetime] = None
-    url: str
-    first_seen_at: datetime
-    last_seen_at: datetime
+    title: Optional[str] = None
+    description: Optional[str] = None
+    organisation_names: Optional[Dict[str, str]] = None
+    nuts_codes: Optional[List[str]] = None
+    cpv_main_code: Optional[str] = None
+    notice_type: Optional[str] = None
+    notice_sub_type: Optional[str] = None
+    form_type: Optional[str] = None
+    publication_date: Optional[date] = None
+    deadline: Optional[datetime] = None
+    estimated_value: Optional[Any] = None
+    url: Optional[str] = None
+    status: Optional[str] = None
+    reference_number: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
@@ -32,14 +34,12 @@ class NoticeRead(BaseModel):
 
     @model_validator(mode="after")
     def normalize_cpv_output(self) -> "NoticeRead":
-        """Ensure cpv_main_code is 8-digit and cpv is display format in API response."""
-        raw = self.cpv_main_code or self.cpv
+        """Ensure cpv_main_code is 8-digit."""
+        raw = self.cpv_main_code
         if raw:
             cpv_8, _, display = normalize_cpv(raw)
             if cpv_8 is not None:
                 object.__setattr__(self, "cpv_main_code", cpv_8)
-            if display is not None:
-                object.__setattr__(self, "cpv", display)
         return self
 
 
@@ -60,10 +60,10 @@ class NoticeSearchItem(BaseModel):
     source: str
     cpv_main_code: Optional[str] = None
     organisation_names: Optional[Dict[str, str]] = None
-    publication_date: Optional[str] = None  # ISO date YYYY-MM-DD
-    deadline: Optional[str] = None  # ISO datetime or date
+    publication_date: Optional[str] = None
+    deadline: Optional[str] = None
     reference_number: Optional[str] = None
-    description: Optional[str] = None  # Truncated to 200 chars for list view
+    description: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
@@ -113,7 +113,6 @@ class NoticeDocumentRead(BaseModel):
     language: Optional[str] = None
     published_at: Optional[datetime] = None
     checksum: Optional[str] = None
-    # Document pipeline
     local_path: Optional[str] = None
     content_type: Optional[str] = None
     file_size: Optional[int] = None
@@ -129,7 +128,7 @@ class NoticeDocumentRead(BaseModel):
 
 
 class NoticeDocumentTextRead(BaseModel):
-    """Extracted text and metadata for a document (GET .../documents/{doc_id}/text)."""
+    """Extracted text and metadata for a document."""
 
     id: str
     notice_id: str
@@ -143,8 +142,6 @@ class NoticeDocumentTextRead(BaseModel):
 
 
 class NoticeLotListResponse(BaseModel):
-    """Paginated lots for a notice."""
-
     total: int
     page: int
     page_size: int
@@ -152,38 +149,27 @@ class NoticeLotListResponse(BaseModel):
 
 
 class NoticeDocumentListResponse(BaseModel):
-    """Paginated documents for a notice."""
-
     total: int
     page: int
     page_size: int
     items: List[NoticeDocumentRead]
 
 
-# --- Manual refresh (POST /api/notices/refresh) ---
-
-
 class RefreshSearchCriteria(BaseModel):
-    """Search criteria for notice refresh (BOSA + TED)."""
-
     keywords: Optional[str] = None
     cpv_codes: Optional[List[str]] = None
-    publication_date_from: Optional[str] = None  # ISO date "YYYY-MM-DD"
+    publication_date_from: Optional[str] = None
     publication_date_to: Optional[str] = None
     page: Optional[int] = 1
     page_size: Optional[int] = 25
 
 
 class RefreshRequest(BaseModel):
-    """Body for POST /api/notices/refresh."""
-
-    sources: Optional[List[str]] = None  # ["BOSA", "TED"] or omit for all
+    sources: Optional[List[str]] = None
     search_criteria: Optional[RefreshSearchCriteria] = None
 
 
 class RefreshSourceStats(BaseModel):
-    """Per-source stats (bosa / ted)."""
-
     created: int = 0
     updated: int = 0
     skipped: int = 0
@@ -191,33 +177,25 @@ class RefreshSourceStats(BaseModel):
 
 
 class RefreshResponse(BaseModel):
-    """Response for synchronous refresh (200) or completed job."""
-
     status: str = "success"
-    stats: dict  # bosa, ted, total_created, total_updated
+    stats: dict
     duration_seconds: float = 0.0
 
 
 class RefreshAcceptedResponse(BaseModel):
-    """Response for async refresh (202 Accepted)."""
-
     status: str = "accepted"
     job_id: str
     message: str = "Refresh started in background. Poll GET /api/notices/refresh/jobs/{job_id} for result."
 
 
 class RefreshJobStatusResponse(BaseModel):
-    """Response for GET /api/notices/refresh/jobs/{job_id}."""
-
     job_id: str
-    status: str  # pending | running | completed | failed
+    status: str
     result: Optional[RefreshResponse] = None
     created_at: Optional[datetime] = None
 
 
 class NoticeStatsResponse(BaseModel):
-    """Response for GET /api/notices/stats."""
-
     total_notices: int
-    by_source: dict  # e.g. {"BOSA_EPROC": 805, "TED_EU": 442}
-    last_import: Optional[str] = None  # ISO datetime of most recent updated_at
+    by_source: dict
+    last_import: Optional[str] = None

@@ -15,15 +15,15 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from app.core.config import settings
 from app.core.logging import setup_logging
-from app.db.models.notice import Notice
-from app.db.models.notice_cpv_additional import NoticeCpvAdditional
+from app.models.notice import Notice
+from app.models.notice_cpv_additional import NoticeCpvAdditional
 from app.db.session import SessionLocal, engine
 from app.utils.cpv import normalize_cpv
 
 # Setup logging
 setup_logging()
 
-SOURCE_NAME = "publicprocurement.be"
+SOURCE_NAME = "BOSA_EPROC"
 
 
 def parse_date(date_str: Optional[str]) -> Optional[datetime]:
@@ -142,18 +142,26 @@ def import_publication(db: Session, publication: Dict[str, Any], raw_json_str: s
 
     now = datetime.utcnow()
 
+    # Map to ProcurementNotice columns
+    organisation_names = {"default": buyer_name} if buyer_name else None
+    nuts_codes = ["BE"]
+    pub_date = publication_date.date() if hasattr(publication_date, 'date') and publication_date else publication_date
+    try:
+        raw_data = json.loads(raw_json_str) if raw_json_str else None
+    except (json.JSONDecodeError, TypeError):
+        raw_data = None
+
     if existing:
         # Update existing notice
         existing.title = title
-        existing.buyer_name = buyer_name
-        existing.cpv = cpv_display  # Display format "########-#" or "########"
-        existing.cpv_main_code = cpv_main_code  # 8 digits
-        existing.procedure_type = procedure_type
-        existing.published_at = publication_date
-        existing.deadline_at = deadline_date
+        existing.organisation_names = organisation_names
+        existing.nuts_codes = nuts_codes
+        existing.cpv_main_code = cpv_main_code
+        existing.notice_type = procedure_type
+        existing.publication_date = pub_date
+        existing.deadline = deadline_date
         existing.url = url
-        existing.raw_json = raw_json_str
-        existing.last_seen_at = now
+        existing.raw_data = raw_data
         existing.updated_at = now
         
         notice = existing
@@ -163,19 +171,17 @@ def import_publication(db: Session, publication: Dict[str, Any], raw_json_str: s
         notice = Notice(
             source=SOURCE_NAME,
             source_id=str(external_id),
+            publication_workspace_id=str(external_id),
             title=title,
-            buyer_name=buyer_name,
-            country="BE",  # publicprocurement.be is Belgium-specific
-            language="FR",  # Default, could be extracted from titles
-            cpv=cpv_display,  # Display format "########-#" or "########"
-            cpv_main_code=cpv_main_code,  # 8 digits
-            procedure_type=procedure_type,
-            published_at=publication_date,
-            deadline_at=deadline_date,
+            organisation_names=organisation_names,
+            nuts_codes=nuts_codes,
+            publication_languages=["FR"],
+            cpv_main_code=cpv_main_code,
+            notice_type=procedure_type,
+            publication_date=pub_date,
+            deadline=deadline_date,
             url=url,
-            raw_json=raw_json_str,
-            first_seen_at=now,
-            last_seen_at=now,
+            raw_data=raw_data,
         )
         db.add(notice)
         print(f"  ✓ Created: {external_id}")
