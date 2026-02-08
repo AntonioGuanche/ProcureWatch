@@ -1,4 +1,4 @@
-# Python
+﻿# Python
 __pycache__/
 *.py[cod]
 *$py.class
@@ -24,11 +24,12 @@ wheels/
 venv/
 env/
 ENV/
-.venv
+.venv/
 
 # Environment variables
 .env
 .env.local
+.env.backup
 
 # IDE
 .vscode/
@@ -55,17 +56,26 @@ data/raw/
 data/_cache/
 data/*.db
 !data/.gitkeep
-
-# Example / local-only data dumps (may contain IDs, never secrets)
 data/publicprocurement_*.json
+data/debug/
 
 # Logs
 logs/
 *.log
 
-# Local browser / cookie artifacts (never commit cookies)
-cookies.txt
-
 # Local DB files
 *.db
+*.db.bak
 
+# Local browser profile (SECURITY: contains cookies, sessions, cache)
+.pw-profile/
+
+# Node modules (frontend deps - install via npm install)
+web/node_modules/
+node_modules/
+
+# Local browser / cookie artifacts
+cookies.txt
+
+# Misc artifacts
+0
