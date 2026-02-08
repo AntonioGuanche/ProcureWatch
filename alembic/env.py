@@ -10,9 +10,16 @@ from alembic import context
 from app.core.config import settings
 from app.models.base import Base
 
-# Import all models so that Alembic can detect them (notices table from ProcurementNotice)
-from app.models import Filter, NoticeCpvAdditional  # noqa: F401
+# Import ALL models so Alembic autogenerate can detect them.
+from app.models.filter import Filter  # noqa: F401
 from app.models.notice import ProcurementNotice  # noqa: F401
+from app.models.notice_cpv_additional import NoticeCpvAdditional  # noqa: F401
+from app.models.notice_detail import NoticeDetail  # noqa: F401
+from app.models.notice_document import NoticeDocument  # noqa: F401
+from app.models.notice_lot import NoticeLot  # noqa: F401
+from app.models.watchlist import Watchlist  # noqa: F401
+from app.models.watchlist_match import WatchlistMatch  # noqa: F401
+from app.models.import_run import ImportRun  # noqa: F401
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

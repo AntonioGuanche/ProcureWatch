@@ -13,6 +13,7 @@ from app.models.notice_document import NoticeDocument
 from app.models.notice_lot import NoticeLot
 from app.models.watchlist import Watchlist
 from app.models.watchlist_match import WatchlistMatch
+from app.models.import_run import ImportRun
 
 __all__ = [
     "Base",
@@ -25,5 +26,6 @@ __all__ = [
     "NoticeLot",
     "ProcurementNotice",
     "Watchlist",
+    "ImportRun",
     "WatchlistMatch",
 ]
