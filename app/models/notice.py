@@ -5,7 +5,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Any, Optional
 
-from sqlalchemy import Date, DateTime, Index, Numeric, String, Text, UniqueConstraint, func
+from sqlalchemy import Boolean, Date, DateTime, Index, Numeric, String, Text, UniqueConstraint, func
 from sqlalchemy.types import JSON
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -61,6 +61,19 @@ class ProcurementNotice(Base):
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     deadline: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True, index=True)
     estimated_value: Mapped[Optional[Decimal]] = mapped_column(Numeric(18, 2), nullable=True)
+
+    # --- BOSA enriched (URL, status, dossier, agreement, certificates, keywords) ---
+    url: Mapped[Optional[str]] = mapped_column(String(1000), nullable=True)
+    status: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)  # PUBLISHED, ARCHIVED
+    agreement_status: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    dossier_status: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    cancelled_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    required_accreditation: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    dossier_number: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    dossier_title: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    agreement_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    keywords: Mapped[Optional[list[str]]] = mapped_column(JSON, nullable=True)  # e.g. ["keyword1", "keyword2"]
+    migrated: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     # --- Timestamps ---
     created_at: Mapped[datetime] = mapped_column(

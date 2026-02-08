@@ -9,6 +9,8 @@ from sqlalchemy.orm import Session
 
 from app.connectors.eproc_connector import fetch_publication_workspace
 from app.connectors.ted_connector import search_ted_notices as search_ted_notices_app
+from app.db.models.notice_cpv_additional import NoticeCpvAdditional
+from app.db.models.notice_lot import NoticeLot
 from connectors.eprocurement.client import search_publications as search_publications_bosa
 from app.models.notice import NoticeSource, ProcurementNotice
 
@@ -176,6 +178,143 @@ def _extract_title(item: dict[str, Any], workspace: Optional[dict[str, Any]]) ->
     return _safe_str(_get_from_sources(item, workspace, "title", "name"), 1000)
 
 
+def _bosa_extract_lots(publication: dict[str, Any]) -> list[dict[str, Any]]:
+    """Extract lots from BOSA publication (workspace). Each lot: number, title, external_id, status."""
+    lots_data = publication.get("lots") or publication.get("lotsData") or []
+    lots = []
+    for lot in lots_data if isinstance(lots_data, list) else []:
+        if not isinstance(lot, dict):
+            continue
+        titles = lot.get("titles") or lot.get("title") or []
+        if not isinstance(titles, list):
+            titles = [{"text": str(titles), "language": "FR"}] if titles else []
+        title = None
+        for t in titles:
+            if isinstance(t, dict) and t.get("language") == "FR":
+                title = (t.get("text") or t.get("value") or "").strip()
+                break
+        if not title and titles:
+            first = titles[0]
+            title = (first.get("text") or first.get("value") or str(first)).strip() if isinstance(first, dict) else str(first)
+        if not title:
+            title = f"Lot {lot.get('number', '?')}"
+        lots.append({
+            "number": _safe_str(lot.get("number") or lot.get("lotNumber"), 50),
+            "title": _safe_str(title, 500),
+            "external_id": _safe_str(lot.get("id"), 255),
+            "status": _safe_str(lot.get("status") or "ACTIVE", 50),
+        })
+    return lots
+
+
+def _bosa_enrich_raw_data_and_extras(
+    publication: dict[str, Any],
+    source_id: str,
+    cpv_main_code: Optional[str],
+) -> tuple[dict[str, Any], list[dict[str, Any]], list[str]]:
+    """
+    Build enriched raw_data (url, status, certificates, dossier, agreement, keywords, etc.)
+    and extract lots + additional CPV codes for persistence.
+    Returns (enriched_raw_data, lots_for_notice_lots, additional_cpv_codes).
+    """
+    raw = dict(publication) if publication else {}
+
+    # URL (constructible)
+    pub_id = publication.get("id") if publication else None
+    if pub_id:
+        raw["url"] = f"https://publicprocurement.be/publication-workspaces/{pub_id}/general"
+
+    # Status & lifecycle
+    raw["status"] = publication.get("status", "PUBLISHED") if publication else "PUBLISHED"
+    raw["agreement_status"] = publication.get("agreementStatus") if publication else None
+    raw["dossier_status"] = publication.get("dossierStatus") if publication else None
+    raw["cancelled_at"] = publication.get("cancelledAt") if publication else None
+    raw["migrated"] = publication.get("migrated", False) if publication else False
+
+    # Certificates (required_accreditation)
+    certificates = (publication or {}).get("certificates") or []
+    if certificates:
+        cert_descriptions = []
+        for cert in certificates if isinstance(certificates, list) else []:
+            if isinstance(cert, dict):
+                d = cert.get("description") or cert.get("type")
+                if d:
+                    cert_descriptions.append(str(d))
+        if cert_descriptions:
+            raw["required_accreditation"] = ", ".join(cert_descriptions)
+
+    # Dossier info
+    dossier = (publication or {}).get("dossier") or {}
+    if dossier:
+        dossier_titles = dossier.get("titles") or []
+        dossier_title = None
+        for t in dossier_titles if isinstance(dossier_titles, list) else []:
+            if isinstance(t, dict) and t.get("language") == "FR":
+                dossier_title = (t.get("text") or t.get("value") or "").strip()
+                break
+        if not dossier_title and dossier_titles:
+            first = dossier_titles[0]
+            dossier_title = (first.get("text") or first.get("value") or "").strip() if isinstance(first, dict) else ""
+        raw["dossier_id"] = dossier.get("id")
+        raw["dossier_number"] = dossier.get("number")
+        raw["dossier_title"] = dossier_title
+
+    # Agreement
+    raw["agreement_id"] = (publication or {}).get("agreementId")
+
+    # Organisation (FR name)
+    org = (publication or {}).get("organisation") or {}
+    org_names = org.get("organisationNames") or org.get("organisation_names") or []
+    org_name_fr = None
+    for n in org_names if isinstance(org_names, list) else []:
+        if isinstance(n, dict) and n.get("language") == "FR":
+            org_name_fr = (n.get("text") or n.get("value") or "").strip()
+            break
+    if not org_name_fr and org_names:
+        first = org_names[0]
+        org_name_fr = (first.get("text") or first.get("value") or "").strip() if isinstance(first, dict) else None
+    raw["organisation_name"] = org_name_fr
+    raw["organisation_id"] = org.get("organisationId") or org.get("id")
+
+    # All CPV codes (for raw_data and for notice_cpv_additional)
+    all_cpv = (publication or {}).get("allCpvCodes") or []
+    agreement_cpv = (publication or {}).get("agreementCpvCodes") or []
+    if not isinstance(all_cpv, list):
+        all_cpv = []
+    if not isinstance(agreement_cpv, list):
+        agreement_cpv = []
+    def _cpv_code(c: Any) -> Optional[str]:
+        if isinstance(c, str) and c.strip():
+            return c.strip()
+        if isinstance(c, dict):
+            return (c.get("code") or c.get("id") or "").strip() or None
+        return None
+    raw["all_cpv_codes"] = [_cpv_code(c) for c in all_cpv if _cpv_code(c)]
+    raw["agreement_cpv_codes"] = [_cpv_code(c) for c in agreement_cpv if _cpv_code(c)]
+    # Additional CPV: all codes except main (for notice_cpv_additional table)
+    main_normalized = (cpv_main_code or "").replace("-", "").strip()[:8] if cpv_main_code else None
+    additional_cpv_codes = []
+    for c in raw["all_cpv_codes"]:
+        code = (c or "").replace("-", "").strip()[:8]
+        if code and code != main_normalized:
+            additional_cpv_codes.append(c if isinstance(c, str) else str(c))
+
+    # Keywords (FR)
+    keywords = (publication or {}).get("keywords") or []
+    keywords_fr = []
+    for kw in keywords if isinstance(keywords, list) else []:
+        if isinstance(kw, dict) and kw.get("language") == "FR":
+            t = kw.get("text") or kw.get("value")
+            if t:
+                keywords_fr.append(str(t).strip())
+    raw["keywords"] = keywords_fr
+
+    # Lots for notice_lots table
+    lots = _bosa_extract_lots(publication or {})
+
+    return raw, lots, additional_cpv_codes
+
+
 def _map_search_item_to_notice(
     item: dict[str, Any],
     workspace: Optional[dict[str, Any]],
@@ -183,8 +322,9 @@ def _map_search_item_to_notice(
 ) -> dict[str, Any]:
     """Build kwargs for ProcurementNotice from search item and optional workspace detail.
     Uses workspace when present and falls back to item for each field.
+    Enriches raw_data with BOSA full API fields; adds _bosa_lots and _bosa_additional_cpv for persistence.
     """
-    raw_data = workspace if workspace else item
+    publication = workspace if workspace else item
 
     def get(*keys: str, default=None):
         return _get_from_sources(item, workspace, *keys, default=default)
@@ -192,6 +332,14 @@ def _map_search_item_to_notice(
     # CPV: main (object with .code in API) and additional (list of { code })
     cpv_main_code = _extract_cpv_main_code(item, workspace)
     cpv_additional_codes = _extract_cpv_additional_codes(item, workspace)
+
+    # Enrich raw_data and get lots + additional CPV for DB
+    enriched_raw, bosa_lots, bosa_additional_cpv = _bosa_enrich_raw_data_and_extras(
+        publication, source_id, cpv_main_code
+    )
+    # If we had no workspace, additional_cpv from API might not be in allCpvCodes; keep merge with existing
+    if cpv_additional_codes and not bosa_additional_cpv:
+        bosa_additional_cpv = list(cpv_additional_codes)
 
     # NUTS: list of strings
     nuts = get("nutsCodes", "nuts_codes", "nutsCode")
@@ -228,6 +376,7 @@ def _map_search_item_to_notice(
         get("vaultSubmissionDeadline", "submissionDeadline", "submission_deadline", "deadline"),
     )
 
+    # BOSA enriched columns (from enriched_raw)
     return {
         "source_id": source_id,
         "source": BOSA_SOURCE,
@@ -246,11 +395,24 @@ def _map_search_item_to_notice(
         "organisation_id": organisation_id,
         "organisation_names": organisation_names,
         "publication_languages": publication_languages,
-        "raw_data": raw_data,
+        "raw_data": enriched_raw,
         "title": title,
         "description": _safe_str(get("description", "summary"), None),
         "deadline": deadline,
         "estimated_value": _safe_decimal(get("estimatedValue", "estimated_value", "value")),
+        "url": _safe_str(enriched_raw.get("url"), 1000),
+        "status": _safe_str(enriched_raw.get("status"), 50),
+        "agreement_status": _safe_str(enriched_raw.get("agreement_status"), 100),
+        "dossier_status": _safe_str(enriched_raw.get("dossier_status"), 100),
+        "cancelled_at": _safe_datetime(enriched_raw.get("cancelled_at")),
+        "required_accreditation": _safe_str(enriched_raw.get("required_accreditation"), 500),
+        "dossier_number": _safe_str(enriched_raw.get("dossier_number"), 255),
+        "dossier_title": _safe_str(enriched_raw.get("dossier_title"), None),
+        "agreement_id": _safe_str(enriched_raw.get("agreement_id"), 255),
+        "keywords": enriched_raw.get("keywords") if isinstance(enriched_raw.get("keywords"), list) else None,
+        "migrated": bool(enriched_raw.get("migrated", False)),
+        "_bosa_lots": bosa_lots,
+        "_bosa_additional_cpv": bosa_additional_cpv,
     }
 
 
@@ -463,15 +625,41 @@ class NoticeService:
                     )
 
                 attrs = _map_search_item_to_notice(raw, workspace, workspace_id)
+                bosa_lots = attrs.pop("_bosa_lots", [])
+                bosa_additional_cpv = attrs.pop("_bosa_additional_cpv", [])
 
                 if existing:
                     for key, value in attrs.items():
                         setattr(existing, key, value)
+                    notice_entity = existing
                     stats["updated"] += 1
+                    # Replace lots and additional CPV for this notice
+                    self.db.query(NoticeLot).filter(NoticeLot.notice_id == existing.id).delete()
+                    self.db.query(NoticeCpvAdditional).filter(NoticeCpvAdditional.notice_id == existing.id).delete()
                 else:
                     notice = ProcurementNotice(**attrs)
                     self.db.add(notice)
+                    self.db.flush()
+                    notice_entity = notice
                     stats["created"] += 1
+
+                notice_id = notice_entity.id
+                for lot_data in bosa_lots:
+                    if lot_data.get("number") is not None or lot_data.get("title"):
+                        self.db.add(NoticeLot(
+                            notice_id=notice_id,
+                            lot_number=lot_data.get("number"),
+                            title=lot_data.get("title"),
+                            description=lot_data.get("external_id"),
+                            cpv_code=None,
+                            nuts_code=None,
+                        ))
+                for cpv_code in bosa_additional_cpv:
+                    if cpv_code and str(cpv_code).strip():
+                        self.db.add(NoticeCpvAdditional(
+                            notice_id=notice_id,
+                            cpv_code=str(cpv_code).strip()[:20],
+                        ))
             except Exception as e:
                 stats["errors"].append({"source_id": workspace_id, "message": str(e)})
                 logger.warning("Import failed for %s: %s", workspace_id, e)

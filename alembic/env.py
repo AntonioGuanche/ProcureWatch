@@ -20,6 +20,7 @@ config = context.config
 
 # Override sqlalchemy.url with DATABASE_URL from settings
 config.set_main_option("sqlalchemy.url", settings.database_url)
+#config.set_main_option("sqlalchemy.url", "postgresql+psycopg://postgres:qsjkYMggArabSnTisPTWpkgacGpcdDDM@crossover.proxy.rlwy.net:13317/railway")
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
