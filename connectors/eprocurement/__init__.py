@@ -1,12 +1,2 @@
-"""Belgian e-Procurement connectors (official API + Playwright fallback)."""
-from connectors.eprocurement.client import (
-    get_cpv_label,
-    get_publication_detail,
-    search_publications,
-)
-
-__all__ = [
-    "search_publications",
-    "get_publication_detail",
-    "get_cpv_label",
-]
+"""Backward-compat shim → app.connectors.bosa (Phase 2)."""
+from app.connectors.bosa import search_publications, get_publication_detail, get_cpv_label

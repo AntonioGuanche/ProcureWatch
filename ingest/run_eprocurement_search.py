@@ -44,14 +44,14 @@ def main() -> int:
         os.environ["EPROC_MODE"] = args.provider
 
     if args.discover or args.force_discover:
-        from connectors.eprocurement.openapi_discovery import load_or_discover_endpoints
+        from app.connectors.bosa.openapi_discovery import load_or_discover_endpoints
 
         load_or_discover_endpoints(force=args.force_discover)
         if args.force_discover:
             print("Endpoint cache overwritten (--force-discover).")
         print("Discovery complete. Running search...")
 
-    from connectors.eprocurement.client import search_publications
+    from app.connectors.bosa.client import search_publications
 
     try:
         result = search_publications(

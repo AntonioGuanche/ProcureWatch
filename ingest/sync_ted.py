@@ -227,7 +227,7 @@ def main() -> int:
     # 0) Optional: run discovery first
     if args.discover or args.force_discover:
         try:
-            from connectors.ted.openapi_discovery import TEDDiscoveryError, load_or_discover_endpoints
+            from app.connectors.ted.openapi_discovery import TEDDiscoveryError, load_or_discover_endpoints
             from app.core.config import settings
             load_or_discover_endpoints(
                 force=args.force_discover,
@@ -252,7 +252,7 @@ def main() -> int:
 
     # 1) Search TED
     try:
-        from connectors.ted import search_ted_notices
+        from app.connectors.ted import search_ted_notices
 
         result = search_ted_notices(
             term=args.query,

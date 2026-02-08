@@ -23,7 +23,7 @@ def run_search(term: str, page: int, page_size: int, provider: str | None) -> di
     """Run search via connectors; returns result dict (metadata + json)."""
     if provider is not None:
         os.environ["EPROC_MODE"] = provider
-    from connectors.eprocurement.client import search_publications
+    from app.connectors.bosa.client import search_publications
 
     return search_publications(term=term, page=page, page_size=page_size)
 

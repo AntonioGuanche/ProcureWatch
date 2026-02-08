@@ -2,8 +2,8 @@
 import logging
 from typing import Any, Optional
 
-from connectors.eprocurement.client import _get_client
-from connectors.eprocurement.official_client import OfficialEProcurementClient
+from app.connectors.bosa.client import _get_client
+from app.connectors.bosa.official_client import OfficialEProcurementClient
 
 logger = logging.getLogger(__name__)
 

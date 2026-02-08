@@ -79,7 +79,7 @@ def test_fetch_spec_404_then_200_returns_spec() -> None:
         resp.json.return_value = FAKE_SPEC
         return resp
 
-    with patch("connectors.ted.openapi_discovery.requests.get", side_effect=fake_get):
+    with patch("app.connectors.ted.openapi_discovery.requests.get", side_effect=fake_get):
         spec, tried = fetch_spec("https://api.ted.europa.eu", timeout=10)
 
     assert spec.get("paths") is not None
@@ -108,8 +108,8 @@ def test_load_or_discover_endpoints_writes_and_loads_cache(tmp_path: Path) -> No
         return FAKE_SPEC, [host + "/v3/api-docs"]
 
     cache_file = tmp_path / "ted_endpoints.json"
-    with patch("connectors.ted.openapi_discovery.fetch_spec", side_effect=fake_fetch_spec):
-        with patch("connectors.ted.openapi_discovery._cache_path", return_value=cache_file):
+    with patch("app.connectors.ted.openapi_discovery.fetch_spec", side_effect=fake_fetch_spec):
+        with patch("app.connectors.ted.openapi_discovery._cache_path", return_value=cache_file):
             desc = load_or_discover_endpoints(force=True, host="https://api.ted.europa.eu", timeout=10)
 
     assert desc.get("base_url") == "https://api.ted.europa.eu"
@@ -122,8 +122,8 @@ def test_load_or_discover_endpoints_writes_and_loads_cache(tmp_path: Path) -> No
     assert cached.get("path") == desc.get("path")
 
     # Load again without force: should read from cache (fetch_spec not called again)
-    with patch("connectors.ted.openapi_discovery.fetch_spec") as mock_fetch:
-        with patch("connectors.ted.openapi_discovery._cache_path", return_value=cache_file):
+    with patch("app.connectors.ted.openapi_discovery.fetch_spec") as mock_fetch:
+        with patch("app.connectors.ted.openapi_discovery._cache_path", return_value=cache_file):
             desc2 = load_or_discover_endpoints(force=False, host="https://api.ted.europa.eu", timeout=10)
         mock_fetch.assert_not_called()
     assert desc2.get("path") == desc.get("path")
@@ -131,7 +131,7 @@ def test_load_or_discover_endpoints_writes_and_loads_cache(tmp_path: Path) -> No
 
 def test_fetch_spec_raises_with_tried_urls_and_last_status_when_all_fail() -> None:
     """When all candidates fail, TEDDiscoveryError includes tried URLs and last status/body snippet."""
-    with patch("connectors.ted.openapi_discovery.requests.get") as mock_get:
+    with patch("app.connectors.ted.openapi_discovery.requests.get") as mock_get:
         mock_get.return_value.status_code = 404
         mock_get.return_value.headers = {}
         mock_get.return_value.text = "Not Found"

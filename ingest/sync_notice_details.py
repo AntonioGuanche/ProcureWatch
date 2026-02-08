@@ -13,8 +13,8 @@ from typing import Any
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from connectors.eprocurement.client import get_publication_detail
-from connectors.eprocurement.detail_extractors import extract_documents, extract_lots
+from app.connectors.bosa.client import get_publication_detail
+from app.connectors.bosa.detail_extractors import extract_documents, extract_lots
 from app.db.session import SessionLocal
 from app.db.crud.notices import get_notice_by_id
 from app.db.crud.watchlists import get_watchlist_by_id, list_new_since_for_watchlist, list_notices_for_watchlist

@@ -20,7 +20,7 @@ def test_sync_ted_saves_raw_and_no_import_ready_file(tmp_path: Path) -> None:
     }
     mock_subprocess = MagicMock()
 
-    with patch("connectors.ted.search_ted_notices", return_value=fake_result):
+    with patch("app.connectors.ted.search_ted_notices", return_value=fake_result):
         with patch("ingest.sync_ted.subprocess.run", mock_subprocess):
             from ingest.sync_ted import main
 
@@ -76,7 +76,7 @@ def test_sync_ted_subprocess_called_with_raw_path(tmp_path: Path) -> None:
             mock_result.stderr = ""
         return mock_result
 
-    with patch("connectors.ted.search_ted_notices", return_value=fake_result):
+    with patch("app.connectors.ted.search_ted_notices", return_value=fake_result):
         with patch("ingest.sync_ted.subprocess.run", side_effect=mock_subprocess_run):
             from ingest.sync_ted import main
 
@@ -96,7 +96,7 @@ def test_sync_ted_debug_triggers_debug_prints(capsys: pytest.CaptureFixture[str]
     """When --debug is set, sync_ted prints [TED debug] lines (URL, method, body, status); no network."""
     from connectors.ted.client import reset_client
     reset_client()
-    with patch("connectors.ted.official_client.requests.Session") as MockSession:
+    with patch("app.connectors.ted.official_client.requests.Session") as MockSession:
         mock_session = MockSession.return_value
         mock_resp = MagicMock()
         mock_resp.ok = True
@@ -105,7 +105,7 @@ def test_sync_ted_debug_triggers_debug_prints(capsys: pytest.CaptureFixture[str]
         mock_resp.headers = {"Content-Type": "application/json"}
         mock_resp.json.return_value = {"notices": [], "totalCount": 0}
         mock_session.request.return_value = mock_resp
-        with patch("connectors.ted.client._get_client") as mock_get_client:
+        with patch("app.connectors.ted.client._get_client") as mock_get_client:
             from connectors.ted.official_client import OfficialTEDClient
             from app.core.config import settings
             mock_get_client.return_value = OfficialTEDClient(
@@ -146,7 +146,7 @@ def test_sync_ted_discover_triggers_discovery_call(tmp_path: Path) -> None:
         "json": {"notices": [], "totalCount": 0},
         "notices": [],
     }
-    with patch("connectors.ted.openapi_discovery.load_or_discover_endpoints") as mock_discover:
+    with patch("app.connectors.ted.openapi_discovery.load_or_discover_endpoints") as mock_discover:
         mock_discover.return_value = {
             "base_url": "https://api.ted.europa.eu",
             "path": "/v3/notices/search",
@@ -156,7 +156,7 @@ def test_sync_ted_discover_triggers_discovery_call(tmp_path: Path) -> None:
             "page_param": "page",
             "page_size_param": "limit",
         }
-        with patch("connectors.ted.search_ted_notices", return_value=fake_result):
+        with patch("app.connectors.ted.search_ted_notices", return_value=fake_result):
             from ingest.sync_ted import main
 
             old_argv = list(sys.argv)
@@ -175,9 +175,9 @@ def test_sync_ted_discover_triggers_discovery_call(tmp_path: Path) -> None:
 def test_sync_ted_force_discover_calls_discovery_with_force(tmp_path: Path) -> None:
     """When --force-discover is set, discovery is called with force=True."""
     fake_result = {"metadata": {}, "json": {"notices": [], "totalCount": 0}, "notices": []}
-    with patch("connectors.ted.openapi_discovery.load_or_discover_endpoints") as mock_discover:
+    with patch("app.connectors.ted.openapi_discovery.load_or_discover_endpoints") as mock_discover:
         mock_discover.return_value = {"base_url": "https://api.ted.europa.eu", "path": "/v3/notices/search"}
-        with patch("connectors.ted.search_ted_notices", return_value=fake_result):
+        with patch("app.connectors.ted.search_ted_notices", return_value=fake_result):
             from ingest.sync_ted import main
 
             old_argv = list(sys.argv)

@@ -101,7 +101,7 @@ def run_enrichment(
         return (0, 0)
 
     try:
-        from connectors.eprocurement.client import _get_client, reset_client
+        from app.connectors.bosa.client import _get_client, reset_client
         reset_client()
         client, name = _get_client()
     except Exception as e:

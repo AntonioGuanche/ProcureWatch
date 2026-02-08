@@ -25,7 +25,7 @@ DEFAULT_OUT_DIR = PROJECT_ROOT / "data" / "raw" / "bosa"
 def _endpoints_confirmed() -> bool:
     """Check if endpoints cache exists and is confirmed."""
     try:
-        from connectors.eprocurement.openapi_discovery import cache_path
+        from app.connectors.bosa.openapi_discovery import cache_path
         import json
         cache_file = cache_path()
         if not cache_file.exists():
@@ -210,7 +210,7 @@ def main() -> int:
     # Auto-discover endpoints if not confirmed (unless --no-discover)
     if args.force_discover or (args.do_discover and not _endpoints_confirmed()):
         try:
-            from connectors.eprocurement.openapi_discovery import load_or_discover_endpoints, cache_path
+            from app.connectors.bosa.openapi_discovery import load_or_discover_endpoints, cache_path
             cache_file = cache_path()
             print(f"Running endpoint discovery (cache: {cache_file})...", file=sys.stderr)
             load_or_discover_endpoints(force=args.force_discover)
@@ -221,7 +221,7 @@ def main() -> int:
 
     page_size = max(1, args.limit)
     try:
-        from connectors.eprocurement.client import search_publications
+        from app.connectors.bosa.client import search_publications
         result = search_publications(term=args.query, page=args.page, page_size=page_size)
     except Exception as e:
         print(f"BOSA search failed: {e}", file=sys.stderr)

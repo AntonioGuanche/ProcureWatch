@@ -2,7 +2,7 @@
 import logging
 from typing import Any
 
-from connectors.ted.client import search_ted_notices as _search_ted_notices
+from app.connectors.ted.client import search_ted_notices as _search_ted_notices
 
 logger = logging.getLogger(__name__)
 
