@@ -7,7 +7,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from connectors.eprocurement.openapi_discovery import (
+from app.connectors.bosa.openapi_discovery import (
     discover_cpv_label_endpoint,
     discover_publication_detail_endpoint,
     discover_search_publications_endpoint,

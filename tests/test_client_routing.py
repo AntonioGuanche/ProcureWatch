@@ -10,14 +10,14 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from connectors.eprocurement.client import (
+from app.connectors.bosa.client import (
     _get_client,
     get_cpv_label,
     get_publication_detail,
     reset_client,
 )
-from connectors.eprocurement.exceptions import EProcurementCredentialsError
-from connectors.eprocurement.playwright_client import PlaywrightEProcurementClient
+from app.connectors.bosa.exceptions import EProcurementCredentialsError
+from app.connectors.bosa.playwright_client import PlaywrightEProcurementClient
 
 
 @pytest.fixture(autouse=True)
@@ -82,7 +82,7 @@ def test_official_mode_requires_credentials() -> None:
 
 def test_official_mode_uses_official_client_when_credentials_set() -> None:
     """EPROC_MODE=official with credentials returns OfficialEProcurementClient."""
-    from connectors.eprocurement.official_client import OfficialEProcurementClient
+    from app.connectors.bosa.official_client import OfficialEProcurementClient
 
     mock_settings = _make_settings("official", "id", "secret")
     with patch("app.core.config.settings", mock_settings):

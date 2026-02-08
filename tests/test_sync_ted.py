@@ -94,7 +94,7 @@ def test_sync_ted_subprocess_called_with_raw_path(tmp_path: Path) -> None:
 
 def test_sync_ted_debug_triggers_debug_prints(capsys: pytest.CaptureFixture[str], tmp_path: Path) -> None:
     """When --debug is set, sync_ted prints [TED debug] lines (URL, method, body, status); no network."""
-    from connectors.ted.client import reset_client
+    from app.connectors.ted.client import reset_client
     reset_client()
     with patch("app.connectors.ted.official_client.requests.Session") as MockSession:
         mock_session = MockSession.return_value
@@ -106,7 +106,7 @@ def test_sync_ted_debug_triggers_debug_prints(capsys: pytest.CaptureFixture[str]
         mock_resp.json.return_value = {"notices": [], "totalCount": 0}
         mock_session.request.return_value = mock_resp
         with patch("app.connectors.ted.client._get_client") as mock_get_client:
-            from connectors.ted.official_client import OfficialTEDClient
+            from app.connectors.ted.official_client import OfficialTEDClient
             from app.core.config import settings
             mock_get_client.return_value = OfficialTEDClient(
                 search_base_url=settings.ted_search_base_url,

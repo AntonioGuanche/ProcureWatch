@@ -9,7 +9,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from connectors.ted.official_client import (
+from app.connectors.ted.official_client import (
     OfficialTEDClient,
     build_expert_query,
 )
@@ -45,7 +45,7 @@ def test_build_expert_query_escapes_double_quotes() -> None:
 
 def test_search_notices_uses_hardcoded_path_and_expert_query() -> None:
     """Client uses hardcoded /v3/notices/search, builds expert query, includes fields."""
-    with patch("connectors.ted.official_client.requests.Session") as MockSession:
+    with patch("app.connectors.ted.official_client.requests.Session") as MockSession:
         mock_session = MockSession.return_value
         mock_resp = MagicMock()
         mock_resp.ok = True
@@ -90,7 +90,7 @@ def test_search_notices_uses_hardcoded_path_and_expert_query() -> None:
 
 def test_search_notices_request_body_always_contains_non_empty_fields() -> None:
     """Request body always contains non-empty fields array (default or provided)."""
-    with patch("connectors.ted.official_client.requests.Session") as MockSession:
+    with patch("app.connectors.ted.official_client.requests.Session") as MockSession:
         mock_session = MockSession.return_value
         mock_resp = MagicMock()
         mock_resp.ok = True
@@ -119,7 +119,7 @@ def test_search_notices_request_body_always_contains_non_empty_fields() -> None:
 
 def test_search_notices_parses_notices_from_response() -> None:
     """Response parsing extracts notices array and totalCount correctly."""
-    with patch("connectors.ted.official_client.requests.Session") as MockSession:
+    with patch("app.connectors.ted.official_client.requests.Session") as MockSession:
         mock_session = MockSession.return_value
         mock_resp = MagicMock()
         mock_resp.ok = True
@@ -150,7 +150,7 @@ def test_search_notices_400_includes_response_body_in_exception() -> None:
     import requests
 
     error_body = '{"error": "Invalid query parameter", "code": "BAD_REQUEST"}'
-    with patch("connectors.ted.official_client.requests.Session") as MockSession:
+    with patch("app.connectors.ted.official_client.requests.Session") as MockSession:
         mock_session = MockSession.return_value
         mock_resp = MagicMock()
         mock_resp.ok = False
@@ -172,7 +172,7 @@ def test_search_notices_400_includes_response_body_in_exception() -> None:
 
 def test_search_notices_html_response_raises_wrong_endpoint() -> None:
     """When response is HTML (wrong endpoint), raise ValueError with 'wrong endpoint' message."""
-    with patch("connectors.ted.official_client.requests.Session") as MockSession:
+    with patch("app.connectors.ted.official_client.requests.Session") as MockSession:
         mock_session = MockSession.return_value
         mock_resp = MagicMock()
         mock_resp.ok = True

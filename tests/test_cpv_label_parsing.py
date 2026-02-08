@@ -7,7 +7,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from connectors.eprocurement.official_client import _extract_label_from_cpv_item
+from app.connectors.bosa.official_client import _extract_label_from_cpv_item
 
 
 def test_extract_label_direct_string_fields() -> None:

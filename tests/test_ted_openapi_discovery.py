@@ -10,7 +10,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from connectors.ted.openapi_discovery import (
+from app.connectors.ted.openapi_discovery import (
     TEDDiscoveryError,
     discover_search_notices_endpoint,
     fetch_spec,

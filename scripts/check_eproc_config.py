@@ -21,7 +21,7 @@ from app.utils.env import load_env_if_present
 load_env_if_present()
 
 from app.core.config import settings
-from connectors.eprocurement.openapi_discovery import cache_path
+from app.connectors.bosa.openapi_discovery import cache_path
 
 
 def mask_secret(value: str | None, show_length: bool = True) -> str:

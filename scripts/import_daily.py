@@ -99,7 +99,7 @@ def _ted_term(term: str) -> str:
 
 def fetch_bosa_page(page: int, page_size: int, term: str, logger: logging.Logger) -> tuple[list, int, bool]:
     """Fetch one page of BOSA results. Returns (items, total_approx, network_error). BOSA requires non-empty term."""
-    from connectors.eprocurement.client import search_publications
+    from app.connectors.bosa.client import search_publications
 
     search_term = (term or "*").strip() or "*"
     try:
@@ -121,7 +121,7 @@ def fetch_bosa_page(page: int, page_size: int, term: str, logger: logging.Logger
 
 def fetch_ted_page(term: str, page: int, page_size: int, logger: logging.Logger) -> tuple[list, int, bool]:
     """Fetch one page of TED results. Returns (notices, total_approx, network_error)."""
-    from connectors.ted.client import search_ted_notices
+    from app.connectors.ted.client import search_ted_notices
 
     try:
         result = search_ted_notices(term=term, page=page, page_size=page_size)

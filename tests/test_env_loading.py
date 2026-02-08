@@ -76,7 +76,7 @@ def test_load_env_if_present_override_false():
 
 def test_sync_bosa_auto_discovers_on_missing_endpoints():
     """Test that sync_bosa auto-runs discovery when endpoints not confirmed."""
-    from connectors.eprocurement.openapi_discovery import cache_path
+    from app.connectors.bosa.openapi_discovery import cache_path
     
     # Remove cache if it exists
     cache_file = cache_path()
@@ -119,7 +119,7 @@ def test_sync_bosa_auto_discovers_on_missing_endpoints():
 
 def test_endpoints_cache_confirmed_flag():
     """Test that discovery writes confirmed flag and client reads it."""
-    from connectors.eprocurement.openapi_discovery import cache_path, load_or_discover_endpoints
+    from app.connectors.bosa.openapi_discovery import cache_path, load_or_discover_endpoints
     
     cache_file = cache_path()
     cache_file.unlink(missing_ok=True)
@@ -127,7 +127,7 @@ def test_endpoints_cache_confirmed_flag():
     
     try:
         # Mock the discovery to avoid network calls
-        with patch("connectors.eprocurement.openapi_discovery.download_swagger") as mock_download:
+        with patch("app.connectors.bosa.openapi_discovery.download_swagger") as mock_download:
             mock_download.return_value = {
                 "paths": {
                     "/search/publications": {

@@ -21,11 +21,11 @@ from app.utils.env import load_env_if_present
 load_env_if_present()
 
 from app.core.config import settings
-from connectors.eprocurement.exceptions import (
+from app.connectors.bosa.exceptions import (
     EProcurementCredentialsError,
     EProcurementEndpointNotConfiguredError,
 )
-from connectors.eprocurement.official_client import OfficialEProcurementClient
+from app.connectors.bosa.official_client import OfficialEProcurementClient
 
 
 def main() -> int:

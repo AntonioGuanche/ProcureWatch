@@ -10,7 +10,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from connectors.eprocurement.official_client import OfficialEProcurementClient
+from app.connectors.bosa.official_client import OfficialEProcurementClient
 
 
 def test_make_trace_id_generates_uuid() -> None:
@@ -72,7 +72,7 @@ def test_search_publications_includes_trace_id() -> None:
     )
     
     # Mock endpoints and token
-    from connectors.eprocurement.openapi_discovery import DiscoveredEndpoints
+    from app.connectors.bosa.openapi_discovery import DiscoveredEndpoints
     client._endpoints = DiscoveredEndpoints(
         search_publications={
             "path": "/search/publications",
@@ -119,7 +119,7 @@ def test_get_cpv_label_includes_trace_id() -> None:
     )
     
     # Mock endpoints
-    from connectors.eprocurement.openapi_discovery import DiscoveredEndpoints
+    from app.connectors.bosa.openapi_discovery import DiscoveredEndpoints
     client._endpoints = DiscoveredEndpoints(
         search_publications={},
         cpv_label={

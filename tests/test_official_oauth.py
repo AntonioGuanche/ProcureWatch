@@ -11,11 +11,11 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from connectors.eprocurement.exceptions import (
+from app.connectors.bosa.exceptions import (
     EProcurementCredentialsError,
     EProcurementEndpointNotConfiguredError,
 )
-from connectors.eprocurement.official_client import OfficialEProcurementClient
+from app.connectors.bosa.official_client import OfficialEProcurementClient
 
 
 def test_get_access_token_requires_credentials() -> None:
@@ -102,8 +102,8 @@ def test_get_access_token_refresh_before_expiry() -> None:
 def test_search_publications_raises_when_endpoint_pending() -> None:
     """search_publications raises EProcurementEndpointNotConfiguredError when endpoint not confirmed."""
     # Mock endpoint confirmation to return False
-    with patch("connectors.eprocurement.official_client.OfficialEProcurementClient._endpoints_confirmed_from_env", return_value=False), \
-         patch("connectors.eprocurement.official_client.OfficialEProcurementClient._endpoints_confirmed_from_cache", return_value=False):
+    with patch("app.connectors.bosa.official_client.OfficialEProcurementClient._endpoints_confirmed_from_env", return_value=False), \
+         patch("app.connectors.bosa.official_client.OfficialEProcurementClient._endpoints_confirmed_from_cache", return_value=False):
         client = OfficialEProcurementClient(
             token_url="https://example.com/token",
             client_id="id",

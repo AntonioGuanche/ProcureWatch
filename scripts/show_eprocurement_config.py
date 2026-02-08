@@ -19,7 +19,7 @@ def main() -> int:
     
     # Check endpoints cache
     try:
-        from connectors.eprocurement.openapi_discovery import cache_path
+        from app.connectors.bosa.openapi_discovery import cache_path
         cache_file = cache_path()
         print(f"Endpoints cache file: {cache_file}")
         print(f"  Exists: {cache_file.exists()}")

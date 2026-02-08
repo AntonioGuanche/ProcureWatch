@@ -1,6 +1,6 @@
 """Unit tests for extract_lots and extract_documents (offline, fake payload)."""
 import pytest
-from connectors.eprocurement.detail_extractors import extract_documents, extract_lots
+from app.connectors.bosa.detail_extractors import extract_documents, extract_lots
 
 
 FAKE_DETAIL_WITH_LOTS = {

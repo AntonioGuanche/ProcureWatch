@@ -40,12 +40,12 @@ if __name__ == "__main__" and __package__ is None:
     load_env_if_present()
 
 from app.core.config import settings
-from connectors.eprocurement.client import get_cpv_label, search_publications
-from connectors.eprocurement.exceptions import (
+from app.connectors.bosa.client import get_cpv_label, search_publications
+from app.connectors.bosa.exceptions import (
     EProcurementCredentialsError,
     EProcurementEndpointNotConfiguredError,
 )
-from connectors.eprocurement.official_client import OfficialEProcurementClient
+from app.connectors.bosa.official_client import OfficialEProcurementClient
 
 
 def mask_value(value: str | None, max_preview: int = 12) -> str:
@@ -128,7 +128,7 @@ def test_search_publications(term: str, page_size: int, dump_json: bool = False)
     print("=== Search ===")
     try:
         # Generate trace ID preview for logging (using the same method as the client)
-        from connectors.eprocurement.official_client import OfficialEProcurementClient
+        from app.connectors.bosa.official_client import OfficialEProcurementClient
         trace_id_preview = OfficialEProcurementClient._make_trace_id()[:12]
         print(f"  Trace ID: {trace_id_preview}...")
         
@@ -267,13 +267,13 @@ def test_cpv_label(cpv_code: str, lang: str = "fr", dump_json: bool = False) -> 
     print("=== CPV ===")
     try:
         # Generate trace ID preview for logging (using the same method as the client)
-        from connectors.eprocurement.official_client import OfficialEProcurementClient
+        from app.connectors.bosa.official_client import OfficialEProcurementClient
         trace_id_preview = OfficialEProcurementClient._make_trace_id()[:12]
         print(f"  Trace ID: {trace_id_preview}...")
         
         # Use the client directly to get response data
-        from connectors.eprocurement.client import _get_client
-        from connectors.eprocurement.official_client import OfficialEProcurementClient
+        from app.connectors.bosa.client import _get_client
+        from app.connectors.bosa.official_client import OfficialEProcurementClient
         client, _ = _get_client()
         
         # Check if client is OfficialEProcurementClient and has get_cpv_label_with_response
@@ -311,7 +311,7 @@ def test_cpv_label(cpv_code: str, lang: str = "fr", dump_json: bool = False) -> 
                         if last_url:
                             f.write(f"Last URL tried: {last_url}\n")
                         # Get trace ID preview (generate one for diagnostics)
-                        from connectors.eprocurement.official_client import OfficialEProcurementClient
+                        from app.connectors.bosa.official_client import OfficialEProcurementClient
                         trace_id_preview = OfficialEProcurementClient._make_trace_id()[:12]
                         f.write(f"Trace ID (preview): {trace_id_preview}...\n")
                         if raw_text_preview:
@@ -395,8 +395,8 @@ def test_publication_workspace(workspace_id: str) -> tuple[bool, Optional[dict[s
     """
     print("=== Publication Workspace (Dos API) ===")
     try:
-        from connectors.eprocurement.client import _get_client
-        from connectors.eprocurement.official_client import OfficialEProcurementClient
+        from app.connectors.bosa.client import _get_client
+        from app.connectors.bosa.official_client import OfficialEProcurementClient
         
         client, _ = _get_client()
         if isinstance(client, OfficialEProcurementClient):
@@ -428,8 +428,8 @@ def test_notice(notice_id: str) -> tuple[bool, Optional[dict[str, Any]]]:
     """
     print("=== Notice (Dos API) ===")
     try:
-        from connectors.eprocurement.client import _get_client
-        from connectors.eprocurement.official_client import OfficialEProcurementClient
+        from app.connectors.bosa.client import _get_client
+        from app.connectors.bosa.official_client import OfficialEProcurementClient
         
         client, _ = _get_client()
         if isinstance(client, OfficialEProcurementClient):

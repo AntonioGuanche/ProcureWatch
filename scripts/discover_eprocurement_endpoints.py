@@ -24,7 +24,7 @@ load_env_if_present()
 
 def main() -> int:
     import argparse
-    from connectors.eprocurement.openapi_discovery import (
+    from app.connectors.bosa.openapi_discovery import (
         DEFAULT_LOC_SWAGGER_URL,
         DEFAULT_SEA_SWAGGER_URL,
         discover_cpv_label_endpoint,
@@ -135,7 +135,7 @@ def main() -> int:
     print(f"\nCache written. updated_at={endpoints.updated_at}")
     
     # Check if confirmed
-    from connectors.eprocurement.openapi_discovery import cache_path
+    from app.connectors.bosa.openapi_discovery import cache_path
     import json
     cache_file = cache_path()
     if cache_file.exists():

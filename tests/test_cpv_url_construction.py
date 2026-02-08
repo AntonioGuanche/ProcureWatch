@@ -8,8 +8,8 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from connectors.eprocurement.official_client import OfficialEProcurementClient
-from connectors.eprocurement.openapi_discovery import DiscoveredEndpoints
+from app.connectors.bosa.official_client import OfficialEProcurementClient
+from app.connectors.bosa.openapi_discovery import DiscoveredEndpoints
 
 
 def test_cpv_path_substitution_with_id_param() -> None:
