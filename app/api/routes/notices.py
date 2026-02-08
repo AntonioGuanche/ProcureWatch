@@ -248,64 +248,52 @@ async def get_notices(
 
 @router.get("/search", response_model=NoticeSearchResponse)
 def search_notices(
-    q: Optional[str] = Query(None, description="Keyword search in title/description"),
-    cpv: Optional[str] = Query(None, description="CPV code prefix filter"),
+    q: Optional[str] = Query(None, description="Full-text keyword search (title + description). Supports AND/OR."),
+    cpv: Optional[str] = Query(None, description="CPV code prefix filter (e.g. '45' or '45000000')"),
+    nuts: Optional[str] = Query(None, description="NUTS code prefix filter (e.g. 'BE1' or 'BE100')"),
     source: Optional[str] = Query(None, description="Source filter: BOSA or TED"),
-    date_from: Optional[str] = Query(None, description="Publication date from (ISO date YYYY-MM-DD)"),
-    date_to: Optional[str] = Query(None, description="Publication date to (ISO date YYYY-MM-DD)"),
+    authority: Optional[str] = Query(None, description="Authority / organisation name search"),
+    notice_type: Optional[str] = Query(None, description="Notice type filter (e.g. 'CONTRACT_NOTICE')"),
+    date_from: Optional[str] = Query(None, description="Publication date from (ISO YYYY-MM-DD)"),
+    date_to: Optional[str] = Query(None, description="Publication date to (ISO YYYY-MM-DD)"),
+    deadline_before: Optional[str] = Query(None, description="Deadline before (ISO YYYY-MM-DD)"),
+    sort: str = Query("date_desc", description="Sort: date_desc, date_asc, relevance, deadline"),
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(25, ge=1, le=100, description="Items per page"),
     db: Session = Depends(get_db),
 ) -> NoticeSearchResponse:
     """
-    Search notices for Lovable (main search table). Uses ProcurementNotice only. Public, no auth.
-    All filters optional; returns paginated items with total count.
+    Advanced search with full-text (PostgreSQL tsvector) + filters.
+    Public, no auth. All filters optional; returns paginated items with total count.
     """
-    # Must use ProcurementNotice (not app.db.models.notice.Notice); table has organisation_names, publication_date
-    query = db.query(ProcurementNotice)
+    from app.services.search_service import build_search_query
 
-    # Keyword filter (title OR description)
-    if q and q.strip():
-        term = f"%{q.strip()}%"
-        query = query.filter(
-            or_(
-                ProcurementNotice.title.ilike(term),
-                ProcurementNotice.description.ilike(term),
-            )
-        )
+    # Parse date strings
+    d_from = _safe_date(date_from)
+    d_to = _safe_date(date_to)
+    d_deadline = _safe_date(deadline_before)
 
-    # CPV filter (normalize: remove dashes so 45 or 45000000 match)
-    if cpv and cpv.strip():
-        cpv_clean = cpv.strip().replace("-", "").replace(" ", "")
-        query = query.filter(
-            func.replace(func.coalesce(ProcurementNotice.cpv_main_code, ""), "-", "").like(f"{cpv_clean}%")
-        )
+    # If keyword search and no explicit sort, default to relevance
+    effective_sort = sort
+    if q and q.strip() and sort == "date_desc":
+        effective_sort = "relevance"
 
-    # Source filter (ProcurementNotice uses BOSA_EPROC / TED_EU)
-    if source and source.strip().upper() == "BOSA":
-        query = query.filter(ProcurementNotice.source == NoticeSource.BOSA_EPROC.value)
-    elif source and source.strip().upper() == "TED":
-        query = query.filter(ProcurementNotice.source == NoticeSource.TED_EU.value)
+    query, _has_rank = build_search_query(
+        db,
+        q=q,
+        cpv=cpv,
+        nuts=nuts,
+        source=source,
+        authority=authority,
+        notice_type=notice_type,
+        date_from=d_from,
+        date_to=d_to,
+        deadline_before=d_deadline,
+        sort=effective_sort,
+    )
 
-    # Date filters (parse ISO date strings)
-    if date_from:
-        try:
-            d_from = date.fromisoformat(date_from.strip())
-            query = query.filter(ProcurementNotice.publication_date >= d_from)
-        except ValueError:
-            pass
-    if date_to:
-        try:
-            d_to = date.fromisoformat(date_to.strip())
-            query = query.filter(ProcurementNotice.publication_date <= d_to)
-        except ValueError:
-            pass
-
-    # Get total before pagination
+    # Count + paginate
     total = query.count()
-
-    # Order and paginate
-    query = query.order_by(ProcurementNotice.publication_date.desc().nulls_last())
     offset = (page - 1) * page_size
     rows = query.offset(offset).limit(page_size).all()
 
@@ -332,6 +320,26 @@ def search_notices(
         page_size=page_size,
         total_pages=total_pages,
     )
+
+
+@router.get("/facets")
+def get_notice_facets(db: Session = Depends(get_db)) -> dict:
+    """
+    Dynamic filter values for UI dropdowns/facets:
+    sources, top CPV divisions, notice types, date range.
+    """
+    from app.services.search_service import get_facets
+    return get_facets(db)
+
+
+def _safe_date(val: Optional[str]) -> Optional[date]:
+    """Parse ISO date string, return None on failure."""
+    if not val:
+        return None
+    try:
+        return date.fromisoformat(val.strip())
+    except (ValueError, AttributeError):
+        return None
 
 
 @router.get("/{notice_id}/detail", response_model=NoticeDetailRead)
