@@ -18,17 +18,25 @@ app = FastAPI(
 
 # Configure CORS for Lovable frontend + local/production
 _cors_origins = [
-    "http://localhost:3000",  # Local dev
-    "https://lovable.app",  # Lovable preview (add specific *.lovable.app URLs if needed)
-    "https://procurewatch.app",  # Production (custom domain)
+    "http://localhost:3000",
+    "https://lovable.app",
+    "https://lovable.dev",
+    "https://procurewatch.app",
 ]
-_extra = [o for o in settings.allowed_origins_list if o != "*"]
+# Check if wildcard allowed (e.g. ALLOWED_ORIGINS=* from Railway)
+if "*" in settings.allowed_origins_list:
+    _cors_origins_final = ["*"]
+else:
+    _cors_origins_final = _cors_origins + [
+        o for o in settings.allowed_origins_list if o not in ["**", ""]
+    ]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_cors_origins + _extra,
+    allow_origins=_cors_origins_final,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    allow_origin_regex=r"https://.*\.lovable\.(app|dev)",
 )
 
 # Include routers
