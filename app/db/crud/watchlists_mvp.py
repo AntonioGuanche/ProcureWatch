@@ -356,3 +356,77 @@ def list_watchlist_matches(
         .all()
     )
     return results, total
+
+
+# ---------------------------------------------------------------------------
+#  Bridge functions for ingest scripts (replacing legacy watchlists CRUD)
+# ---------------------------------------------------------------------------
+
+def list_notices_for_watchlist(
+    db: Session,
+    watchlist: Watchlist,
+    limit: int = 100,
+    offset: int = 0,
+) -> Tuple[list[Notice], int]:
+    """
+    Get notices matching a watchlist's filters.
+    Refreshes matches first, then queries matched notices.
+    """
+    refresh_watchlist_matches(db, watchlist)
+    match_ids = (
+        db.query(WatchlistMatch.notice_id)
+        .filter(WatchlistMatch.watchlist_id == watchlist.id)
+        .subquery()
+    )
+    query = db.query(Notice).filter(Notice.id.in_(match_ids))
+    total = query.count()
+    notices = (
+        query.order_by(Notice.publication_date.desc().nulls_last(), Notice.created_at.desc())
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
+    return notices, total
+
+
+def list_new_since_for_watchlist(
+    db: Session,
+    watchlist: Watchlist,
+    limit: int = 100,
+    offset: int = 0,
+) -> Tuple[list[Notice], int]:
+    """
+    Get NEW notices matching a watchlist — created since last_refresh_at.
+    Falls back to list_notices_for_watchlist if no cutoff.
+    """
+    cutoff = watchlist.last_refresh_at
+    if not cutoff:
+        return list_notices_for_watchlist(db, watchlist, limit, offset)
+
+    refresh_watchlist_matches(db, watchlist)
+    match_ids = (
+        db.query(WatchlistMatch.notice_id)
+        .filter(WatchlistMatch.watchlist_id == watchlist.id)
+        .subquery()
+    )
+    query = (
+        db.query(Notice)
+        .filter(Notice.id.in_(match_ids))
+        .filter(Notice.created_at > cutoff)
+    )
+    total = query.count()
+    notices = (
+        query.order_by(Notice.publication_date.desc().nulls_last(), Notice.created_at.desc())
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
+    return notices, total
+
+
+def list_all_watchlists(db: Session, watchlist_id: str | None = None) -> list[Watchlist]:
+    """List all watchlists, optionally filtered by id."""
+    query = db.query(Watchlist)
+    if watchlist_id:
+        query = query.filter(Watchlist.id == watchlist_id)
+    return query.order_by(Watchlist.created_at.desc()).all()

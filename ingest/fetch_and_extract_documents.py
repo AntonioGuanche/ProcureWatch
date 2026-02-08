@@ -15,7 +15,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from app.db.session import SessionLocal
 from app.db.crud.notices import get_notice_by_id
-from app.db.crud.watchlists import get_watchlist_by_id, list_notices_for_watchlist
+from app.db.crud.watchlists_mvp import get_watchlist_by_id, list_notices_for_watchlist
 from app.db.crud.notice_detail import (
     list_documents_by_notice_id,
     update_document_download_result,
