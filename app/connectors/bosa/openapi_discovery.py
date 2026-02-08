@@ -637,3 +637,16 @@ def load_or_discover_endpoints(
         )
     logger.info("Discovered endpoints written to %s (confirmed=%s)", cache_file, confirmed)
     return discovered
+
+
+def endpoints_confirmed() -> bool:
+    """Check if the endpoints cache exists and has confirmed=True."""
+    try:
+        cf = cache_path()
+        if not cf.exists():
+            return False
+        with open(cf, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return data.get("confirmed", False)
+    except Exception:
+        return False

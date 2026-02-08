@@ -95,7 +95,7 @@ def test_sync_bosa_auto_discovers_on_missing_endpoints():
     
     try:
         # Import sync_bosa's helper
-        from ingest.sync_bosa import _endpoints_confirmed
+        from app.connectors.bosa.openapi_discovery import endpoints_confirmed as _endpoints_confirmed
         
         # Should return False (not confirmed)
         assert _endpoints_confirmed() is False

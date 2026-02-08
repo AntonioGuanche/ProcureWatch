@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.core.logging import setup_logging
-from app.api.routes import auth, filters, health, notices
+from app.api.routes import admin, auth, filters, health, notices
 from app.api.routes import watchlists_mvp as watchlists
 
 # Setup logging
@@ -45,6 +45,7 @@ app.include_router(auth.router, prefix="/api")
 app.include_router(filters.router, prefix="/api")
 app.include_router(notices.router, prefix="/api")
 app.include_router(watchlists.router, prefix="/api")
+app.include_router(admin.router, prefix="/api")
 
 
 @app.get("/")
