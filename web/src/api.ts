@@ -1,9 +1,11 @@
 /**
  * API client for ProcureWatch backend.
- * Base URL from env VITE_API_BASE_URL (default http://127.0.0.1:8000).
+ * 
+ * In dev: Vite proxy forwards /api/* to the backend (see vite.config.ts).
+ * In prod: Set VITE_API_BASE_URL to the backend URL.
  */
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000";
+const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "";
 
 async function request<T>(
   path: string,
@@ -38,8 +40,73 @@ import type {
   WatchlistCreate,
   WatchlistUpdate,
   NoticeListResponse,
+  NoticeSearchResponse,
+  FacetsResponse,
+  DashboardOverview,
+  DashboardTrends,
+  DashboardTopCpv,
+  DashboardTopAuthorities,
+  DashboardHealth,
   RefreshSummary,
 } from "./types";
+
+// ── Search & Facets ─────────────────────────────────────────────────
+
+export interface SearchParams {
+  q?: string;
+  cpv?: string;
+  nuts?: string;
+  source?: string;
+  authority?: string;
+  notice_type?: string;
+  date_from?: string;
+  date_to?: string;
+  deadline_after?: string;
+  value_min?: number;
+  value_max?: number;
+  active_only?: boolean;
+  sort?: string;
+  page?: number;
+  page_size?: number;
+}
+
+export function searchNotices(params: SearchParams): Promise<NoticeSearchResponse> {
+  const qs = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) {
+    if (v !== undefined && v !== null && v !== "") {
+      qs.set(k, String(v));
+    }
+  }
+  return request(`/api/notices/search?${qs}`);
+}
+
+export function getFacets(): Promise<FacetsResponse> {
+  return request("/api/notices/facets");
+}
+
+// ── Dashboard ───────────────────────────────────────────────────────
+
+export function getDashboardOverview(): Promise<DashboardOverview> {
+  return request("/api/dashboard/overview");
+}
+
+export function getDashboardTrends(days = 30, groupBy = "day"): Promise<DashboardTrends> {
+  return request(`/api/dashboard/trends?days=${days}&group_by=${groupBy}`);
+}
+
+export function getDashboardTopCpv(limit = 15, activeOnly = false): Promise<DashboardTopCpv> {
+  return request(`/api/dashboard/top-cpv?limit=${limit}&active_only=${activeOnly}`);
+}
+
+export function getDashboardTopAuthorities(limit = 15, activeOnly = false): Promise<DashboardTopAuthorities> {
+  return request(`/api/dashboard/top-authorities?limit=${limit}&active_only=${activeOnly}`);
+}
+
+export function getDashboardHealth(): Promise<DashboardHealth> {
+  return request("/api/dashboard/health");
+}
+
+// ── Watchlists ──────────────────────────────────────────────────────
 
 export function listWatchlists(page = 1, pageSize = 50): Promise<WatchlistListResponse> {
   return request(`/api/watchlists?page=${page}&page_size=${pageSize}`);
