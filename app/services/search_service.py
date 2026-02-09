@@ -182,7 +182,7 @@ def build_search_query(
     if sort == "relevance" and has_rank and is_pg:
         tsq = _parse_tsquery(q.strip())
         query = query.order_by(
-            text("ts_rank(search_vector, to_tsquery('simple', :tsq)) DESC").bindparams(tsq=tsq),
+            text("ts_rank(search_vector, to_tsquery('simple', :tsq_rank)) DESC").bindparams(tsq_rank=tsq),
             ProcurementNotice.publication_date.desc().nulls_last(),
         )
     elif sort == "date_asc":
