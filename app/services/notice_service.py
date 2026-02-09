@@ -461,6 +461,14 @@ def _ted_pick_text(value: Any) -> Optional[str]:
     return None
 
 
+def _generate_ted_url_from_item(item: dict[str, Any]) -> Optional[str]:
+    """Generate TED notice URL from publication-number."""
+    pub_number = item.get("publication-number") or item.get("publicationNumber")
+    if pub_number and str(pub_number).strip():
+        return f"https://ted.europa.eu/en/notice/-/detail/{str(pub_number).strip()}"
+    return None
+
+
 def _extract_ted_organisation_names(item: dict[str, Any]) -> Optional[dict[str, str]]:
     """
     Extract organisation_names from TED notice.
@@ -566,7 +574,12 @@ def _map_ted_item_to_notice(item: dict[str, Any], source_id: str) -> dict[str, A
     # Dates
     pub_date = item.get("publication-date") or item.get("publicationDate")
     publication_date = _safe_date(pub_date)
-    deadline_val = item.get("deadlineDate") or item.get("deadline") or item.get("submissionDeadline")
+    deadline_val = (
+        item.get("deadline-receipt-tender")
+        or item.get("deadlineDate")
+        or item.get("deadline")
+        or item.get("submissionDeadline")
+    )
     deadline = _safe_datetime(deadline_val)
 
     # Procedure type / form
@@ -585,7 +598,7 @@ def _map_ted_item_to_notice(item: dict[str, Any], source_id: str) -> dict[str, A
         "reference_number": _safe_str(item.get("referenceNumber") or item.get("reference-number"), 255),
         "cpv_main_code": cpv_main_code,
         "cpv_additional_codes": cpv_additional_codes,
-        "nuts_codes": _safe_json_list(item.get("nutsCodes") or item.get("nutsCode")),
+        "nuts_codes": _safe_json_list(item.get("place-of-performance") or item.get("nutsCodes") or item.get("nutsCode")),
         "publication_date": publication_date,
         "insertion_date": _safe_datetime(item.get("insertionDate") or item.get("insertion-date")),
         "notice_type": _safe_str(item.get("noticeType") or item.get("notice-type") or item.get("procedure-type"), 100),
@@ -596,9 +609,16 @@ def _map_ted_item_to_notice(item: dict[str, Any], source_id: str) -> dict[str, A
         "publication_languages": _safe_json_list(item.get("publicationLanguages") or item.get("language")),
         "raw_data": item,
         "title": title,
-        "description": _safe_str(item.get("description") or item.get("summary") or item.get("description-glo")),
+        "description": _safe_str(
+            _ted_pick_text(item.get("description-lot"))
+            or _ted_pick_text(item.get("description-glo"))
+            or _ted_pick_text(item.get("short-description"))
+            or item.get("description")
+            or item.get("summary")
+        ),
         "deadline": deadline,
         "estimated_value": _safe_decimal(item.get("estimatedValue") or item.get("estimated-value") or item.get("value")),
+        "url": _generate_ted_url_from_item(item),
     }
 
 

@@ -26,6 +26,15 @@ DEFAULT_FIELDS = [
     "buyer-country",
     "procedure-type",
     "main-classification-proc",
+    "notice-type",
+    "form-type",
+    "place-of-performance",
+    "deadline-receipt-tender",
+    "estimated-value",
+    "description-lot",
+    "description-glo",
+    "short-description",
+    "links",
 ]
 
 
@@ -38,9 +47,9 @@ def build_expert_query(term: str) -> str:
     if not term or not isinstance(term, str):
         return '*'
     term = term.strip()
-    if not term:
+    if not term or term == '*':
         return '*'
-    
+
     # Check if term already looks like an expert query
     expert_indicators = ['~', '!~', '=', '!=', ' OR ', ' AND ', ' NOT ', ' IN ']
     if any(indicator in term for indicator in expert_indicators):
@@ -140,7 +149,7 @@ class OfficialTEDClient:
             "fields": fields_list,
             "page": page,
             "limit": limit_val,
-            "scope": "ACTIVE",
+            "scope": "ALL",
             "paginationMode": "PAGE_NUMBER",
         }
 
