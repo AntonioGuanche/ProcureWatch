@@ -20,105 +20,39 @@ _last_run: dict[str, Any] = {}
 
 
 def _run_import_pipeline() -> None:
-    """Execute the full import pipeline: fetch → save → match → backfill."""
+    """Execute the full import pipeline using bulk_import service."""
     from app.db.session import SessionLocal
-    from app.services.notice_service import NoticeService
+    from app.services.bulk_import import bulk_import_all
 
     started_at = datetime.now(timezone.utc)
-    result: dict[str, Any] = {"started_at": started_at.isoformat(), "status": "running"}
 
     db = SessionLocal()
     try:
-        svc = NoticeService(db)
-        sources = [s.strip().upper() for s in settings.import_sources.split(",") if s.strip()]
-        term = settings.import_term
-        page_size = settings.import_page_size
-        max_pages = settings.import_max_pages
-
-        import_results: dict[str, Any] = {}
-
-        for source in sources:
-            source_stats = {"created": 0, "updated": 0, "skipped": 0, "errors": []}
-
-            for page in range(1, max_pages + 1):
-                try:
-                    items = _fetch_page(source, term, page, page_size)
-                    if not items:
-                        break
-
-                    if source == "BOSA":
-                        import asyncio
-                        stats = asyncio.run(
-                            svc.import_from_eproc_search(items, fetch_details=False)
-                        )
-                    elif source == "TED":
-                        import asyncio
-                        stats = asyncio.run(
-                            svc.import_from_ted_search(items, fetch_details=False)
-                        )
-                    else:
-                        logger.warning("Unknown source in scheduler: %s", source)
-                        break
-
-                    source_stats["created"] += stats.get("created", 0)
-                    source_stats["updated"] += stats.get("updated", 0)
-                    source_stats["skipped"] += stats.get("skipped", 0)
-                    source_stats["errors"].extend(stats.get("errors", []))
-
-                except Exception as e:
-                    source_stats["errors"].append({"page": page, "error": str(e)})
-                    logger.exception("[Scheduler] %s page %d failed", source, page)
-
-            import_results[source.lower()] = source_stats
-
-        total_created = sum(r.get("created", 0) for r in import_results.values())
-        total_updated = sum(r.get("updated", 0) for r in import_results.values())
-
-        result["import"] = import_results
-        result["total_created"] = total_created
-        result["total_updated"] = total_updated
-
-        # Run watchlist matcher if new notices
-        if total_created > 0:
-            try:
-                from app.services.watchlist_matcher import run_watchlist_matcher
-                matcher = run_watchlist_matcher(db)
-                result["watchlist_matcher"] = matcher
-                logger.info(
-                    "[Scheduler] Matcher: %d watchlists, %d matches, %d emails",
-                    matcher.get("watchlists_processed", 0),
-                    matcher.get("total_new_matches", 0),
-                    matcher.get("emails_sent", 0),
-                )
-            except Exception as e:
-                result["watchlist_matcher_error"] = str(e)
-                logger.exception("[Scheduler] Watchlist matcher failed")
-
-        # Backfill if enabled and new data
-        if settings.backfill_after_import and (total_created > 0 or total_updated > 0):
-            try:
-                from app.services.enrichment_service import backfill_from_raw_data, refresh_search_vectors
-                bf = backfill_from_raw_data(db)
-                result["backfill"] = bf
-                if bf.get("enriched", 0) > 0:
-                    rows = refresh_search_vectors(db)
-                    result["search_vectors_refreshed"] = rows
-            except Exception as e:
-                result["backfill_error"] = str(e)
-                logger.exception("[Scheduler] Backfill failed")
-
-        elapsed = (datetime.now(timezone.utc) - started_at).total_seconds()
-        result["elapsed_seconds"] = round(elapsed, 1)
-        result["status"] = "ok"
+        result = bulk_import_all(
+            db,
+            sources=settings.import_sources,
+            term=settings.import_term,
+            page_size=settings.import_page_size,
+            max_pages=settings.import_max_pages,
+            fetch_details=False,
+            run_backfill=settings.backfill_after_import,
+            run_matcher=True,
+        )
+        result["trigger"] = "scheduler"
 
         logger.info(
             "[Scheduler] Pipeline done: created=%d updated=%d elapsed=%.1fs",
-            total_created, total_updated, elapsed,
+            result.get("total_created", 0),
+            result.get("total_updated", 0),
+            result.get("elapsed_seconds", 0),
         )
 
     except Exception as e:
-        result["status"] = "error"
-        result["error"] = str(e)
+        result = {
+            "status": "error",
+            "error": str(e),
+            "started_at": started_at.isoformat(),
+        }
         logger.exception("[Scheduler] Pipeline failed")
     finally:
         db.close()
@@ -127,18 +61,24 @@ def _run_import_pipeline() -> None:
 
 
 def _fetch_page(source: str, term: str, page: int, page_size: int) -> list[dict]:
-    """Fetch one page from BOSA or TED connector."""
+    """Fetch one page from BOSA or TED connector (kept for backward compat)."""
     if source == "BOSA":
         from app.connectors.bosa.client import search_publications
         resp = search_publications(term=term, page=page, page_size=page_size)
         if isinstance(resp, dict):
+            payload = resp.get("json") or resp
+            if isinstance(payload, dict):
+                for key in ("publications", "items", "results", "data"):
+                    candidate = payload.get(key)
+                    if isinstance(candidate, list):
+                        return candidate
             return resp.get("publications", resp.get("items", []))
         return resp if isinstance(resp, list) else []
     elif source == "TED":
         from app.connectors.ted.client import search_ted_notices
         resp = search_ted_notices(term=term, page=page, page_size=page_size)
         if isinstance(resp, dict):
-            return resp.get("notices", resp.get("items", []))
+            return resp.get("notices") or (resp.get("json") or {}).get("notices") or []
         return resp if isinstance(resp, list) else []
     return []
 

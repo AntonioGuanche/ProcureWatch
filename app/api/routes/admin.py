@@ -26,7 +26,7 @@ async def trigger_import(
     sources: str = Query("BOSA,TED", description="Comma-separated: BOSA,TED"),
     term: str = Query("*", description="Search term"),
     page_size: int = Query(25, ge=1, le=250, description="Results per page"),
-    max_pages: int = Query(1, ge=1, le=20, description="Max pages to fetch"),
+    max_pages: int = Query(1, ge=1, le=100, description="Max pages to fetch"),
     fetch_details: bool = Query(False, description="Fetch full workspace details (BOSA)"),
     db: Session = Depends(get_db),
 ) -> dict[str, Any]:
@@ -239,6 +239,30 @@ async def import_runs_summary(
     total = db.execute(text("SELECT COUNT(*) as cnt FROM notices")).scalar()
 
     return {"sources": summary, "total_notices": total or 0}
+
+
+@router.post("/bulk-import", tags=["admin"])
+def trigger_bulk_import(
+    sources: str = Query("BOSA,TED", description="Comma-separated: BOSA,TED"),
+    term: str = Query("*", description="Search term"),
+    page_size: int = Query(100, ge=1, le=250, description="Results per page"),
+    max_pages: Optional[int] = Query(None, ge=1, le=100, description="Max pages (None=auto from totalCount)"),
+    fetch_details: bool = Query(False, description="Fetch workspace details (BOSA, slower)"),
+    run_backfill: bool = Query(True, description="Run enrichment backfill after import"),
+    run_matcher: bool = Query(True, description="Run watchlist matcher after import"),
+    db: Session = Depends(get_db),
+) -> dict:
+    """
+    Bulk import: auto-paginates through all available results.
+    Much larger than /import (which fetches 1 page by default).
+    Returns per-page breakdown and triggers backfill + matcher.
+    """
+    from app.services.bulk_import import bulk_import_all
+    return bulk_import_all(
+        db, sources=sources, term=term, page_size=page_size,
+        max_pages=max_pages, fetch_details=fetch_details,
+        run_backfill=run_backfill, run_matcher=run_matcher,
+    )
 
 
 @router.post("/match-watchlists", tags=["admin"])
