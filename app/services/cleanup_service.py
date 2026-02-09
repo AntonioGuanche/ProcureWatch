@@ -19,7 +19,7 @@ def cleanup_bosa_duplicates(db: Session, dry_run: bool = True) -> dict:
     # Find dossier_ids with more than 1 notice
     dupe_query = text("""
         SELECT dossier_id, COUNT(*) as cnt
-        FROM procurement_notices
+        FROM notices
         WHERE source = 'BOSA_EPROC'
           AND dossier_id IS NOT NULL
           AND dossier_id != ''
@@ -49,7 +49,7 @@ def cleanup_bosa_duplicates(db: Session, dry_run: bool = True) -> dict:
         # Get all notices for this dossier, newest first
         notices_query = text("""
             SELECT id, source_id, publication_date, created_at
-            FROM procurement_notices
+            FROM notices
             WHERE source = 'BOSA_EPROC' AND dossier_id = :did
             ORDER BY publication_date DESC NULLS LAST, created_at DESC
         """)
@@ -73,7 +73,7 @@ def cleanup_bosa_duplicates(db: Session, dry_run: bool = True) -> dict:
                 f"DELETE FROM notice_cpv_additional WHERE notice_id IN ({placeholders})"
             ), id_params)
             db.execute(text(
-                f"DELETE FROM procurement_notices WHERE id IN ({placeholders})"
+                f"DELETE FROM notices WHERE id IN ({placeholders})"
             ), id_params)
 
     if not dry_run:
