@@ -121,6 +121,15 @@ class Settings(BaseSettings):
     email_smtp_use_tls: bool = Field(True, validation_alias="EMAIL_SMTP_USE_TLS")
     email_outbox_dir: str = Field("data/outbox", validation_alias="EMAIL_OUTBOX_DIR")
 
+    # Scheduler
+    scheduler_enabled: bool = Field(False, validation_alias="SCHEDULER_ENABLED")
+    import_interval_minutes: int = Field(360, validation_alias="IMPORT_INTERVAL_MINUTES")  # 6h default
+    import_sources: str = Field("BOSA,TED", validation_alias="IMPORT_SOURCES")
+    import_term: str = Field("*", validation_alias="IMPORT_TERM")
+    import_page_size: int = Field(50, validation_alias="IMPORT_PAGE_SIZE")
+    import_max_pages: int = Field(3, validation_alias="IMPORT_MAX_PAGES")
+    backfill_after_import: bool = Field(True, validation_alias="BACKFILL_AFTER_IMPORT")
+
     # JWT (mock auth for Lovable; real user management later)
     jwt_secret_key: str = Field("change-me-in-production", validation_alias="JWT_SECRET_KEY")
     jwt_expiry_days: int = Field(7, validation_alias="JWT_EXPIRY_DAYS")

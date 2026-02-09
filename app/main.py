@@ -1,4 +1,6 @@
 """FastAPI application entry point."""
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -10,10 +12,21 @@ from app.api.routes import watchlists_mvp as watchlists
 # Setup logging
 setup_logging()
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Startup/shutdown lifecycle: scheduler management."""
+    from app.services.scheduler import start_scheduler, stop_scheduler
+    start_scheduler()
+    yield
+    stop_scheduler()
+
+
 # Create FastAPI app
 app = FastAPI(
     title=settings.app_name,
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 # Configure CORS for Lovable frontend + local/production

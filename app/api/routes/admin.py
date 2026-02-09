@@ -292,6 +292,28 @@ def trigger_backfill(
     return result
 
 
+@router.get("/scheduler", tags=["admin"])
+def scheduler_status() -> dict:
+    """
+    Scheduler status: enabled, running, config, jobs, last run result.
+    """
+    from app.services.scheduler import get_scheduler_status
+    return get_scheduler_status()
+
+
+@router.post("/scheduler/run-now", tags=["admin"])
+def scheduler_run_now(
+    db: Session = Depends(get_db),
+) -> dict:
+    """
+    Manually trigger the scheduled import pipeline (same as what the cron runs).
+    Runs synchronously and returns the result.
+    """
+    from app.services.scheduler import _run_import_pipeline, _last_run
+    _run_import_pipeline()
+    return _last_run.get("import_pipeline", {"status": "no result"})
+
+
 @router.get("/raw-data-keys", tags=["admin"])
 def raw_data_keys_report(
     source: Optional[str] = Query(None, description="BOSA_EPROC or TED_EU"),
