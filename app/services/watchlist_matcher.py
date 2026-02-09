@@ -106,7 +106,8 @@ def _build_match_query(
             if p:
                 nuts_conditions.append(
                     text(
-                        "EXISTS (SELECT 1 FROM jsonb_array_elements_text(notices.nuts_codes::jsonb) AS nc "
+                        "notices.nuts_codes IS NOT NULL AND json_typeof(notices.nuts_codes) = 'array' "
+                        "AND EXISTS (SELECT 1 FROM jsonb_array_elements_text(notices.nuts_codes::jsonb) AS nc "
                         "WHERE nc LIKE :nuts_p)"
                     ).bindparams(nuts_p=f"{p}%")
                 )
@@ -121,7 +122,8 @@ def _build_match_query(
             for c in countries:
                 country_conditions.append(
                     text(
-                        "EXISTS (SELECT 1 FROM jsonb_array_elements_text(notices.nuts_codes::jsonb) AS nc "
+                        "notices.nuts_codes IS NOT NULL AND json_typeof(notices.nuts_codes) = 'array' "
+                        "AND EXISTS (SELECT 1 FROM jsonb_array_elements_text(notices.nuts_codes::jsonb) AS nc "
                         "WHERE nc LIKE :country_p)"
                     ).bindparams(country_p=f"{c.upper()}%")
                 )

@@ -133,7 +133,9 @@ def build_search_query(
         if is_pg:
             query = query.filter(
                 text(
-                    "EXISTS (SELECT 1 FROM jsonb_array_elements_text(notices.nuts_codes::jsonb) AS nc "
+                    "notices.nuts_codes IS NOT NULL "
+                    "AND json_typeof(notices.nuts_codes) = 'array' "
+                    "AND EXISTS (SELECT 1 FROM jsonb_array_elements_text(notices.nuts_codes::jsonb) AS nc "
                     "WHERE nc LIKE :nuts_prefix)"
                 ).bindparams(nuts_prefix=f"{nuts_upper}%")
             )
