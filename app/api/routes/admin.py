@@ -290,3 +290,45 @@ def trigger_backfill(
             logger.warning("search_vector refresh failed: %s", e)
 
     return result
+
+
+@router.get("/raw-data-keys", tags=["admin"])
+def raw_data_keys_report(
+    source: Optional[str] = Query(None, description="BOSA_EPROC or TED_EU"),
+    sample: int = Query(5, ge=1, le=20, description="Number of notices to sample"),
+    db: Session = Depends(get_db),
+) -> dict:
+    """
+    Diagnostic: show top-level keys and sample values from raw_data.
+    Helps understand what fields are available for enrichment.
+    """
+    from app.models.notice import ProcurementNotice as Notice
+    query = db.query(Notice).filter(Notice.raw_data.isnot(None))
+    if source:
+        query = query.filter(Notice.source == source)
+    notices = query.limit(sample).all()
+
+    key_freq: dict[str, int] = {}
+    samples: list[dict] = []
+    for n in notices:
+        raw = n.raw_data
+        if not isinstance(raw, dict):
+            continue
+        for k in raw.keys():
+            key_freq[k] = key_freq.get(k, 0) + 1
+        # Sample: show first 200 chars of each value
+        sample_entry = {"source_id": n.source_id, "source": n.source, "keys": list(raw.keys())}
+        for field in ("description", "noticeType", "notice_type", "notice-type",
+                       "formType", "form_type", "form-type", "summary",
+                       "type", "dossier", "organisation"):
+            val = raw.get(field)
+            if val is not None:
+                sample_entry[f"raw.{field}"] = str(val)[:200]
+        samples.append(sample_entry)
+
+    sorted_keys = sorted(key_freq.items(), key=lambda x: -x[1])
+    return {
+        "sampled": len(notices),
+        "top_keys": dict(sorted_keys[:30]),
+        "samples": samples,
+    }
