@@ -5,7 +5,8 @@
  * In prod: Set VITE_API_BASE_URL to the backend URL.
  */
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "";
+// Always use relative URLs — Vite proxy forwards /api/* to the backend
+const API_BASE = "";
 
 async function request<T>(
   path: string,

@@ -33,6 +33,8 @@ app = FastAPI(
 # Configure CORS for Lovable frontend + local/production
 _cors_origins = [
     "http://localhost:3000",
+    "http://localhost:5173",
+    "http://localhost:5174",
     "https://lovable.app",
     "https://lovable.dev",
     "https://procurewatch.app",
