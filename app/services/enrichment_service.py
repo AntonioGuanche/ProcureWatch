@@ -415,17 +415,19 @@ def get_data_quality_report(db: Session) -> dict[str, Any]:
         .all()
     )
 
-    # Fields to check — separate JSON fields from scalar fields
-    scalar_fields = [
+    # Fields to check — separate string fields (can check != '') from non-string (IS NOT NULL only)
+    string_fields = [
         "title", "description", "notice_type",
-        "cpv_main_code", "url", "deadline",
-        "estimated_value", "form_type", "reference_number",
+        "cpv_main_code", "url", "form_type", "reference_number",
     ]
-    json_fields = ["organisation_names", "nuts_codes"]
+    non_string_fields = [
+        "organisation_names", "nuts_codes",  # JSON
+        "deadline", "estimated_value",       # datetime, numeric
+    ]
 
     # Global fill rates
     global_rates = {}
-    for field in scalar_fields:
+    for field in string_fields:
         col = getattr(Notice, field, None)
         if col is None:
             continue
@@ -438,11 +440,10 @@ def get_data_quality_report(db: Session) -> dict[str, Any]:
             "total": total,
             "pct": round(100 * filled / total, 1),
         }
-    for field in json_fields:
+    for field in non_string_fields:
         col = getattr(Notice, field, None)
         if col is None:
             continue
-        # JSON columns: just check IS NOT NULL (can't compare with "")
         filled = db.query(func.count(Notice.id)).filter(
             col.isnot(None),
         ).scalar() or 0
@@ -452,13 +453,13 @@ def get_data_quality_report(db: Session) -> dict[str, Any]:
             "pct": round(100 * filled / total, 1),
         }
 
-    # Per-source fill rates for key fields
-    key_scalar = ["title", "description", "notice_type", "url"]
-    key_json = ["organisation_names", "nuts_codes"]
+    # Per-source fill rates
+    key_string = ["title", "description", "notice_type", "url"]
+    key_non_string = ["organisation_names", "nuts_codes"]
     per_source = {}
     for source_val, source_total in source_counts.items():
         source_rates = {}
-        for field in key_scalar:
+        for field in key_string:
             col = getattr(Notice, field, None)
             if col is None:
                 continue
@@ -472,7 +473,7 @@ def get_data_quality_report(db: Session) -> dict[str, Any]:
                 "total": source_total,
                 "pct": round(100 * filled / source_total, 1) if source_total else 0,
             }
-        for field in key_json:
+        for field in key_non_string:
             col = getattr(Notice, field, None)
             if col is None:
                 continue
