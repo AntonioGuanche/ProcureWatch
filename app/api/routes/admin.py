@@ -383,3 +383,23 @@ def raw_data_keys_report(
         "top_keys": dict(sorted_keys[:30]),
         "samples": samples,
     }
+
+
+# ── Duplicate cleanup ────────────────────────────────────────────────
+
+@router.get("/cleanup/duplicates", summary="Check for duplicate notices (dry run)")
+def check_duplicates(
+    db: Session = Depends(get_db),
+):
+    """Find duplicate BOSA notices (same dossier_id). Returns stats only."""
+    from app.services.cleanup_service import cleanup_bosa_duplicates
+    return cleanup_bosa_duplicates(db, dry_run=True)
+
+
+@router.post("/cleanup/duplicates", summary="Remove duplicate notices")
+def remove_duplicates(
+    db: Session = Depends(get_db),
+):
+    """Delete duplicate BOSA notices, keeping the newest publication per dossier."""
+    from app.services.cleanup_service import cleanup_bosa_duplicates
+    return cleanup_bosa_duplicates(db, dry_run=False)

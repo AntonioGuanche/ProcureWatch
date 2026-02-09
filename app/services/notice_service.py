@@ -708,14 +708,7 @@ class NoticeService:
                 continue
 
             try:
-                # Check if already exists by source_id
-                existing = (
-                    self.db.query(ProcurementNotice)
-                    .filter(ProcurementNotice.source_id == workspace_id)
-                    .first()
-                )
-
-                # Optionally fetch full workspace detail
+                # Fetch workspace detail first (needed for dossier_id dedup)
                 workspace: Optional[dict[str, Any]] = None
                 if fetch_details:
                     workspace = await asyncio.to_thread(
@@ -726,6 +719,26 @@ class NoticeService:
                 attrs = _map_search_item_to_notice(raw, workspace, workspace_id)
                 bosa_lots = attrs.pop("_bosa_lots", [])
                 bosa_additional_cpv = attrs.pop("_bosa_additional_cpv", [])
+
+                # Dedup: prefer dossier_id (same tender, newer publication)
+                # then fall back to source_id (exact same publication)
+                existing = None
+                dossier_id = attrs.get("dossier_id")
+                if dossier_id:
+                    existing = (
+                        self.db.query(ProcurementNotice)
+                        .filter(
+                            ProcurementNotice.source == BOSA_SOURCE,
+                            ProcurementNotice.dossier_id == dossier_id,
+                        )
+                        .first()
+                    )
+                if not existing:
+                    existing = (
+                        self.db.query(ProcurementNotice)
+                        .filter(ProcurementNotice.source_id == workspace_id)
+                        .first()
+                    )
 
                 if existing:
                     for key, value in attrs.items():
