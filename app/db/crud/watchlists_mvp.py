@@ -55,7 +55,10 @@ def create_watchlist(
     keywords: list[str] | None = None,
     countries: list[str] | None = None,
     cpv_prefixes: list[str] | None = None,
+    nuts_prefixes: list[str] | None = None,
     sources: list[str] | None = None,
+    enabled: bool = True,
+    notify_email: str | None = None,
 ) -> Watchlist:
     """Create a new watchlist with arrays."""
     wl = Watchlist(
@@ -63,7 +66,10 @@ def create_watchlist(
         keywords=_join_array(keywords or []),
         countries=_join_array(countries or []),
         cpv_prefixes=_join_array(cpv_prefixes or []),
+        nuts_prefixes=_join_array(nuts_prefixes or []),
         sources=_join_sources_json(sources),
+        enabled=enabled,
+        notify_email=notify_email,
     )
     db.add(wl)
     db.commit()
@@ -95,7 +101,10 @@ def update_watchlist(
     keywords: Optional[list[str]] = None,
     countries: Optional[list[str]] = None,
     cpv_prefixes: Optional[list[str]] = None,
+    nuts_prefixes: Optional[list[str]] = None,
     sources: Optional[list[str]] = None,
+    enabled: Optional[bool] = None,
+    notify_email: Optional[str] = None,
 ) -> Optional[Watchlist]:
     """Update a watchlist by ID (partial update)."""
     wl = get_watchlist_by_id(db, watchlist_id)
@@ -109,8 +118,14 @@ def update_watchlist(
         wl.countries = _join_array(countries)
     if cpv_prefixes is not None:
         wl.cpv_prefixes = _join_array(cpv_prefixes)
+    if nuts_prefixes is not None:
+        wl.nuts_prefixes = _join_array(nuts_prefixes)
     if sources is not None:
         wl.sources = _join_sources_json(sources)
+    if enabled is not None:
+        wl.enabled = enabled
+    if notify_email is not None:
+        wl.notify_email = notify_email if notify_email else None
     db.commit()
     db.refresh(wl)
     return wl

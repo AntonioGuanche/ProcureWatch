@@ -96,10 +96,27 @@ async def trigger_import(
     total_updated = sum(r.get("updated", 0) for r in results.values() if isinstance(r, dict))
     elapsed = (datetime.now(timezone.utc) - started_at).total_seconds()
 
+    # Run watchlist matcher if new notices were imported
+    matcher_summary = None
+    if total_created > 0:
+        try:
+            from app.services.watchlist_matcher import run_watchlist_matcher
+            matcher_summary = run_watchlist_matcher(db)
+            logger.info(
+                "Watchlist matcher: %d watchlists, %d new matches, %d emails",
+                matcher_summary.get("watchlists_processed", 0),
+                matcher_summary.get("total_new_matches", 0),
+                matcher_summary.get("emails_sent", 0),
+            )
+        except Exception as e:
+            logger.warning("Watchlist matcher failed: %s", e)
+            matcher_summary = {"error": str(e)}
+
     return {
         "status": "ok",
         "elapsed_seconds": round(elapsed, 1),
         "total": {"created": total_created, "updated": total_updated},
+        "watchlist_matcher": matcher_summary,
         **results,
     }
 
@@ -222,3 +239,15 @@ async def import_runs_summary(
     total = db.execute(text("SELECT COUNT(*) as cnt FROM notices")).scalar()
 
     return {"sources": summary, "total_notices": total or 0}
+
+
+@router.post("/match-watchlists", tags=["admin"])
+def trigger_watchlist_matcher(
+    db: Session = Depends(get_db),
+) -> dict:
+    """
+    Manually trigger watchlist matcher for all enabled watchlists.
+    Useful for testing or after bulk imports.
+    """
+    from app.services.watchlist_matcher import run_watchlist_matcher
+    return run_watchlist_matcher(db)

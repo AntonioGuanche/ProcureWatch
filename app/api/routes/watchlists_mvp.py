@@ -11,6 +11,7 @@ from app.api.schemas.watchlist import (
     WatchlistMatchesResponse,
     WatchlistMatchRead,
     WatchlistRead,
+    WatchlistUpdate,
 )
 from app.db.crud.watchlists_mvp import (
     create_watchlist,
@@ -28,6 +29,24 @@ from app.db.session import get_db
 router = APIRouter(prefix="/watchlists", tags=["watchlists"])
 
 
+def _to_read(wl) -> WatchlistRead:
+    """Convert Watchlist ORM to WatchlistRead schema."""
+    return WatchlistRead(
+        id=wl.id,
+        name=wl.name,
+        keywords=_parse_array(wl.keywords),
+        countries=_parse_array(wl.countries),
+        cpv_prefixes=_parse_array(wl.cpv_prefixes),
+        nuts_prefixes=_parse_array(getattr(wl, "nuts_prefixes", None)),
+        sources=_parse_sources_json(wl.sources),
+        enabled=getattr(wl, "enabled", True),
+        notify_email=getattr(wl, "notify_email", None),
+        last_refresh_at=wl.last_refresh_at,
+        created_at=wl.created_at,
+        updated_at=wl.updated_at,
+    )
+
+
 @router.get("", response_model=WatchlistListResponse)
 async def get_watchlists(
     page: int = Query(1, ge=1, description="Page number"),
@@ -37,23 +56,10 @@ async def get_watchlists(
     """List watchlists with pagination."""
     offset = (page - 1) * page_size
     items, total = list_watchlists(db, limit=page_size, offset=offset)
-    # Convert to response format (parse arrays from comma-separated strings and JSON)
-    watchlist_reads = []
-    for wl in items:
-        watchlist_reads.append(
-            WatchlistRead(
-                id=wl.id,
-                name=wl.name,
-                keywords=_parse_array(wl.keywords),
-                countries=_parse_array(wl.countries),
-                cpv_prefixes=_parse_array(wl.cpv_prefixes),
-                sources=_parse_sources_json(wl.sources),
-                last_refresh_at=wl.last_refresh_at,
-                created_at=wl.created_at,
-                updated_at=wl.updated_at,
-            )
-        )
-    return WatchlistListResponse(total=total, page=page, page_size=page_size, items=watchlist_reads)
+    return WatchlistListResponse(
+        total=total, page=page, page_size=page_size,
+        items=[_to_read(wl) for wl in items],
+    )
 
 
 @router.post("", response_model=WatchlistRead, status_code=201)
@@ -68,19 +74,36 @@ async def post_watchlist(
         keywords=body.keywords,
         countries=body.countries,
         cpv_prefixes=body.cpv_prefixes,
+        nuts_prefixes=body.nuts_prefixes,
         sources=body.sources,
+        enabled=body.enabled,
+        notify_email=body.notify_email,
     )
-    return WatchlistRead(
-        id=wl.id,
-        name=wl.name,
-        keywords=_parse_array(wl.keywords),
-        countries=_parse_array(wl.countries),
-        cpv_prefixes=_parse_array(wl.cpv_prefixes),
-        sources=_parse_sources_json(wl.sources),
-        last_refresh_at=wl.last_refresh_at,
-        created_at=wl.created_at,
-        updated_at=wl.updated_at,
-    )
+    return _to_read(wl)
+
+
+@router.patch("/{watchlist_id}", response_model=WatchlistRead)
+async def patch_watchlist(
+    watchlist_id: str,
+    body: WatchlistUpdate,
+    db: Session = Depends(get_db),
+) -> WatchlistRead:
+    """Partial update of a watchlist."""
+    update_data = body.model_dump(exclude_unset=True)
+    wl = update_watchlist(db, watchlist_id, **update_data)
+    if not wl:
+        raise HTTPException(status_code=404, detail="Watchlist not found")
+    return _to_read(wl)
+
+
+@router.delete("/{watchlist_id}", status_code=204)
+async def del_watchlist(
+    watchlist_id: str,
+    db: Session = Depends(get_db),
+) -> None:
+    """Delete a watchlist and its matches."""
+    if not delete_watchlist(db, watchlist_id):
+        raise HTTPException(status_code=404, detail="Watchlist not found")
 
 
 @router.post("/{watchlist_id}/refresh")

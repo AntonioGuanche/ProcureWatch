@@ -15,10 +15,13 @@ class WatchlistBase(BaseModel):
     keywords: list[str] = Field(default_factory=list, description="Keywords to match in title/description")
     countries: list[str] = Field(default_factory=list, description="Country codes (ISO2) to filter by")
     cpv_prefixes: list[str] = Field(default_factory=list, description="CPV code prefixes to match")
+    nuts_prefixes: list[str] = Field(default_factory=list, description="NUTS code prefixes to match (e.g. BE1, BE100)")
     sources: list[str] = Field(
         default_factory=lambda: list(DEFAULT_SOURCES),
         description="Source identifiers to filter by (TED, BOSA, or both)",
     )
+    enabled: bool = Field(True, description="Whether this watchlist is active for alerts")
+    notify_email: Optional[str] = Field(None, max_length=255, description="Email address for alert notifications")
 
     @field_validator("sources")
     @classmethod
@@ -56,7 +59,10 @@ class WatchlistUpdate(BaseModel):
     keywords: Optional[list[str]] = None
     countries: Optional[list[str]] = None
     cpv_prefixes: Optional[list[str]] = None
+    nuts_prefixes: Optional[list[str]] = None
     sources: Optional[list[str]] = None
+    enabled: Optional[bool] = None
+    notify_email: Optional[str] = Field(None, max_length=255)
 
     @field_validator("sources")
     @classmethod
