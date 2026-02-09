@@ -415,16 +415,17 @@ def get_data_quality_report(db: Session) -> dict[str, Any]:
         .all()
     )
 
-    # Fields to check
-    fields = [
-        "title", "description", "organisation_names", "notice_type",
-        "cpv_main_code", "nuts_codes", "url", "deadline",
+    # Fields to check — separate JSON fields from scalar fields
+    scalar_fields = [
+        "title", "description", "notice_type",
+        "cpv_main_code", "url", "deadline",
         "estimated_value", "form_type", "reference_number",
     ]
+    json_fields = ["organisation_names", "nuts_codes"]
 
     # Global fill rates
     global_rates = {}
-    for field in fields:
+    for field in scalar_fields:
         col = getattr(Notice, field, None)
         if col is None:
             continue
@@ -437,13 +438,27 @@ def get_data_quality_report(db: Session) -> dict[str, Any]:
             "total": total,
             "pct": round(100 * filled / total, 1),
         }
+    for field in json_fields:
+        col = getattr(Notice, field, None)
+        if col is None:
+            continue
+        # JSON columns: just check IS NOT NULL (can't compare with "")
+        filled = db.query(func.count(Notice.id)).filter(
+            col.isnot(None),
+        ).scalar() or 0
+        global_rates[field] = {
+            "filled": filled,
+            "total": total,
+            "pct": round(100 * filled / total, 1),
+        }
 
     # Per-source fill rates for key fields
-    key_fields = ["title", "description", "organisation_names", "notice_type", "url", "nuts_codes"]
+    key_scalar = ["title", "description", "notice_type", "url"]
+    key_json = ["organisation_names", "nuts_codes"]
     per_source = {}
     for source_val, source_total in source_counts.items():
         source_rates = {}
-        for field in key_fields:
+        for field in key_scalar:
             col = getattr(Notice, field, None)
             if col is None:
                 continue
@@ -451,6 +466,19 @@ def get_data_quality_report(db: Session) -> dict[str, Any]:
                 Notice.source == source_val,
                 col.isnot(None),
                 col != "",
+            ).scalar() or 0
+            source_rates[field] = {
+                "filled": filled,
+                "total": source_total,
+                "pct": round(100 * filled / source_total, 1) if source_total else 0,
+            }
+        for field in key_json:
+            col = getattr(Notice, field, None)
+            if col is None:
+                continue
+            filled = db.query(func.count(Notice.id)).filter(
+                Notice.source == source_val,
+                col.isnot(None),
             ).scalar() or 0
             source_rates[field] = {
                 "filled": filled,
