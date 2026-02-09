@@ -251,3 +251,42 @@ def trigger_watchlist_matcher(
     """
     from app.services.watchlist_matcher import run_watchlist_matcher
     return run_watchlist_matcher(db)
+
+
+@router.get("/data-quality", tags=["admin"])
+def data_quality_report(
+    db: Session = Depends(get_db),
+) -> dict:
+    """
+    Data quality report: fill rate per field, per source.
+    Shows which fields need enrichment.
+    """
+    from app.services.enrichment_service import get_data_quality_report
+    return get_data_quality_report(db)
+
+
+@router.post("/backfill", tags=["admin"])
+def trigger_backfill(
+    source: Optional[str] = Query(None, description="Filter: BOSA_EPROC or TED_EU"),
+    limit: Optional[int] = Query(None, ge=1, le=10000, description="Max notices to process"),
+    refresh_vectors: bool = Query(True, description="Refresh search_vector after backfill"),
+    db: Session = Depends(get_db),
+) -> dict:
+    """
+    Backfill missing fields from existing raw_data (no external API calls).
+    Re-extracts: description, organisation_names, notice_type, url, nuts_codes, etc.
+    Optionally refreshes search_vector for full-text search.
+    """
+    from app.services.enrichment_service import backfill_from_raw_data, refresh_search_vectors
+
+    result = backfill_from_raw_data(db, source=source, limit=limit)
+
+    if refresh_vectors and result.get("enriched", 0) > 0:
+        try:
+            rows = refresh_search_vectors(db)
+            result["search_vectors_refreshed"] = rows
+        except Exception as e:
+            result["search_vectors_error"] = str(e)
+            logger.warning("search_vector refresh failed: %s", e)
+
+    return result
