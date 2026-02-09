@@ -58,17 +58,25 @@ DEFAULT_FIELDS = [
 def build_expert_query(term: str) -> str:
     """
     Build TED expert query from a simple search term.
+
+    TED expert query syntax: field operator "value" combined with AND/OR/NOT.
+    Operators: = (exact), ~ (contains), IN [...], >=, <=, >, <
+    Field aliases: PD (publication-date), ND (publication-number), etc.
+
+    Special case: "*" or empty → match all recent notices via date range.
     If term already looks like an expert query (contains operators), return unchanged.
     Otherwise, build OR expression across notice-title, description-glo, title-proc.
     """
     if not term or not isinstance(term, str):
-        return '*'
+        term = "*"
     term = term.strip()
-    if not term or term == '*':
-        return '*'
+
+    # "Match all" — use broad date range (all notices since 2020)
+    if not term or term == "*":
+        return "PD >= 20200101"
 
     # Check if term already looks like an expert query
-    expert_indicators = ['~', '!~', '=', '!=', ' OR ', ' AND ', ' NOT ', ' IN ']
+    expert_indicators = ['~', '!~', '=', '!=', ' OR ', ' AND ', ' NOT ', ' IN ', '>=', '<=']
     if any(indicator in term for indicator in expert_indicators):
         return term
     
