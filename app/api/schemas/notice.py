@@ -53,17 +53,23 @@ class NoticeListResponse(BaseModel):
 
 
 class NoticeSearchItem(BaseModel):
-    """Single notice row for GET /api/notices/search (Lovable table)."""
+    """Single notice row for GET /api/notices/search (frontend table/card)."""
 
     id: str
     title: Optional[str] = None
     source: str
     cpv_main_code: Optional[str] = None
+    nuts_codes: Optional[List[str]] = None
     organisation_names: Optional[Dict[str, str]] = None
     publication_date: Optional[str] = None
     deadline: Optional[str] = None
     reference_number: Optional[str] = None
     description: Optional[str] = None
+    notice_type: Optional[str] = None
+    form_type: Optional[str] = None
+    estimated_value: Optional[float] = None
+    url: Optional[str] = None
+    status: Optional[str] = None
 
     model_config = {"from_attributes": True}
 

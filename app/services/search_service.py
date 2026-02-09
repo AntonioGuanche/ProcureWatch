@@ -2,9 +2,12 @@
 
 Provides build_search_query() which returns a SQLAlchemy query + optional rank column,
 and get_facets() for dynamic filter values.
+
+Phase 12: Added deadline_after, value_min/max, active_only, multi-source filters,
+          value_desc/asc sort, enriched facets (NUTS, deadline range, value range).
 """
 import re
-from datetime import date
+from datetime import date, datetime, timezone
 from typing import Any, Optional
 
 from sqlalchemy import case, cast, func, literal_column, or_, text, Float, String as sa_String
@@ -31,9 +34,7 @@ def _parse_tsquery(raw: str) -> str:
     raw = raw.strip()
     if not raw:
         return ""
-    # Replace OR (case-insensitive) with |
     raw = re.sub(r"\bOR\b", "|", raw, flags=re.IGNORECASE)
-    # Split on whitespace, rejoin with & (AND) unless already an operator
     tokens = raw.split()
     result = []
     for t in tokens:
@@ -43,10 +44,8 @@ def _parse_tsquery(raw: str) -> str:
         if t in ("|", "&", "!"):
             result.append(t)
         else:
-            # Remove characters that break tsquery
             clean = re.sub(r"[^\w\-*]", "", t, flags=re.UNICODE)
             if clean:
-                # Add prefix matching with :*
                 result.append(f"{clean}:*")
     return " & ".join(result) if result else ""
 
@@ -70,11 +69,16 @@ def build_search_query(
     cpv: Optional[str] = None,
     nuts: Optional[str] = None,
     source: Optional[str] = None,
+    sources: Optional[list[str]] = None,
     authority: Optional[str] = None,
     notice_type: Optional[str] = None,
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
     deadline_before: Optional[date] = None,
+    deadline_after: Optional[date] = None,
+    value_min: Optional[float] = None,
+    value_max: Optional[float] = None,
+    active_only: bool = False,
     sort: str = "date_desc",
 ) -> tuple[Query, bool]:
     """
@@ -100,7 +104,6 @@ def build_search_query(
                 )
                 has_rank = True
             else:
-                # Fallback if tsquery parse produced nothing
                 like = f"%{term}%"
                 query = query.filter(
                     or_(
@@ -109,7 +112,6 @@ def build_search_query(
                     )
                 )
         else:
-            # SQLite fallback
             like = f"%{term}%"
             query = query.filter(
                 or_(
@@ -129,7 +131,6 @@ def build_search_query(
     if nuts and nuts.strip():
         nuts_upper = nuts.strip().upper()
         if is_pg:
-            # JSONB array contains check: any element starts with prefix
             query = query.filter(
                 text(
                     "EXISTS (SELECT 1 FROM jsonb_array_elements_text(notices.nuts_codes) AS nc "
@@ -137,22 +138,26 @@ def build_search_query(
                 ).bindparams(nuts_prefix=f"{nuts_upper}%")
             )
         else:
-            # SQLite: basic JSON text search
             query = query.filter(
                 cast(ProcurementNotice.nuts_codes, sa_String()).like(f"%{nuts_upper}%")
             )
 
-    # ── Source filter ──
-    if source and source.strip():
+    # ── Source filter (single) ──
+    if source and source.strip() and not sources:
         src_val = _source_value(source)
         if src_val:
             query = query.filter(ProcurementNotice.source == src_val)
+
+    # ── Multi-source filter ──
+    if sources and len(sources) > 0:
+        src_vals = [v for s in sources if (v := _source_value(s))]
+        if src_vals:
+            query = query.filter(ProcurementNotice.source.in_(src_vals))
 
     # ── Authority / organisation name search ──
     if authority and authority.strip():
         auth_term = f"%{authority.strip()}%"
         if is_pg:
-            # Search in JSONB values
             query = query.filter(
                 text(
                     "EXISTS (SELECT 1 FROM jsonb_each_text(notices.organisation_names) AS kv "
@@ -174,9 +179,22 @@ def build_search_query(
     if date_to:
         query = query.filter(ProcurementNotice.publication_date <= date_to)
 
-    # ── Deadline filter ──
+    # ── Deadline filters ──
     if deadline_before:
         query = query.filter(ProcurementNotice.deadline <= deadline_before)
+    if deadline_after:
+        query = query.filter(ProcurementNotice.deadline >= deadline_after)
+
+    # ── Active only (deadline in the future) ──
+    if active_only:
+        now = datetime.now(timezone.utc)
+        query = query.filter(ProcurementNotice.deadline > now)
+
+    # ── Estimated value range ──
+    if value_min is not None:
+        query = query.filter(ProcurementNotice.estimated_value >= value_min)
+    if value_max is not None:
+        query = query.filter(ProcurementNotice.estimated_value <= value_max)
 
     # ── Sorting ──
     if sort == "relevance" and has_rank and is_pg:
@@ -189,6 +207,12 @@ def build_search_query(
         query = query.order_by(ProcurementNotice.publication_date.asc().nulls_last())
     elif sort == "deadline":
         query = query.order_by(ProcurementNotice.deadline.asc().nulls_last())
+    elif sort == "deadline_desc":
+        query = query.order_by(ProcurementNotice.deadline.desc().nulls_last())
+    elif sort == "value_desc":
+        query = query.order_by(ProcurementNotice.estimated_value.desc().nulls_last())
+    elif sort == "value_asc":
+        query = query.order_by(ProcurementNotice.estimated_value.asc().nulls_last())
     else:
         # Default: date_desc
         query = query.order_by(ProcurementNotice.publication_date.desc().nulls_last())
@@ -203,9 +227,13 @@ def get_facets(db: Session) -> dict[str, Any]:
     """
     Return dynamic filter options for the UI:
     - sources: [{value, label, count}]
-    - top_cpv: [{code, count}]  (top 20 CPV prefixes)
+    - top_cpv: [{code, count}]  (top 20 CPV 2-digit divisions)
+    - top_nuts: [{code, count}]  (top 20 NUTS country/region prefixes)
     - notice_types: [{value, count}]
     - date_range: {min, max}
+    - deadline_range: {min, max}
+    - value_range: {min, max}
+    - active_count: int  (notices with deadline > now)
     """
     is_pg = _is_postgres(db)
     N = ProcurementNotice
@@ -242,6 +270,24 @@ def get_facets(db: Session) -> dict[str, Any]:
         """)).all()
     cpv_list = [{"code": row[0], "count": row[1]} for row in cpv_rows if row[0]]
 
+    # Top NUTS regions (2-char country codes from JSONB array)
+    nuts_list = []
+    if is_pg:
+        try:
+            nuts_rows = db.execute(text("""
+                SELECT LEFT(nc, 2) AS country, COUNT(*) AS cnt
+                FROM notices,
+                     jsonb_array_elements_text(nuts_codes) AS nc
+                WHERE nuts_codes IS NOT NULL
+                  AND jsonb_typeof(nuts_codes) = 'array'
+                GROUP BY country
+                ORDER BY cnt DESC
+                LIMIT 20
+            """)).all()
+            nuts_list = [{"code": row[0], "count": row[1]} for row in nuts_rows if row[0]]
+        except Exception:
+            pass  # Graceful degradation if NUTS data is sparse
+
     # Notice types
     type_rows = (
         db.query(N.notice_type, func.count(N.id))
@@ -253,7 +299,7 @@ def get_facets(db: Session) -> dict[str, Any]:
     )
     type_list = [{"value": t, "count": c} for t, c in type_rows]
 
-    # Date range
+    # Date range (publication)
     date_range = db.query(
         func.min(N.publication_date),
         func.max(N.publication_date),
@@ -263,14 +309,45 @@ def get_facets(db: Session) -> dict[str, Any]:
         "max": date_range[1].isoformat() if date_range and date_range[1] else None,
     }
 
+    # Deadline range
+    deadline_range = db.query(
+        func.min(N.deadline),
+        func.max(N.deadline),
+    ).first()
+    deadline_info = {
+        "min": deadline_range[0].isoformat() if deadline_range and deadline_range[0] else None,
+        "max": deadline_range[1].isoformat() if deadline_range and deadline_range[1] else None,
+    }
+
+    # Value range
+    value_range = db.query(
+        func.min(N.estimated_value),
+        func.max(N.estimated_value),
+    ).filter(N.estimated_value.isnot(None), N.estimated_value > 0).first()
+    value_info = {
+        "min": float(value_range[0]) if value_range and value_range[0] else None,
+        "max": float(value_range[1]) if value_range and value_range[1] else None,
+    }
+
+    # Active count (deadline > now)
+    now = datetime.now(timezone.utc)
+    active_count = (
+        db.query(func.count(N.id))
+        .filter(N.deadline > now)
+        .scalar()
+    ) or 0
+
     # Total
     total = db.query(func.count(N.id)).scalar() or 0
 
     return {
         "total_notices": total,
+        "active_count": active_count,
         "sources": source_list,
         "top_cpv_divisions": cpv_list,
+        "top_nuts_countries": nuts_list,
         "notice_types": type_list,
         "date_range": date_info,
+        "deadline_range": deadline_info,
+        "value_range": value_info,
     }
-

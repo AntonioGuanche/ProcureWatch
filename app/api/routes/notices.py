@@ -251,13 +251,17 @@ def search_notices(
     q: Optional[str] = Query(None, description="Full-text keyword search (title + description). Supports AND/OR."),
     cpv: Optional[str] = Query(None, description="CPV code prefix filter (e.g. '45' or '45000000')"),
     nuts: Optional[str] = Query(None, description="NUTS code prefix filter (e.g. 'BE1' or 'BE100')"),
-    source: Optional[str] = Query(None, description="Source filter: BOSA or TED"),
+    source: Optional[str] = Query(None, description="Source filter: BOSA, TED, or comma-separated 'BOSA,TED'"),
     authority: Optional[str] = Query(None, description="Authority / organisation name search"),
     notice_type: Optional[str] = Query(None, description="Notice type filter (e.g. 'CONTRACT_NOTICE')"),
     date_from: Optional[str] = Query(None, description="Publication date from (ISO YYYY-MM-DD)"),
     date_to: Optional[str] = Query(None, description="Publication date to (ISO YYYY-MM-DD)"),
     deadline_before: Optional[str] = Query(None, description="Deadline before (ISO YYYY-MM-DD)"),
-    sort: str = Query("date_desc", description="Sort: date_desc, date_asc, relevance, deadline"),
+    deadline_after: Optional[str] = Query(None, description="Deadline after (ISO YYYY-MM-DD) — use for 'still open'"),
+    value_min: Optional[float] = Query(None, ge=0, description="Minimum estimated value (EUR)"),
+    value_max: Optional[float] = Query(None, ge=0, description="Maximum estimated value (EUR)"),
+    active_only: bool = Query(False, description="If true, only notices with deadline in the future"),
+    sort: str = Query("date_desc", description="Sort: date_desc, date_asc, relevance, deadline, deadline_desc, value_desc, value_asc"),
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(25, ge=1, le=100, description="Items per page"),
     db: Session = Depends(get_db),
@@ -265,13 +269,36 @@ def search_notices(
     """
     Advanced search with full-text (PostgreSQL tsvector) + filters.
     Public, no auth. All filters optional; returns paginated items with total count.
+
+    Filters:
+    - q: keywords (AND by default, OR explicit)
+    - cpv: CPV prefix (e.g. "45" for construction)
+    - nuts: NUTS prefix (e.g. "BE1" for Brussels region)
+    - source: BOSA, TED, or comma-separated
+    - authority: organisation name (ILIKE)
+    - notice_type: exact match
+    - date_from / date_to: publication date range
+    - deadline_before / deadline_after: deadline range
+    - value_min / value_max: estimated value range (EUR)
+    - active_only: only notices with deadline > now
+
+    Sort options: date_desc (default), date_asc, relevance (auto when q),
+                  deadline, deadline_desc, value_desc, value_asc
     """
     from app.services.search_service import build_search_query
 
     # Parse date strings
     d_from = _safe_date(date_from)
     d_to = _safe_date(date_to)
-    d_deadline = _safe_date(deadline_before)
+    d_deadline_before = _safe_date(deadline_before)
+    d_deadline_after = _safe_date(deadline_after)
+
+    # Parse multi-source: "BOSA,TED" → ["BOSA", "TED"]
+    sources_list: Optional[list[str]] = None
+    if source and source.strip():
+        sources_list = [s.strip() for s in source.split(",") if s.strip()]
+        if len(sources_list) == 1:
+            sources_list = None  # single source handled as before
 
     # If keyword search and no explicit sort, default to relevance
     effective_sort = sort
@@ -283,12 +310,17 @@ def search_notices(
         q=q,
         cpv=cpv,
         nuts=nuts,
-        source=source,
+        source=source.split(",")[0].strip() if source and "," not in source else None,
+        sources=sources_list,
         authority=authority,
         notice_type=notice_type,
         date_from=d_from,
         date_to=d_to,
-        deadline_before=d_deadline,
+        deadline_before=d_deadline_before,
+        deadline_after=d_deadline_after,
+        value_min=value_min,
+        value_max=value_max,
+        active_only=active_only,
         sort=effective_sort,
     )
 
@@ -303,11 +335,17 @@ def search_notices(
             title=n.title,
             source=n.source,
             cpv_main_code=n.cpv_main_code,
+            nuts_codes=n.nuts_codes,
             organisation_names=n.organisation_names,
             publication_date=n.publication_date.isoformat() if n.publication_date else None,
             deadline=n.deadline.isoformat() if n.deadline else None,
             reference_number=n.reference_number,
-            description=(n.description[:200] if n.description else None),
+            description=(n.description[:300] if n.description else None),
+            notice_type=n.notice_type,
+            form_type=n.form_type,
+            estimated_value=float(n.estimated_value) if n.estimated_value else None,
+            url=n.url,
+            status=n.status,
         )
         for n in rows
     ]
