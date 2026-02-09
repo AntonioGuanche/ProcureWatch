@@ -19,6 +19,7 @@ TED_SEARCH_PATH = "/v3/notices/search"
 
 # Default fields for TED Search API (required, non-empty)
 DEFAULT_FIELDS = [
+    # Original 7 (confirmed working)
     "publication-number",
     "publication-date",
     "notice-title",
@@ -26,15 +27,12 @@ DEFAULT_FIELDS = [
     "buyer-country",
     "procedure-type",
     "main-classification-proc",
-    "notice-type",
-    "form-type",
-    "place-of-performance",
-    "deadline-receipt-tender",
-    "estimated-value",
-    "description-lot",
+    # Additional confirmed from TED supported fields list
     "description-glo",
-    "short-description",
-    "links",
+    "deadline-receipt-tender-date-lot",
+    "place-of-performance-country-proc",
+    "framework-estimated-value-glo",
+    "contract-nature-main-proc",
 ]
 
 

@@ -104,10 +104,11 @@ def _enrich_ted_notice(notice: Notice) -> dict[str, bool]:
             notice.description = desc[:10000]
             updated["description"] = True
 
-    # Notice type: procedure-type is the main TED field
+    # Notice type: contract-nature-main-proc is the confirmed TED field
     if not notice.notice_type:
         nt = (
-            raw.get("procedure-type")
+            raw.get("contract-nature-main-proc")
+            or raw.get("procedure-type")
             or raw.get("notice-type")
             or raw.get("noticeType")
             or raw.get("type-of-notice")
@@ -127,7 +128,8 @@ def _enrich_ted_notice(notice: Notice) -> dict[str, bool]:
     # NUTS codes
     if not notice.nuts_codes:
         nuts = (
-            raw.get("place-of-performance")
+            raw.get("place-of-performance-country-proc")
+            or raw.get("place-of-performance")
             or raw.get("nutsCodes")
             or raw.get("nutsCode")
             or raw.get("nuts-code")
@@ -191,7 +193,7 @@ def _enrich_ted_notice(notice: Notice) -> dict[str, bool]:
 
     # Estimated value
     if not notice.estimated_value:
-        for key in ("estimated-value", "estimatedValue", "value", "total-value"):
+        for key in ("framework-estimated-value-glo", "estimated-value", "estimatedValue", "value", "total-value"):
             v = raw.get(key)
             if v is not None:
                 try:
@@ -203,7 +205,7 @@ def _enrich_ted_notice(notice: Notice) -> dict[str, bool]:
 
     # Deadline
     if not notice.deadline:
-        for key in ("deadline-receipt-tender", "deadlineDate", "deadline",
+        for key in ("deadline-receipt-tender-date-lot", "deadline-receipt-tender", "deadlineDate", "deadline",
                      "submission-deadline", "submissionDeadline"):
             v = raw.get(key)
             if v:

@@ -575,7 +575,8 @@ def _map_ted_item_to_notice(item: dict[str, Any], source_id: str) -> dict[str, A
     pub_date = item.get("publication-date") or item.get("publicationDate")
     publication_date = _safe_date(pub_date)
     deadline_val = (
-        item.get("deadline-receipt-tender")
+        item.get("deadline-receipt-tender-date-lot")
+        or item.get("deadline-receipt-tender")
         or item.get("deadlineDate")
         or item.get("deadline")
         or item.get("submissionDeadline")
@@ -598,10 +599,21 @@ def _map_ted_item_to_notice(item: dict[str, Any], source_id: str) -> dict[str, A
         "reference_number": _safe_str(item.get("referenceNumber") or item.get("reference-number"), 255),
         "cpv_main_code": cpv_main_code,
         "cpv_additional_codes": cpv_additional_codes,
-        "nuts_codes": _safe_json_list(item.get("place-of-performance") or item.get("nutsCodes") or item.get("nutsCode")),
+        "nuts_codes": _safe_json_list(
+            item.get("place-of-performance-country-proc")
+            or item.get("place-of-performance")
+            or item.get("nutsCodes")
+            or item.get("nutsCode")
+        ),
         "publication_date": publication_date,
         "insertion_date": _safe_datetime(item.get("insertionDate") or item.get("insertion-date")),
-        "notice_type": _safe_str(item.get("noticeType") or item.get("notice-type") or item.get("procedure-type"), 100),
+        "notice_type": _safe_str(
+            item.get("contract-nature-main-proc")
+            or item.get("noticeType")
+            or item.get("notice-type")
+            or item.get("procedure-type"),
+            100,
+        ),
         "notice_sub_type": _safe_str(item.get("noticeSubType") or item.get("notice-sub-type"), 100),
         "form_type": form_type,
         "organisation_id": _safe_str(item.get("organisationId") or item.get("organisation-id"), 255),
@@ -617,7 +629,12 @@ def _map_ted_item_to_notice(item: dict[str, Any], source_id: str) -> dict[str, A
             or item.get("summary")
         ),
         "deadline": deadline,
-        "estimated_value": _safe_decimal(item.get("estimatedValue") or item.get("estimated-value") or item.get("value")),
+        "estimated_value": _safe_decimal(
+            item.get("framework-estimated-value-glo")
+            or item.get("estimatedValue")
+            or item.get("estimated-value")
+            or item.get("value")
+        ),
         "url": _generate_ted_url_from_item(item),
     }
 
