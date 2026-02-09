@@ -720,19 +720,19 @@ class NoticeService:
                 bosa_lots = attrs.pop("_bosa_lots", [])
                 bosa_additional_cpv = attrs.pop("_bosa_additional_cpv", [])
 
-                # Dedup: prefer dossier_id (same tender, newer publication)
+                # Dedup: match by title+cpv (same tender, different publications)
                 # then fall back to source_id (exact same publication)
                 existing = None
-                dossier_id = attrs.get("dossier_id")
-                if dossier_id:
-                    existing = (
-                        self.db.query(ProcurementNotice)
-                        .filter(
-                            ProcurementNotice.source == BOSA_SOURCE,
-                            ProcurementNotice.dossier_id == dossier_id,
-                        )
-                        .first()
+                title = attrs.get("title")
+                cpv = attrs.get("cpv_main_code")
+                if title:
+                    q = self.db.query(ProcurementNotice).filter(
+                        ProcurementNotice.source == BOSA_SOURCE,
+                        ProcurementNotice.title == title,
                     )
+                    if cpv:
+                        q = q.filter(ProcurementNotice.cpv_main_code == cpv)
+                    existing = q.first()
                 if not existing:
                     existing = (
                         self.db.query(ProcurementNotice)
