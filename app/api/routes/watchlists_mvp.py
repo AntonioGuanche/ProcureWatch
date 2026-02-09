@@ -2,6 +2,7 @@
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from app.core.auth import rate_limit_public
 from sqlalchemy.orm import Session
 
 from app.api.schemas.notice import NoticeRead
@@ -26,7 +27,7 @@ from app.db.crud.watchlists_mvp import (
 )
 from app.db.session import get_db
 
-router = APIRouter(prefix="/watchlists", tags=["watchlists"])
+router = APIRouter(prefix="/watchlists", tags=["watchlists"], dependencies=[Depends(rate_limit_public)])
 
 
 def _to_read(wl) -> WatchlistRead:

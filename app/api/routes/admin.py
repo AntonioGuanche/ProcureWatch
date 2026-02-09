@@ -10,12 +10,17 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app.core.auth import require_admin_key, rate_limit_admin
 from app.db.session import get_db
 from app.services.notice_service import NoticeService
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/admin", tags=["admin"])
+router = APIRouter(
+    prefix="/admin",
+    tags=["admin"],
+    dependencies=[Depends(require_admin_key), Depends(rate_limit_admin)],
+)
 
 
 # ── Manual import trigger ────────────────────────────────────────────

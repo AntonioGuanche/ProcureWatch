@@ -2,6 +2,7 @@
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
+from app.core.auth import rate_limit_public
 from sqlalchemy.orm import Session
 
 from app.api.schemas.filter import FilterCreate, FilterRead, FilterUpdate
@@ -14,7 +15,7 @@ from app.db.crud.filters import (
 )
 from app.db.session import get_db
 
-router = APIRouter(prefix="/filters", tags=["filters"])
+router = APIRouter(prefix="/filters", tags=["filters"], dependencies=[Depends(rate_limit_public)])
 
 
 @router.get("", response_model=List[FilterRead])

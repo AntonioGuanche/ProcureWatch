@@ -10,6 +10,8 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, R
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
+from app.core.auth import rate_limit_public
+
 from app.api.schemas.notice import (
     NoticeDetailRead,
     NoticeDocumentListResponse,
@@ -246,7 +248,7 @@ async def get_notices(
     )
 
 
-@router.get("/search", response_model=NoticeSearchResponse)
+@router.get("/search", response_model=NoticeSearchResponse, dependencies=[Depends(rate_limit_public)])
 def search_notices(
     q: Optional[str] = Query(None, description="Full-text keyword search (title + description). Supports AND/OR."),
     cpv: Optional[str] = Query(None, description="CPV code prefix filter (e.g. '45' or '45000000')"),
@@ -360,7 +362,7 @@ def search_notices(
     )
 
 
-@router.get("/facets")
+@router.get("/facets", dependencies=[Depends(rate_limit_public)])
 def get_notice_facets(db: Session = Depends(get_db)) -> dict:
     """
     Dynamic filter values for UI dropdowns/facets:

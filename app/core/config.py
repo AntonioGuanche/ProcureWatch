@@ -135,6 +135,13 @@ class Settings(BaseSettings):
     jwt_expiry_days: int = Field(7, validation_alias="JWT_EXPIRY_DAYS")
     jwt_algorithm: str = Field("HS256", validation_alias="JWT_ALGORITHM")
 
+    # --- Admin API key ---
+    admin_api_key: str = Field("", validation_alias="ADMIN_API_KEY")
+
+    # --- Rate limiting ---
+    rate_limit_per_minute: int = Field(60, validation_alias="RATE_LIMIT_PER_MINUTE")
+    rate_limit_burst: int = Field(10, validation_alias="RATE_LIMIT_BURST")
+
     @field_validator("database_url")
     @classmethod
     def normalize_database_url(cls, v: str) -> str:
