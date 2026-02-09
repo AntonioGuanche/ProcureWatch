@@ -104,10 +104,11 @@ def _enrich_ted_notice(notice: Notice) -> dict[str, bool]:
             notice.description = desc[:10000]
             updated["description"] = True
 
-    # Notice type
+    # Notice type: procedure-type is the main TED field
     if not notice.notice_type:
         nt = (
-            raw.get("notice-type")
+            raw.get("procedure-type")
+            or raw.get("notice-type")
             or raw.get("noticeType")
             or raw.get("type-of-notice")
             or raw.get("document-type")
@@ -274,22 +275,62 @@ def _enrich_bosa_notice(notice: Notice) -> dict[str, bool]:
 
     # Description from raw_data
     if not notice.description:
-        desc = _pick_text(raw.get("description")) or _pick_text(raw.get("summary"))
-        if not desc:
-            # Try dossier.titles as fallback description
-            dossier = raw.get("dossier")
-            if isinstance(dossier, dict):
-                desc = _pick_text(dossier.get("description")) or _pick_text(dossier.get("summary"))
-        if desc:
-            notice.description = desc[:10000]
-            updated["description"] = True
+        # Primary: dossier.descriptions (array of {language, text})
+        dossier = raw.get("dossier")
+        if isinstance(dossier, dict):
+            descs = dossier.get("descriptions")
+            if isinstance(descs, list) and descs:
+                # Prefer FR, then NL, then first available
+                desc_text = None
+                for pref_lang in ("FR", "NL", "EN", "DE"):
+                    for entry in descs:
+                        if isinstance(entry, dict) and str(entry.get("language", "")).upper() == pref_lang:
+                            t = str(entry.get("text", "")).strip()
+                            if t:
+                                desc_text = t
+                                break
+                    if desc_text:
+                        break
+                if not desc_text:
+                    for entry in descs:
+                        if isinstance(entry, dict):
+                            t = str(entry.get("text", "")).strip()
+                            if t:
+                                desc_text = t
+                                break
+                if desc_text:
+                    notice.description = desc_text[:10000]
+                    updated["description"] = True
 
-    # Notice type
+        # Fallback: top-level
+        if not notice.description:
+            desc = _pick_text(raw.get("description")) or _pick_text(raw.get("summary"))
+            if desc:
+                notice.description = desc[:10000]
+                updated["description"] = True
+
+    # Notice type: publicationType is the correct BOSA field
     if not notice.notice_type:
-        nt = raw.get("noticeType") or raw.get("notice_type") or raw.get("type")
+        nt = (
+            raw.get("publicationType")
+            or raw.get("noticeType")
+            or raw.get("notice_type")
+            or raw.get("type")
+        )
         if nt:
             notice.notice_type = _safe_str(nt, 100)
             updated["notice_type"] = True
+
+    # Form type: noticeSubType is the correct BOSA field
+    if not notice.form_type:
+        ft = (
+            raw.get("noticeSubType")
+            or raw.get("formType")
+            or raw.get("form_type")
+        )
+        if ft:
+            notice.form_type = _safe_str(ft, 100)
+            updated["form_type"] = True
 
     # URL
     if not notice.url:

@@ -315,6 +315,34 @@ def _bosa_enrich_raw_data_and_extras(
     return raw, lots, additional_cpv_codes
 
 
+def _extract_bosa_description(
+    item: dict[str, Any], workspace: Optional[dict[str, Any]]
+) -> Optional[str]:
+    """Extract description from BOSA dossier.descriptions multilingual array."""
+    for source in (workspace, item) if workspace else (item,):
+        if not isinstance(source, dict):
+            continue
+        dossier = source.get("dossier")
+        if isinstance(dossier, dict):
+            descs = dossier.get("descriptions")
+            if isinstance(descs, list) and descs:
+                for pref_lang in ("FR", "NL", "EN", "DE"):
+                    for entry in descs:
+                        if isinstance(entry, dict) and str(entry.get("language", "")).upper() == pref_lang:
+                            t = str(entry.get("text", "")).strip()
+                            if t:
+                                return t[:10000]
+                # Fallback: first available
+                for entry in descs:
+                    if isinstance(entry, dict):
+                        t = str(entry.get("text", "")).strip()
+                        if t:
+                            return t[:10000]
+    # Final fallback: top-level description/summary
+    desc = _get_from_sources(item, workspace, "description", "summary")
+    return _safe_str(desc, 10000) if desc else None
+
+
 def _map_search_item_to_notice(
     item: dict[str, Any],
     workspace: Optional[dict[str, Any]],
@@ -389,15 +417,15 @@ def _map_search_item_to_notice(
         "nuts_codes": nuts_codes,
         "publication_date": _safe_date(get("publicationDate", "publication_date")),
         "insertion_date": _safe_datetime(get("insertionDate", "insertion_date")),
-        "notice_type": _safe_str(get("noticeType", "notice_type"), 100),
+        "notice_type": _safe_str(get("publicationType", "noticeType", "notice_type"), 100),
         "notice_sub_type": _safe_str(get("noticeSubType", "notice_sub_type"), 100),
-        "form_type": _safe_str(get("formType", "form_type"), 100),
+        "form_type": _safe_str(get("noticeSubType", "formType", "form_type"), 100),
         "organisation_id": organisation_id,
         "organisation_names": organisation_names,
         "publication_languages": publication_languages,
         "raw_data": enriched_raw,
         "title": title,
-        "description": _safe_str(get("description", "summary"), None),
+        "description": _extract_bosa_description(item, workspace),
         "deadline": deadline,
         "estimated_value": _safe_decimal(get("estimatedValue", "estimated_value", "value")),
         "url": _safe_str(enriched_raw.get("url"), 1000),
@@ -560,7 +588,7 @@ def _map_ted_item_to_notice(item: dict[str, Any], source_id: str) -> dict[str, A
         "nuts_codes": _safe_json_list(item.get("nutsCodes") or item.get("nutsCode")),
         "publication_date": publication_date,
         "insertion_date": _safe_datetime(item.get("insertionDate") or item.get("insertion-date")),
-        "notice_type": _safe_str(item.get("noticeType") or item.get("notice-type"), 100),
+        "notice_type": _safe_str(item.get("noticeType") or item.get("notice-type") or item.get("procedure-type"), 100),
         "notice_sub_type": _safe_str(item.get("noticeSubType") or item.get("notice-sub-type"), 100),
         "form_type": form_type,
         "organisation_id": _safe_str(item.get("organisationId") or item.get("organisation-id"), 255),
