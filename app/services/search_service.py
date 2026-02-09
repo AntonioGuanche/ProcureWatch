@@ -133,7 +133,7 @@ def build_search_query(
         if is_pg:
             query = query.filter(
                 text(
-                    "EXISTS (SELECT 1 FROM jsonb_array_elements_text(notices.nuts_codes) AS nc "
+                    "EXISTS (SELECT 1 FROM jsonb_array_elements_text(notices.nuts_codes::jsonb) AS nc "
                     "WHERE nc LIKE :nuts_prefix)"
                 ).bindparams(nuts_prefix=f"{nuts_upper}%")
             )
@@ -160,7 +160,7 @@ def build_search_query(
         if is_pg:
             query = query.filter(
                 text(
-                    "EXISTS (SELECT 1 FROM jsonb_each_text(notices.organisation_names) AS kv "
+                    "EXISTS (SELECT 1 FROM jsonb_each_text(notices.organisation_names::jsonb) AS kv "
                     "WHERE kv.value ILIKE :auth_term)"
                 ).bindparams(auth_term=auth_term)
             )
@@ -277,9 +277,9 @@ def get_facets(db: Session) -> dict[str, Any]:
             nuts_rows = db.execute(text("""
                 SELECT LEFT(nc, 2) AS country, COUNT(*) AS cnt
                 FROM notices,
-                     jsonb_array_elements_text(nuts_codes) AS nc
+                     jsonb_array_elements_text(nuts_codes::jsonb) AS nc
                 WHERE nuts_codes IS NOT NULL
-                  AND jsonb_typeof(nuts_codes) = 'array'
+                  AND jsonb_typeof(nuts_codes::jsonb) = 'array'
                 GROUP BY country
                 ORDER BY cnt DESC
                 LIMIT 20
