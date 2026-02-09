@@ -462,7 +462,33 @@ def _ted_pick_text(value: Any) -> Optional[str]:
 
 
 def _generate_ted_url_from_item(item: dict[str, Any]) -> Optional[str]:
-    """Generate TED notice URL from publication-number."""
+    """Generate TED notice URL from links field or publication-number."""
+    # Check links field first (direct URL from API)
+    links = item.get("links")
+    if isinstance(links, dict):
+        for key in ("html", "xml", "pdf"):
+            url = links.get(key)
+            if isinstance(url, str) and url.strip():
+                return url.strip()
+    elif isinstance(links, list) and links:
+        first = links[0]
+        if isinstance(first, str) and first.strip():
+            return first.strip()
+        elif isinstance(first, dict):
+            url = first.get("url") or first.get("href")
+            if isinstance(url, str) and url.strip():
+                return url.strip()
+
+    # Check document-url-lot (per-lot document links)
+    doc_url = item.get("document-url-lot")
+    if isinstance(doc_url, str) and doc_url.strip():
+        return doc_url.strip()
+    elif isinstance(doc_url, list) and doc_url:
+        first = doc_url[0]
+        if isinstance(first, str) and first.strip():
+            return first.strip()
+
+    # Fallback: generate from publication-number
     pub_number = item.get("publication-number") or item.get("publicationNumber")
     if pub_number and str(pub_number).strip():
         return f"https://ted.europa.eu/en/notice/-/detail/{str(pub_number).strip()}"
@@ -534,7 +560,12 @@ def _map_ted_item_to_notice(item: dict[str, Any], source_id: str) -> dict[str, A
     # Title: notice-title (may be multi-lang dict), title-proc, title-glo, title
     title = _ted_pick_text(item.get("notice-title"))
     if not title:
-        title = _ted_pick_text(item.get("title-proc")) or _ted_pick_text(item.get("title-glo")) or item.get("title")
+        title = (
+            _ted_pick_text(item.get("title-lot"))
+            or _ted_pick_text(item.get("title-proc"))
+            or _ted_pick_text(item.get("title-glo"))
+            or item.get("title")
+        )
     title = _safe_str(title, 1000) if title else None
 
     # Main CPV: main-classification-proc (TED Search API), or mainCpv, cpvCode, classification-cpv
@@ -553,7 +584,7 @@ def _map_ted_item_to_notice(item: dict[str, Any], source_id: str) -> dict[str, A
 
     # Additional CPV codes
     cpv_additional_codes = None
-    for key in ("additionalCpvs", "cpvAdditionalCodes", "classification-cpv-additional"):
+    for key in ("classification-cpv", "additionalCpvs", "cpvAdditionalCodes", "classification-cpv-additional"):
         raw = item.get(key)
         if isinstance(raw, list):
             codes = []
@@ -576,6 +607,7 @@ def _map_ted_item_to_notice(item: dict[str, Any], source_id: str) -> dict[str, A
     publication_date = _safe_date(pub_date)
     deadline_val = (
         item.get("deadline-receipt-tender-date-lot")
+        or item.get("deadline-date-lot")
         or item.get("deadline-receipt-tender")
         or item.get("deadlineDate")
         or item.get("deadline")
@@ -600,21 +632,21 @@ def _map_ted_item_to_notice(item: dict[str, Any], source_id: str) -> dict[str, A
         "cpv_main_code": cpv_main_code,
         "cpv_additional_codes": cpv_additional_codes,
         "nuts_codes": _safe_json_list(
-            item.get("place-of-performance-country-proc")
-            or item.get("place-of-performance")
+            item.get("place-of-performance")
+            or item.get("place-of-performance-country-lot")
             or item.get("nutsCodes")
             or item.get("nutsCode")
         ),
         "publication_date": publication_date,
         "insertion_date": _safe_datetime(item.get("insertionDate") or item.get("insertion-date")),
         "notice_type": _safe_str(
-            item.get("contract-nature-main-proc")
+            item.get("notice-type")
+            or item.get("contract-nature-main-proc")
             or item.get("noticeType")
-            or item.get("notice-type")
             or item.get("procedure-type"),
             100,
         ),
-        "notice_sub_type": _safe_str(item.get("noticeSubType") or item.get("notice-sub-type"), 100),
+        "notice_sub_type": _safe_str(item.get("notice-subtype") or item.get("noticeSubType") or item.get("notice-sub-type"), 100),
         "form_type": form_type,
         "organisation_id": _safe_str(item.get("organisationId") or item.get("organisation-id"), 255),
         "organisation_names": organisation_names,
@@ -624,13 +656,15 @@ def _map_ted_item_to_notice(item: dict[str, Any], source_id: str) -> dict[str, A
         "description": _safe_str(
             _ted_pick_text(item.get("description-lot"))
             or _ted_pick_text(item.get("description-glo"))
-            or _ted_pick_text(item.get("short-description"))
+            or _ted_pick_text(item.get("description-proc"))
+            or _ted_pick_text(item.get("additional-information-lot"))
             or item.get("description")
             or item.get("summary")
         ),
         "deadline": deadline,
         "estimated_value": _safe_decimal(
-            item.get("framework-estimated-value-glo")
+            item.get("estimated-value-lot")
+            or item.get("framework-estimated-value-glo")
             or item.get("estimatedValue")
             or item.get("estimated-value")
             or item.get("value")

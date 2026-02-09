@@ -20,13 +20,36 @@ logger = logging.getLogger(__name__)
 # ── TED URL generation ──────────────────────────────────────────────
 
 def _generate_ted_url(notice: Notice) -> Optional[str]:
-    """Generate TED notice URL from publication number or source_id.
-    Format: https://ted.europa.eu/en/notice/-/detail/{publication-number}
-    """
+    """Generate TED notice URL from raw_data links, document-url-lot, or source_id."""
+    raw = notice.raw_data
+    if isinstance(raw, dict):
+        # Try links field
+        links = raw.get("links")
+        if isinstance(links, dict):
+            for key in ("html", "xml", "pdf"):
+                url = links.get(key)
+                if isinstance(url, str) and url.strip():
+                    return url.strip()
+        elif isinstance(links, list) and links:
+            first = links[0]
+            if isinstance(first, str) and first.strip():
+                return first.strip()
+            elif isinstance(first, dict):
+                url = first.get("url") or first.get("href")
+                if isinstance(url, str) and url.strip():
+                    return url.strip()
+        # Try document-url-lot
+        doc_url = raw.get("document-url-lot")
+        if isinstance(doc_url, str) and doc_url.strip():
+            return doc_url.strip()
+        elif isinstance(doc_url, list) and doc_url:
+            first = doc_url[0]
+            if isinstance(first, str) and first.strip():
+                return first.strip()
+    # Fallback: generate from source_id (publication-number)
     pub_num = notice.source_id
     if not pub_num:
         return None
-    # Clean: remove spaces, ensure format
     pub_num = pub_num.strip()
     if pub_num:
         return f"https://ted.europa.eu/en/notice/-/detail/{pub_num}"
@@ -96,6 +119,7 @@ def _enrich_ted_notice(notice: Notice) -> dict[str, bool]:
             _pick_text(raw.get("description-lot"))
             or _pick_text(raw.get("description-glo"))
             or _pick_text(raw.get("description-proc"))
+            or _pick_text(raw.get("additional-information-lot"))
             or _pick_text(raw.get("description"))
             or _pick_text(raw.get("summary"))
             or _pick_text(raw.get("short-description"))
@@ -130,6 +154,7 @@ def _enrich_ted_notice(notice: Notice) -> dict[str, bool]:
         nuts = (
             raw.get("place-of-performance-country-proc")
             or raw.get("place-of-performance")
+            or raw.get("place-of-performance-country-lot")
             or raw.get("nutsCodes")
             or raw.get("nutsCode")
             or raw.get("nuts-code")
@@ -193,7 +218,7 @@ def _enrich_ted_notice(notice: Notice) -> dict[str, bool]:
 
     # Estimated value
     if not notice.estimated_value:
-        for key in ("framework-estimated-value-glo", "estimated-value", "estimatedValue", "value", "total-value"):
+        for key in ("estimated-value-lot", "framework-estimated-value-glo", "estimated-value", "estimatedValue", "value", "total-value"):
             v = raw.get(key)
             if v is not None:
                 try:
@@ -205,7 +230,7 @@ def _enrich_ted_notice(notice: Notice) -> dict[str, bool]:
 
     # Deadline
     if not notice.deadline:
-        for key in ("deadline-receipt-tender-date-lot", "deadline-receipt-tender", "deadlineDate", "deadline",
+        for key in ("deadline-receipt-tender-date-lot", "deadline-date-lot", "deadline-receipt-tender", "deadlineDate", "deadline",
                      "submission-deadline", "submissionDeadline"):
             v = raw.get(key)
             if v:

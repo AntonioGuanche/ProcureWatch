@@ -19,20 +19,39 @@ TED_SEARCH_PATH = "/v3/notices/search"
 
 # Default fields for TED Search API (required, non-empty)
 DEFAULT_FIELDS = [
-    # Original 7 (confirmed working)
+    # Core identification
     "publication-number",
     "publication-date",
     "notice-title",
+    "ojs-number",
+    # Buyer / organisation
     "buyer-name",
     "buyer-country",
+    # Classification & type
     "procedure-type",
     "main-classification-proc",
-    # Additional confirmed from TED supported fields list
-    "description-glo",
-    "deadline-receipt-tender-date-lot",
-    "place-of-performance-country-proc",
-    "framework-estimated-value-glo",
+    "classification-cpv",
+    "notice-type",
+    "notice-subtype",
+    "form-type",
     "contract-nature-main-proc",
+    # Content — multiple levels for best coverage
+    "description-glo",
+    "description-lot",
+    "description-proc",
+    "title-lot",
+    "additional-information-lot",
+    # Location
+    "place-of-performance",
+    "place-of-performance-country-lot",
+    # Deadlines
+    "deadline-receipt-tender-date-lot",
+    "deadline-date-lot",
+    # Value
+    "estimated-value-lot",
+    # Links / documents
+    "links",
+    "document-url-lot",
 ]
 
 
@@ -141,6 +160,9 @@ class OfficialTEDClient:
         expert_query = build_expert_query(term)
         fields_list = fields if fields and isinstance(fields, list) and len(fields) > 0 else DEFAULT_FIELDS
         limit_val = min(max(1, page_size), 250)
+        # TED constraint: fields × limit ≤ 10000
+        max_limit_for_fields = 10000 // len(fields_list)
+        limit_val = min(limit_val, max_limit_for_fields)
 
         body: dict[str, Any] = {
             "query": expert_query,
