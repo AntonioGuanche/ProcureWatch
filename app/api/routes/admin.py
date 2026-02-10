@@ -403,3 +403,35 @@ def remove_duplicates(
     """Delete duplicate BOSA notices, keeping the newest publication per dossier."""
     from app.services.cleanup_service import cleanup_bosa_duplicates
     return cleanup_bosa_duplicates(db, dry_run=False)
+
+
+# ── Test email ────────────────────────────────────────────────────────
+
+
+@router.post("/test-email", tags=["admin"])
+def test_email(
+    to: str = Query(..., description="Recipient email address"),
+) -> dict:
+    """Send a test HTML email to verify email configuration."""
+    from app.notifications.emailer import send_email_html
+
+    subject = "ProcureWatch – Test Email"
+    html_body = (
+        "<h2>ProcureWatch Test Email</h2>"
+        "<p>If you can read this, your email configuration is working correctly.</p>"
+        f"<p><small>Sent at {datetime.now(timezone.utc).isoformat()}</small></p>"
+    )
+
+    try:
+        send_email_html(to=to, subject=subject, html_body=html_body)
+        return {"status": "ok", "to": to, "mode": _get_email_mode()}
+    except Exception as e:
+        logger.exception("Test email failed to=%s", to)
+        return {"status": "error", "to": to, "mode": _get_email_mode(), "error": str(e)}
+
+
+def _get_email_mode() -> str:
+    """Return current email mode for diagnostics."""
+    from app.core.config import settings as _s
+    raw = getattr(_s, "email_mode", None) or "file"
+    return str(raw).split("#")[0].strip().lower() or "file"

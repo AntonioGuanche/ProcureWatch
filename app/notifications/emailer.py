@@ -1,7 +1,8 @@
 """
-Email sending: file mode (write to outbox) or SMTP mode.
+Email sending: file mode (write to outbox), SMTP mode, or Resend API mode.
 Config-driven via app.core.config (EMAIL_MODE, EMAIL_*).
 """
+import logging
 import os
 import smtplib
 from datetime import datetime, timezone
@@ -10,6 +11,8 @@ from pathlib import Path
 from typing import Optional
 
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 def _outbox_dir() -> Path:
@@ -30,14 +33,15 @@ def _email_mode() -> str:
 
 def send_email(to: str, subject: str, body: str, from_addr: Optional[str] = None) -> None:
     """
-    Send email: if EMAIL_MODE=file write to EMAIL_OUTBOX_DIR with timestamped .txt (include headers).
-    If EMAIL_MODE=smtp send via smtplib (TLS if EMAIL_SMTP_USE_TLS).
+    Send plain-text email via configured mode: file | smtp | resend.
     """
     from_addr = from_addr or settings.email_from or "noreply@procurewatch.local"
     mode = _email_mode()
 
     if mode == "file":
         _send_email_file(to=to, subject=subject, body=body, from_addr=from_addr)
+    elif mode == "resend":
+        _send_email_resend(to=to, subject=subject, body=body, from_addr=from_addr, subtype="plain")
     else:
         _send_email_smtp(to=to, subject=subject, body=body, from_addr=from_addr)
 
@@ -74,8 +78,7 @@ def send_email_html(
     from_addr: Optional[str] = None,
 ) -> None:
     """
-    Send HTML email: if EMAIL_MODE=file write to outbox with Content-Type: text/html; else SMTP sends MIMEText(html).
-    Uses same mode parsing as send_email() (strip whitespace and comments).
+    Send HTML email via configured mode: file | smtp | resend.
     """
     from_addr = from_addr or settings.email_from or "noreply@procurewatch.local"
     mode = _email_mode()
@@ -87,8 +90,50 @@ def send_email_html(
             from_addr=from_addr,
             content_type="text/html; charset=utf-8",
         )
+    elif mode == "resend":
+        _send_email_resend(to=to, subject=subject, body=html_body, from_addr=from_addr, subtype="html")
     else:
         _send_email_smtp(to=to, subject=subject, body=html_body, from_addr=from_addr, subtype="html")
+
+
+# ── Resend API mode ────────────────────────────────────────────────
+
+
+def _send_email_resend(
+    to: str,
+    subject: str,
+    body: str,
+    from_addr: str,
+    subtype: str = "html",
+) -> None:
+    """Send email via Resend API. Requires RESEND_API_KEY env var."""
+    import resend
+
+    api_key = settings.resend_api_key
+    if not api_key:
+        raise ValueError("RESEND_API_KEY is required when EMAIL_MODE=resend")
+
+    resend.api_key = api_key
+
+    params: resend.Emails.SendParams = {
+        "from": from_addr,
+        "to": [to],
+        "subject": subject,
+    }
+    if subtype == "html":
+        params["html"] = body
+    else:
+        params["text"] = body
+
+    try:
+        result = resend.Emails.send(params)
+        logger.info(f"Resend email sent to={to} subject='{subject}' id={result.get('id', '?')}")
+    except Exception as e:
+        logger.error(f"Resend email failed to={to}: {e}")
+        raise
+
+
+# ── SMTP mode ──────────────────────────────────────────────────────
 
 
 def _send_email_smtp(

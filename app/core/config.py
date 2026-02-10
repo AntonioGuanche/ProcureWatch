@@ -112,8 +112,9 @@ class Settings(BaseSettings):
     ted_timeout_seconds: int = Field(30, validation_alias="TED_TIMEOUT_SECONDS")
 
     # Email (notifications)
-    email_mode: str = Field("file", validation_alias="EMAIL_MODE")  # "file" | "smtp"
+    email_mode: str = Field("file", validation_alias="EMAIL_MODE")  # "file" | "smtp" | "resend"
     email_from: Optional[str] = Field(None, validation_alias="EMAIL_FROM")
+    resend_api_key: Optional[str] = Field(None, validation_alias="RESEND_API_KEY")
     email_smtp_host: Optional[str] = Field(None, validation_alias="EMAIL_SMTP_HOST")
     email_smtp_port: Optional[int] = Field(None, validation_alias="EMAIL_SMTP_PORT")
     email_smtp_username: Optional[str] = Field(None, validation_alias="EMAIL_SMTP_USERNAME")
