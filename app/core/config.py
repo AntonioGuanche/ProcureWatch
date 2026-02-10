@@ -126,8 +126,10 @@ class Settings(BaseSettings):
     import_interval_minutes: int = Field(360, validation_alias="IMPORT_INTERVAL_MINUTES")  # 6h default
     import_sources: str = Field("BOSA,TED", validation_alias="IMPORT_SOURCES")
     import_term: str = Field("*", validation_alias="IMPORT_TERM")
-    import_page_size: int = Field(50, validation_alias="IMPORT_PAGE_SIZE")
-    import_max_pages: int = Field(3, validation_alias="IMPORT_MAX_PAGES")
+    import_term_ted: str = Field("notice-type = cn*", validation_alias="IMPORT_TERM_TED")
+    import_ted_days_back: int = Field(3, validation_alias="IMPORT_TED_DAYS_BACK")
+    import_page_size: int = Field(100, validation_alias="IMPORT_PAGE_SIZE")
+    import_max_pages: int = Field(10, validation_alias="IMPORT_MAX_PAGES")
     backfill_after_import: bool = Field(True, validation_alias="BACKFILL_AFTER_IMPORT")
 
     # JWT (mock auth for Lovable; real user management later)

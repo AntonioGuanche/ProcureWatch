@@ -14,6 +14,22 @@ from app.services.notice_service import NoticeService
 
 logger = logging.getLogger(__name__)
 
+
+def _ted_term_with_date(base_term: str, days_back: int = 3) -> str:
+    """Build TED expert query with rolling publication date filter.
+    
+    If base_term already contains PD filter, return as-is.
+    Otherwise append AND PD >= <date> to restrict to recent notices.
+    """
+    from datetime import date, timedelta
+    if "PD " in base_term or "PD>" in base_term or "publication-date" in base_term:
+        return base_term
+    cutoff = (date.today() - timedelta(days=days_back)).strftime("%Y%m%d")
+    if base_term.strip() in ("*", ""):
+        return f"PD >= {cutoff}"
+    return f"{base_term} AND PD >= {cutoff}"
+
+
 # Hard safety limit to prevent runaway imports
 MAX_TOTAL_PAGES = 100
 MAX_PAGE_SIZE = 250
@@ -202,6 +218,8 @@ def bulk_import_all(
     db: Session,
     sources: str = "BOSA,TED",
     term: str = "*",
+    term_ted: Optional[str] = None,
+    ted_days_back: int = 3,
     page_size: int = 100,
     max_pages: Optional[int] = None,
     fetch_details: bool = False,
@@ -210,6 +228,12 @@ def bulk_import_all(
 ) -> dict[str, Any]:
     """
     Full bulk import pipeline: import all sources → backfill → matcher.
+
+    Args:
+        term: Search term for BOSA (default: *)
+        term_ted: Search term for TED (default: notice-type = cn*).
+                  Automatically gets a rolling PD date filter appended.
+        ted_days_back: Rolling date window for TED (default: 3 days)
 
     Returns comprehensive stats.
     """
@@ -225,8 +249,15 @@ def bulk_import_all(
     total_updated = 0
 
     for source in source_list:
+        if source == "TED" and term_ted:
+            effective_term = _ted_term_with_date(term_ted, days_back=ted_days_back)
+        elif source == "TED":
+            effective_term = _ted_term_with_date(term, days_back=ted_days_back)
+        else:
+            effective_term = term
+        logger.info("[Bulk %s] Using term: %s", source, effective_term)
         source_result = bulk_import_source(
-            db, source=source, term=term, page_size=page_size,
+            db, source=source, term=effective_term, page_size=page_size,
             max_pages=max_pages, fetch_details=fetch_details,
         )
         results["sources"][source.lower()] = source_result
