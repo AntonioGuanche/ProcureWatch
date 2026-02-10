@@ -1,8 +1,11 @@
 """FastAPI application entry point."""
 from contextlib import asynccontextmanager
+from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.core.config import settings
 from app.core.logging import setup_logging
@@ -12,6 +15,9 @@ from app.api.routes import watchlists_mvp as watchlists
 
 # Setup logging
 setup_logging()
+
+# Frontend build directory
+WEB_DIST = Path(__file__).resolve().parent.parent / "web" / "dist"
 
 
 @asynccontextmanager
@@ -65,7 +71,7 @@ async def add_security_headers(request, call_next):
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     return response
 
-# Include routers
+# Include API routers
 app.include_router(health.router)
 app.include_router(auth.router, prefix="/api")
 app.include_router(filters.router, prefix="/api")
@@ -75,7 +81,34 @@ app.include_router(dashboard.router, prefix="/api")
 app.include_router(admin.router, prefix="/api")
 
 
-@app.get("/")
-async def root() -> dict[str, str]:
-    """Root endpoint."""
-    return {"name": settings.app_name, "status": "running"}
+# ── SPA frontend serving ────────────────────────────────────────────
+
+if WEB_DIST.is_dir():
+    # Serve static assets (JS, CSS, images) under /assets
+    assets_dir = WEB_DIST / "assets"
+    if assets_dir.is_dir():
+        app.mount("/assets", StaticFiles(directory=str(assets_dir)), name="static-assets")
+
+    @app.get("/{full_path:path}")
+    async def serve_spa(request: Request, full_path: str):
+        """Serve frontend: try exact file, fallback to index.html (SPA routing)."""
+        # Don't serve frontend for API routes (already handled above)
+        if full_path.startswith("api/"):
+            return {"detail": "Not found"}
+
+        # Try serving the exact file (favicon.ico, robots.txt, etc.)
+        file_path = WEB_DIST / full_path
+        if full_path and file_path.is_file():
+            return FileResponse(str(file_path))
+
+        # Fallback: serve index.html for SPA client-side routing
+        index = WEB_DIST / "index.html"
+        if index.is_file():
+            return FileResponse(str(index))
+
+        return {"detail": "Frontend not built"}
+else:
+    @app.get("/")
+    async def root() -> dict[str, str]:
+        """Root endpoint (no frontend build available)."""
+        return {"name": settings.app_name, "status": "running"}

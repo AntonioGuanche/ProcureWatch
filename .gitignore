@@ -74,6 +74,9 @@ logs/
 web/node_modules/
 node_modules/
 
+# Frontend build (Railway generates via nixpacks)
+web/dist/
+
 # Local browser / cookie artifacts
 cookies.txt
 
