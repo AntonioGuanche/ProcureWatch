@@ -12,6 +12,7 @@ from app.connectors.ted_connector import search_ted_notices as search_ted_notice
 from app.models.notice_cpv_additional import NoticeCpvAdditional
 from app.models.notice_lot import NoticeLot
 from app.connectors.bosa.client import search_publications as search_publications_bosa
+from app.services.document_extraction import extract_and_save_documents
 from app.models.notice import NoticeSource, ProcurementNotice
 
 logger = logging.getLogger(__name__)
@@ -828,6 +829,8 @@ class NoticeService:
                             notice_id=notice_id,
                             cpv_code=str(cpv_code).strip()[:20],
                         ))
+                # Extract documents from raw_data
+                extract_and_save_documents(self.db, notice_entity, replace=True)
             except Exception as e:
                 stats["errors"].append({"source_id": workspace_id, "message": str(e)})
                 logger.warning("Import failed for %s: %s", workspace_id, e)
@@ -886,6 +889,10 @@ class NoticeService:
                     notice = ProcurementNotice(**attrs)
                     self.db.add(notice)
                     stats["created"] += 1
+                # Extract documents from raw_data
+                ted_entity = existing if existing else notice
+                self.db.flush()
+                extract_and_save_documents(self.db, ted_entity, replace=True)
             except Exception as e:
                 stats["errors"].append({"source_id": source_id, "message": str(e)})
                 logger.warning("TED import failed for %s: %s", source_id, e)

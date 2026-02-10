@@ -79,3 +79,18 @@ async def bootstrap_admin(secret: str, db: Session = Depends(get_db)) -> dict:
     user.is_admin = True
     db.commit()
     return {"status": "ok", "message": f"Admin activé pour {user.email}"}
+
+
+# ── Backfill documents from raw_data ──────────────────────────────
+
+@router.post("/backfill-documents")
+async def backfill_documents(
+    source: str | None = None,
+    replace: bool = False,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
+) -> dict:
+    """Extract documents from raw_data for all notices and persist as NoticeDocument rows."""
+    from app.services.document_extraction import backfill_documents_for_all
+    stats = backfill_documents_for_all(db, source=source, replace=replace)
+    return {"status": "ok", **stats}
