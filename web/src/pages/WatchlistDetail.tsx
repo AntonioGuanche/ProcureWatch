@@ -1,21 +1,33 @@
 import { useEffect, useState } from "react";
 import { useParams, useSearchParams, Link, useNavigate } from "react-router-dom";
-import { getWatchlist, previewWatchlist, newSinceWatchlist, refreshWatchlist } from "../api";
+import { getWatchlist, previewWatchlist, newSinceWatchlist, refreshWatchlist, getFavoriteIds, addFavorite, removeFavorite } from "../api";
 import type { Watchlist, Notice } from "../types";
 import { Toast } from "../components/Toast";
+import { NoticeModal } from "../components/NoticeModal";
 
-function formatDate(s: string | null): string {
+function fmtDate(s: string | null): string {
   if (!s) return "—";
-  try {
-    return new Date(s).toLocaleString();
-  } catch {
-    return s;
-  }
+  try { return new Date(s).toLocaleDateString("fr-BE", { day: "2-digit", month: "short", year: "numeric" }); }
+  catch { return s; }
 }
 
-function chipList(items: string[], label: string): string {
-  if (!items || items.length === 0) return "";
-  return `${label}: ${items.join(", ")}`;
+function fmtValue(v: number | null): string {
+  if (v === null || v === undefined) return "—";
+  return new Intl.NumberFormat("fr-BE", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(v);
+}
+
+function orgName(names: Record<string, string> | null): string {
+  if (!names) return "—";
+  return names.fr || names.nl || names.en || Object.values(names)[0] || "—";
+}
+
+function deadlineTag(deadline: string | null) {
+  if (!deadline) return null;
+  const days = Math.ceil((new Date(deadline).getTime() - Date.now()) / 86400000);
+  if (days < 0) return <span className="tag tag-muted">Expiré</span>;
+  if (days <= 3) return <span className="tag tag-danger">{days}j</span>;
+  if (days <= 7) return <span className="tag tag-warning">{days}j</span>;
+  return <span className="tag tag-default">{days}j</span>;
 }
 
 type Tab = "preview" | "new";
@@ -34,6 +46,8 @@ export function WatchlistDetail() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [favIds, setFavIds] = useState<Set<string>>(new Set());
 
   const setTab = (t: Tab) => {
     navigate(`/watchlists/${id}?tab=${t}`, { replace: true });
@@ -41,7 +55,8 @@ export function WatchlistDetail() {
 
   useEffect(() => {
     if (!id) return;
-    getWatchlist(id).then(setWatchlist).catch(() => setToast("Failed to load watchlist"));
+    getWatchlist(id).then(setWatchlist).catch(() => setToast("Impossible de charger la veille"));
+    getFavoriteIds().then((r) => setFavIds(new Set(r.notice_ids))).catch(() => {});
   }, [id]);
 
   useEffect(() => {
@@ -49,11 +64,8 @@ export function WatchlistDetail() {
     setLoading(true);
     const fn = tab === "new" ? newSinceWatchlist : previewWatchlist;
     fn(id, page, pageSize)
-      .then((res) => {
-        setNotices(res.items);
-        setTotal(res.total);
-      })
-      .catch(() => setToast("Failed to load notices"))
+      .then((res) => { setNotices(res.items); setTotal(res.total); })
+      .catch(() => setToast("Impossible de charger les résultats"))
       .finally(() => setLoading(false));
   }, [id, tab, page, pageSize]);
 
@@ -61,118 +73,160 @@ export function WatchlistDetail() {
     if (!id) return;
     setRefreshing(true);
     try {
-      await refreshWatchlist(id);
-      setToast("Refresh completed");
+      const r = await refreshWatchlist(id);
+      setToast(`Refresh terminé : ${r.matched} résultats, ${r.added} ajoutés`);
       getWatchlist(id).then(setWatchlist);
       const fn = tab === "new" ? newSinceWatchlist : previewWatchlist;
       const res = await fn(id, page, pageSize);
-      setNotices(res.items);
-      setTotal(res.total);
-    } catch (e) {
-      setToast(e instanceof Error ? e.message : "Refresh failed");
-    } finally {
-      setRefreshing(false);
-    }
+      setNotices(res.items); setTotal(res.total);
+    } catch (e) { setToast(e instanceof Error ? e.message : "Erreur refresh"); }
+    finally { setRefreshing(false); }
   };
 
-  if (!watchlist) return <p>Loading watchlist…</p>;
+  const handleToggleFav = async (noticeId: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const isFav = favIds.has(noticeId);
+    try {
+      if (isFav) { await removeFavorite(noticeId); setFavIds((p) => { const s = new Set(p); s.delete(noticeId); return s; }); }
+      else { await addFavorite(noticeId); setFavIds((p) => new Set(p).add(noticeId)); }
+    } catch { /* ignore */ }
+  };
 
-  // Build filter summary
+  const handleModalFavToggle = (noticeId: string, favorited: boolean) => {
+    setFavIds((p) => { const s = new Set(p); if (favorited) s.add(noticeId); else s.delete(noticeId); return s; });
+  };
+
+  if (!watchlist) return <div className="page"><div className="loading">Chargement…</div></div>;
+
   const filters = [
-    chipList(watchlist.keywords, "Mots-clés"),
-    chipList(watchlist.cpv_prefixes, "CPV"),
-    chipList(watchlist.countries, "Pays"),
-    chipList(watchlist.nuts_prefixes, "NUTS"),
+    watchlist.keywords.length > 0 ? `Mots-clés: ${watchlist.keywords.join(", ")}` : "",
+    watchlist.cpv_prefixes.length > 0 ? `CPV: ${watchlist.cpv_prefixes.join(", ")}` : "",
+    watchlist.countries.length > 0 ? `Pays: ${watchlist.countries.join(", ")}` : "",
+    watchlist.nuts_prefixes.length > 0 ? `NUTS: ${watchlist.nuts_prefixes.join(", ")}` : "",
   ].filter(Boolean);
 
+  const totalPages = Math.ceil(total / pageSize);
+
   return (
-    <>
-      <h1>{watchlist.name}</h1>
-      <div className="card">
-        <div className="wl-filters">
-          {filters.length > 0 ? (
-            <p>
-              <strong>Filtres :</strong>{" "}
-              {filters.map((f, i) => (
-                <span key={i} className="filter-badge">{f}</span>
-              ))}
-            </p>
-          ) : (
-            <p><strong>Filtres :</strong> <em>Aucun filtre — matche toutes les notices</em></p>
-          )}
+    <div className="page">
+      <div className="page-header">
+        <div>
+          <h1>{watchlist.name}</h1>
+          <p className="page-subtitle">
+            {filters.length > 0
+              ? filters.map((f, i) => <span key={i} className="filter-badge">{f}</span>)
+              : <em>Aucun filtre — matche toutes les notices</em>
+            }
+          </p>
         </div>
-        <p>
-          Dernier refresh : {formatDate(watchlist.last_refresh_at)} | Notify : {watchlist.notify_email ?? "—"} | {watchlist.enabled ? "✅ Active" : "⏸️ Désactivée"}
-        </p>
-        <p>
-          <Link to="/watchlists" className="btn">← Back to list</Link>
-          <Link to={`/watchlists/${id}/edit`} className="btn">Edit</Link>
-          <button onClick={handleRefresh} disabled={refreshing} className="btn primary">
-            {refreshing ? "Refreshing…" : "Refresh now"}
+      </div>
+
+      <div className="wl-detail-meta">
+        <div className="wl-detail-info">
+          <span>Dernier refresh : {fmtDate(watchlist.last_refresh_at)}</span>
+          <span className="separator">|</span>
+          {watchlist.notify_email && <><span>📧 {watchlist.notify_email}</span><span className="separator">|</span></>}
+          <span className={`tag ${watchlist.enabled ? "tag-success" : "tag-muted"}`}>
+            {watchlist.enabled ? "Active" : "Désactivée"}
+          </span>
+        </div>
+        <div className="wl-detail-actions">
+          <Link to="/watchlists" className="btn-sm btn-outline">← Retour</Link>
+          <Link to={`/watchlists/${id}/edit`} className="btn-sm btn-outline">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+              <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+            </svg>
+            Modifier
+          </Link>
+          <button className="btn-sm btn-primary-outline" onClick={handleRefresh} disabled={refreshing}>
+            {refreshing ? (
+              <><svg className="spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg> Refresh…</>
+            ) : (
+              <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg> Refresh</>
+            )}
           </button>
-        </p>
+        </div>
       </div>
-      <div className="tabs">
-        <button
-          className={tab === "preview" ? "active" : ""}
-          onClick={() => setTab("preview")}
-        >
-          Preview
+
+      {/* Tabs */}
+      <div className="wl-tabs">
+        <button className={`wl-tab ${tab === "preview" ? "active" : ""}`} onClick={() => setTab("preview")}>
+          Aperçu {total > 0 && <span className="badge">{total}</span>}
         </button>
-        <button
-          className={tab === "new" ? "active" : ""}
-          onClick={() => setTab("new")}
-        >
-          New since last notified
+        <button className={`wl-tab ${tab === "new" ? "active" : ""}`} onClick={() => setTab("new")}>
+          Nouveaux
         </button>
       </div>
+
       {loading ? (
-        <p>Loading notices…</p>
+        <div className="loading">Chargement…</div>
+      ) : notices.length === 0 ? (
+        <div className="empty-state">
+          {tab === "new" ? "Aucun nouveau résultat depuis la dernière notification." : "Aucun résultat. Essayez de faire un Refresh."}
+        </div>
       ) : (
-        <>
-          <div style={{ overflowX: "auto" }}>
-            <table>
-              <thead>
-                <tr>
-                  <th>Published</th>
-                  <th>Title</th>
-                  <th>Buyer</th>
-                  <th>CPV</th>
-                  <th>Deadline</th>
-                  <th>URL</th>
+        <div className="table-wrapper">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th style={{ width: "3%" }}></th>
+                <th style={{ width: "35%" }}>Titre</th>
+                <th>Acheteur</th>
+                <th>CPV</th>
+                <th>Source</th>
+                <th>Publication</th>
+                <th>Deadline</th>
+                <th>Valeur</th>
+              </tr>
+            </thead>
+            <tbody>
+              {notices.map((n) => (
+                <tr key={n.id} className="clickable-row" onClick={() => setSelectedId(n.id)}>
+                  <td onClick={(e) => e.stopPropagation()}>
+                    <button className={`btn-star ${favIds.has(n.id) ? "active" : ""}`}
+                      onClick={(e) => handleToggleFav(n.id, e)}
+                      title={favIds.has(n.id) ? "Retirer des favoris" : "Ajouter aux favoris"}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill={favIds.has(n.id) ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2">
+                        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                      </svg>
+                    </button>
+                  </td>
+                  <td>
+                    <span className="notice-link">{n.title || "Sans titre"}</span>
+                    {n.description && <p className="notice-desc">{n.description}</p>}
+                  </td>
+                  <td className="nowrap">{orgName(n.organisation_names)}</td>
+                  <td><code className="cpv-code">{n.cpv_main_code || "—"}</code></td>
+                  <td>
+                    <span className={`source-badge ${n.source.includes("BOSA") ? "bosa" : "ted"}`}>
+                      {n.source.includes("BOSA") ? "BOSA" : "TED"}
+                    </span>
+                  </td>
+                  <td className="nowrap">{fmtDate(n.publication_date)}</td>
+                  <td className="nowrap">{fmtDate(n.deadline)} {n.deadline && deadlineTag(n.deadline)}</td>
+                  <td className="nowrap">{fmtValue(n.estimated_value)}</td>
                 </tr>
-              </thead>
-              <tbody>
-                {notices.map((n) => (
-                  <tr key={n.id}>
-                    <td>{formatDate(n.publication_date)}</td>
-                    <td>{n.title}</td>
-                    <td>{n.organisation_names ? Object.values(n.organisation_names)[0] ?? "—" : "—"}</td>
-                    <td>{n.cpv_main_code ?? "—"}</td>
-                    <td>{formatDate(n.deadline)}</td>
-                    <td>
-                      {n.url ? (
-                        <a href={n.url} target="_blank" rel="noopener noreferrer">
-                          Link
-                        </a>
-                      ) : "—"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {total === 0 && <p>No notices.</p>}
-          {total > pageSize && (
-            <div className="pagination">
-              <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>Prev</button>
-              <span>Page {page} of {Math.ceil(total / pageSize)} ({total} total)</span>
-              <button disabled={page >= Math.ceil(total / pageSize)} onClick={() => setPage((p) => p + 1)}>Next</button>
-            </div>
-          )}
-        </>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
+
+      {totalPages > 1 && (
+        <div className="pagination">
+          <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>← Précédent</button>
+          <span>Page {page} / {totalPages} ({total} résultats)</span>
+          <button disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>Suivant →</button>
+        </div>
+      )}
+
+      {selectedId && (
+        <NoticeModal noticeId={selectedId} isFavorited={favIds.has(selectedId)}
+          onToggleFavorite={handleModalFavToggle} onClose={() => setSelectedId(null)} />
+      )}
+
       {toast && <Toast message={toast} onClose={() => setToast(null)} />}
-    </>
+    </div>
   );
 }

@@ -313,8 +313,8 @@ def refresh_watchlist_matches(db: Session, watchlist: Watchlist) -> dict[str, in
         matched_keywords = []
         if keywords:
             matched_keywords = _check_keyword_in_searchable_text(notice, keywords, db)
-            if len(matched_keywords) < len(keywords):
-                continue  # Not all keywords matched (AND logic)
+            if len(matched_keywords) == 0:
+                continue  # At least one keyword must match (OR logic)
 
         matched_cpv = []
         if cpv_prefixes:
