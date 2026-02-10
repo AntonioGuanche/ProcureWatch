@@ -392,6 +392,10 @@ def list_notices_for_watchlist(
     watchlist: Watchlist,
     limit: int = 100,
     offset: int = 0,
+    source: str | None = None,
+    q: str | None = None,
+    sort: str = "date_desc",
+    active_only: bool = False,
 ) -> Tuple[list[Notice], int]:
     """
     Get notices matching a watchlist's filters.
@@ -404,13 +408,37 @@ def list_notices_for_watchlist(
         .subquery()
     )
     query = db.query(Notice).filter(Notice.id.in_(match_ids))
+
+    # Extra filters
+    if source:
+        query = query.filter(Notice.source == source)
+    if q and q.strip():
+        term = f"%{q.strip()}%"
+        from sqlalchemy import cast, String, or_
+        query = query.filter(or_(
+            Notice.title.ilike(term),
+            Notice.description.ilike(term),
+            cast(Notice.organisation_names, String).ilike(term),
+        ))
+    if active_only:
+        from datetime import date
+        query = query.filter(Notice.deadline >= date.today())
+
     total = query.count()
-    notices = (
-        query.order_by(Notice.publication_date.desc().nulls_last(), Notice.created_at.desc())
-        .offset(offset)
-        .limit(limit)
-        .all()
-    )
+
+    # Sorting
+    if sort == "date_asc":
+        query = query.order_by(Notice.publication_date.asc().nulls_last())
+    elif sort == "deadline":
+        query = query.order_by(Notice.deadline.asc().nulls_last())
+    elif sort == "deadline_desc":
+        query = query.order_by(Notice.deadline.desc().nulls_last())
+    elif sort == "value_desc":
+        query = query.order_by(Notice.estimated_value.desc().nulls_last())
+    else:
+        query = query.order_by(Notice.publication_date.desc().nulls_last(), Notice.created_at.desc())
+
+    notices = query.offset(offset).limit(limit).all()
     return notices, total
 
 
@@ -419,6 +447,10 @@ def list_new_since_for_watchlist(
     watchlist: Watchlist,
     limit: int = 100,
     offset: int = 0,
+    source: str | None = None,
+    q: str | None = None,
+    sort: str = "date_desc",
+    active_only: bool = False,
 ) -> Tuple[list[Notice], int]:
     """
     Get NEW notices matching a watchlist — created since last_refresh_at.
@@ -426,7 +458,7 @@ def list_new_since_for_watchlist(
     """
     cutoff = watchlist.last_refresh_at
     if not cutoff:
-        return list_notices_for_watchlist(db, watchlist, limit, offset)
+        return list_notices_for_watchlist(db, watchlist, limit, offset, source, q, sort, active_only)
 
     refresh_watchlist_matches(db, watchlist)
     match_ids = (
@@ -439,13 +471,37 @@ def list_new_since_for_watchlist(
         .filter(Notice.id.in_(match_ids))
         .filter(Notice.created_at > cutoff)
     )
+
+    # Extra filters
+    if source:
+        query = query.filter(Notice.source == source)
+    if q and q.strip():
+        term = f"%{q.strip()}%"
+        from sqlalchemy import cast, String, or_
+        query = query.filter(or_(
+            Notice.title.ilike(term),
+            Notice.description.ilike(term),
+            cast(Notice.organisation_names, String).ilike(term),
+        ))
+    if active_only:
+        from datetime import date
+        query = query.filter(Notice.deadline >= date.today())
+
     total = query.count()
-    notices = (
-        query.order_by(Notice.publication_date.desc().nulls_last(), Notice.created_at.desc())
-        .offset(offset)
-        .limit(limit)
-        .all()
-    )
+
+    # Sorting
+    if sort == "date_asc":
+        query = query.order_by(Notice.publication_date.asc().nulls_last())
+    elif sort == "deadline":
+        query = query.order_by(Notice.deadline.asc().nulls_last())
+    elif sort == "deadline_desc":
+        query = query.order_by(Notice.deadline.desc().nulls_last())
+    elif sort == "value_desc":
+        query = query.order_by(Notice.estimated_value.desc().nulls_last())
+    else:
+        query = query.order_by(Notice.publication_date.desc().nulls_last(), Notice.created_at.desc())
+
+    notices = query.offset(offset).limit(limit).all()
     return notices, total
 
 

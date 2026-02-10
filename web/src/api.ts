@@ -158,21 +158,29 @@ export function refreshWatchlist(id: string): Promise<RefreshSummary> {
 export function previewWatchlist(
   id: string,
   page = 1,
-  pageSize = 25
+  pageSize = 25,
+  filters?: { source?: string; q?: string; sort?: string; active_only?: boolean }
 ): Promise<NoticeListResponse> {
-  return request(
-    `/api/watchlists/${id}/preview?page=${page}&page_size=${pageSize}`
-  );
+  const params = new URLSearchParams({ page: String(page), page_size: String(pageSize) });
+  if (filters?.source) params.set("source", filters.source);
+  if (filters?.q) params.set("q", filters.q);
+  if (filters?.sort) params.set("sort", filters.sort);
+  if (filters?.active_only) params.set("active_only", "true");
+  return request(`/api/watchlists/${id}/preview?${params}`);
 }
 
 export function newSinceWatchlist(
   id: string,
   page = 1,
-  pageSize = 25
+  pageSize = 25,
+  filters?: { source?: string; q?: string; sort?: string; active_only?: boolean }
 ): Promise<NoticeListResponse> {
-  return request(
-    `/api/watchlists/${id}/new?page=${page}&page_size=${pageSize}`
-  );
+  const params = new URLSearchParams({ page: String(page), page_size: String(pageSize) });
+  if (filters?.source) params.set("source", filters.source);
+  if (filters?.q) params.set("q", filters.q);
+  if (filters?.sort) params.set("sort", filters.sort);
+  if (filters?.active_only) params.set("active_only", "true");
+  return request(`/api/watchlists/${id}/new?${params}`);
 }
 
 // ── Notice Detail ───────────────────────────────────────────────────

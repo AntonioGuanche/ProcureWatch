@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, useSearchParams, Link, useNavigate } from "react-router-dom";
 import { getWatchlist, previewWatchlist, newSinceWatchlist, refreshWatchlist, getFavoriteIds, addFavorite, removeFavorite } from "../api";
 import type { Watchlist, Notice } from "../types";
@@ -18,7 +18,7 @@ function fmtValue(v: number | null): string {
 
 function orgName(names: Record<string, string> | null): string {
   if (!names) return "—";
-  return names.fr || names.nl || names.en || Object.values(names)[0] || "—";
+  return names.fr || names.FR || names.nl || names.NL || names.en || names.default || Object.values(names)[0] || "—";
 }
 
 function deadlineTag(deadline: string | null) {
@@ -29,6 +29,14 @@ function deadlineTag(deadline: string | null) {
   if (days <= 7) return <span className="tag tag-warning">{days}j</span>;
   return <span className="tag tag-default">{days}j</span>;
 }
+
+const SORT_OPTIONS = [
+  { value: "date_desc", label: "Plus récent" },
+  { value: "date_asc", label: "Plus ancien" },
+  { value: "deadline", label: "Deadline ↑" },
+  { value: "deadline_desc", label: "Deadline ↓" },
+  { value: "value_desc", label: "Valeur ↓" },
+];
 
 type Tab = "preview" | "new";
 
@@ -49,7 +57,14 @@ export function WatchlistDetail() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [favIds, setFavIds] = useState<Set<string>>(new Set());
 
+  // Filters
+  const [filterQ, setFilterQ] = useState("");
+  const [filterSource, setFilterSource] = useState("");
+  const [filterSort, setFilterSort] = useState("date_desc");
+  const [filterActiveOnly, setFilterActiveOnly] = useState(false);
+
   const setTab = (t: Tab) => {
+    setPage(1);
     navigate(`/watchlists/${id}?tab=${t}`, { replace: true });
   };
 
@@ -59,15 +74,27 @@ export function WatchlistDetail() {
     getFavoriteIds().then((r) => setFavIds(new Set(r.notice_ids))).catch(() => {});
   }, [id]);
 
-  useEffect(() => {
+  const filters = { source: filterSource || undefined, q: filterQ || undefined, sort: filterSort, active_only: filterActiveOnly || undefined };
+
+  const loadNotices = useCallback(async (p: number) => {
     if (!id) return;
     setLoading(true);
-    const fn = tab === "new" ? newSinceWatchlist : previewWatchlist;
-    fn(id, page, pageSize)
-      .then((res) => { setNotices(res.items); setTotal(res.total); })
-      .catch(() => setToast("Impossible de charger les résultats"))
-      .finally(() => setLoading(false));
-  }, [id, tab, page, pageSize]);
+    try {
+      const fn = tab === "new" ? newSinceWatchlist : previewWatchlist;
+      const res = await fn(id, p, pageSize, filters);
+      setNotices(res.items);
+      setTotal(res.total);
+    } catch { setToast("Impossible de charger les résultats"); }
+    finally { setLoading(false); }
+  }, [id, tab, pageSize, filterSource, filterQ, filterSort, filterActiveOnly]);
+
+  useEffect(() => { loadNotices(page); }, [loadNotices, page]);
+
+  const handleFilterSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setPage(1);
+    loadNotices(1);
+  };
 
   const handleRefresh = async () => {
     if (!id) return;
@@ -76,9 +103,7 @@ export function WatchlistDetail() {
       const r = await refreshWatchlist(id);
       setToast(`Refresh terminé : ${r.matched} résultats, ${r.added} ajoutés`);
       getWatchlist(id).then(setWatchlist);
-      const fn = tab === "new" ? newSinceWatchlist : previewWatchlist;
-      const res = await fn(id, page, pageSize);
-      setNotices(res.items); setTotal(res.total);
+      loadNotices(page);
     } catch (e) { setToast(e instanceof Error ? e.message : "Erreur refresh"); }
     finally { setRefreshing(false); }
   };
@@ -98,7 +123,7 @@ export function WatchlistDetail() {
 
   if (!watchlist) return <div className="page"><div className="loading">Chargement…</div></div>;
 
-  const filters = [
+  const criteriaLabels = [
     watchlist.keywords.length > 0 ? `Mots-clés: ${watchlist.keywords.join(", ")}` : "",
     watchlist.cpv_prefixes.length > 0 ? `CPV: ${watchlist.cpv_prefixes.join(", ")}` : "",
     watchlist.countries.length > 0 ? `Pays: ${watchlist.countries.join(", ")}` : "",
@@ -113,8 +138,8 @@ export function WatchlistDetail() {
         <div>
           <h1>{watchlist.name}</h1>
           <p className="page-subtitle">
-            {filters.length > 0
-              ? filters.map((f, i) => <span key={i} className="filter-badge">{f}</span>)
+            {criteriaLabels.length > 0
+              ? criteriaLabels.map((f, i) => <span key={i} className="filter-badge">{f}</span>)
               : <em>Aucun filtre — matche toutes les notices</em>
             }
           </p>
@@ -152,18 +177,45 @@ export function WatchlistDetail() {
       {/* Tabs */}
       <div className="wl-tabs">
         <button className={`wl-tab ${tab === "preview" ? "active" : ""}`} onClick={() => setTab("preview")}>
-          Aperçu {total > 0 && <span className="badge">{total}</span>}
+          Aperçu
         </button>
         <button className={`wl-tab ${tab === "new" ? "active" : ""}`} onClick={() => setTab("new")}>
           Nouveaux
         </button>
       </div>
 
+      {/* Filter bar */}
+      <form onSubmit={handleFilterSubmit} className="search-form" style={{ marginBottom: "1rem" }}>
+        <div className="filter-row">
+          <input type="text" value={filterQ} onChange={(e) => setFilterQ(e.target.value)}
+            placeholder="Filtrer par mot-clé…" className="filter-input" />
+          <div className="source-toggles">
+            <button type="button" className={`source-btn ${filterSource === "" ? "active" : ""}`} onClick={() => { setFilterSource(""); setPage(1); }}>Tous</button>
+            <button type="button" className={`source-btn bosa ${filterSource === "BOSA_EPROC" ? "active" : ""}`} onClick={() => { setFilterSource(filterSource === "BOSA_EPROC" ? "" : "BOSA_EPROC"); setPage(1); }}>BOSA</button>
+            <button type="button" className={`source-btn ted ${filterSource === "TED_EU" ? "active" : ""}`} onClick={() => { setFilterSource(filterSource === "TED_EU" ? "" : "TED_EU"); setPage(1); }}>TED</button>
+          </div>
+          <button type="submit" className="btn-primary" disabled={loading}>Filtrer</button>
+        </div>
+        <div className="filter-row-secondary">
+          <label className="checkbox-label">
+            <input type="checkbox" checked={filterActiveOnly} onChange={(e) => { setFilterActiveOnly(e.target.checked); setPage(1); }} />
+            Ouvertes uniquement
+          </label>
+          <div className="sort-control">
+            <span>Trier par</span>
+            <select value={filterSort} onChange={(e) => { setFilterSort(e.target.value); setPage(1); }}>
+              {SORT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </div>
+          <span className="results-count">{total.toLocaleString("fr-BE")} résultat{total !== 1 ? "s" : ""}</span>
+        </div>
+      </form>
+
       {loading ? (
         <div className="loading">Chargement…</div>
       ) : notices.length === 0 ? (
         <div className="empty-state">
-          {tab === "new" ? "Aucun nouveau résultat depuis la dernière notification." : "Aucun résultat. Essayez de faire un Refresh."}
+          {tab === "new" ? "Aucun nouveau résultat depuis la dernière notification." : "Aucun résultat. Essayez de modifier les filtres ou de faire un Refresh."}
         </div>
       ) : (
         <div className="table-wrapper">

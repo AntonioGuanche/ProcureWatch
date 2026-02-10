@@ -181,6 +181,10 @@ async def get_watchlist_preview(
     watchlist_id: str,
     page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=1, le=100),
+    source: str | None = Query(None),
+    q: str | None = Query(None),
+    sort: str = Query("date_desc"),
+    active_only: bool = Query(False),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> NoticeListResponse:
@@ -189,7 +193,10 @@ async def get_watchlist_preview(
     if not wl:
         raise HTTPException(status_code=404, detail="Watchlist not found")
     offset = (page - 1) * page_size
-    notices, total = list_notices_for_watchlist(db, wl, limit=page_size, offset=offset)
+    notices, total = list_notices_for_watchlist(
+        db, wl, limit=page_size, offset=offset,
+        source=source, q=q, sort=sort, active_only=active_only,
+    )
     return NoticeListResponse(
         total=total,
         page=page,
@@ -203,6 +210,10 @@ async def get_watchlist_new(
     watchlist_id: str,
     page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=1, le=100),
+    source: str | None = Query(None),
+    q: str | None = Query(None),
+    sort: str = Query("date_desc"),
+    active_only: bool = Query(False),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> NoticeListResponse:
@@ -211,7 +222,10 @@ async def get_watchlist_new(
     if not wl:
         raise HTTPException(status_code=404, detail="Watchlist not found")
     offset = (page - 1) * page_size
-    notices, total = list_new_since_for_watchlist(db, wl, limit=page_size, offset=offset)
+    notices, total = list_new_since_for_watchlist(
+        db, wl, limit=page_size, offset=offset,
+        source=source, q=q, sort=sort, active_only=active_only,
+    )
     return NoticeListResponse(
         total=total,
         page=page,
