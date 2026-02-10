@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { searchNotices, getFacets, getFavoriteIds, addFavorite, removeFavorite, type SearchParams } from "../api";
-import type { NoticeSearchItem, NoticeSearchResponse, FacetsResponse } from "../types";
+import type { NoticeSearchResponse, FacetsResponse } from "../types";
 import { NoticeModal } from "../components/NoticeModal";
 
 function fmtDate(s: string | null): string {

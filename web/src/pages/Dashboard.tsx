@@ -5,11 +5,6 @@ import { useAuth } from "../auth";
 import type { FavoriteItem, Watchlist, DashboardOverview } from "../types";
 import { NoticeModal } from "../components/NoticeModal";
 
-function fmtDate(s: string | null): string {
-  if (!s) return "—";
-  try { return new Date(s).toLocaleDateString("fr-BE", { day: "2-digit", month: "short", year: "numeric" }); }
-  catch { return s; }
-}
 
 function orgName(names: Record<string, string> | null): string {
   if (!names) return "—";
