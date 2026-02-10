@@ -141,6 +141,9 @@ class Settings(BaseSettings):
     # --- Admin API key ---
     admin_api_key: str = Field("", validation_alias="ADMIN_API_KEY")
 
+    # --- App URL (for email links) ---
+    app_url: str = Field("https://app.procurewatch.eu", validation_alias="APP_URL")
+
     # --- Rate limiting ---
     rate_limit_per_minute: int = Field(60, validation_alias="RATE_LIMIT_PER_MINUTE")
     rate_limit_burst: int = Field(10, validation_alias="RATE_LIMIT_BURST")

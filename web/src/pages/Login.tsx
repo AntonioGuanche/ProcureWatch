@@ -1,7 +1,11 @@
 import { useState } from "react";
 import { useAuth } from "../auth";
 
-export function Login() {
+interface LoginProps {
+  onForgotPassword?: () => void;
+}
+
+export function Login({ onForgotPassword }: LoginProps) {
   const { login, register } = useAuth();
   const [mode, setMode] = useState<"login" | "register">("login");
   const [email, setEmail] = useState("");
@@ -31,9 +35,8 @@ export function Login() {
     <div className="auth-page">
       <div className="auth-card">
         <div className="auth-header">
-          <span className="logo">📡</span>
           <h1>ProcureWatch</h1>
-          <p>Veille marchés publics BE + EU</p>
+          <p>Veille des marchés publics</p>
         </div>
 
         <div className="auth-tabs">
@@ -93,6 +96,14 @@ export function Login() {
               : "Créer mon compte"}
           </button>
         </form>
+
+        {mode === "login" && onForgotPassword && (
+          <div className="auth-forgot">
+            <button onClick={onForgotPassword} className="btn-link">
+              Mot de passe oublié ?
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

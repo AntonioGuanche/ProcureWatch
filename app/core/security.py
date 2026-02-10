@@ -37,6 +37,37 @@ def create_access_token(sub: str, user_id: str, name: str | None = None) -> str:
     )
 
 
+def create_reset_token(user_id: str, email: str) -> str:
+    """Create a short-lived JWT for password reset (1 hour)."""
+    expire = datetime.now(timezone.utc) + timedelta(hours=1)
+    payload: dict[str, Any] = {
+        "sub": email,
+        "user_id": user_id,
+        "purpose": "password_reset",
+        "exp": expire,
+    }
+    return jwt.encode(
+        payload,
+        settings.jwt_secret_key,
+        algorithm=settings.jwt_algorithm,
+    )
+
+
+def decode_reset_token(token: str) -> dict[str, Any] | None:
+    """Decode password reset token. Returns payload only if purpose=password_reset."""
+    try:
+        payload = jwt.decode(
+            token,
+            settings.jwt_secret_key,
+            algorithms=[settings.jwt_algorithm],
+        )
+        if payload.get("purpose") != "password_reset":
+            return None
+        return payload
+    except JWTError:
+        return None
+
+
 def decode_access_token(token: str) -> dict[str, Any] | None:
     """Decode and validate JWT; return payload or None if invalid."""
     try:

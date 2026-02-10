@@ -1,4 +1,4 @@
-"""Authentication endpoints: register, login, me (real DB users)."""
+"""Authentication endpoints: register, login, me, forgot/reset password."""
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -6,14 +6,18 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.core.security import (
     create_access_token,
+    create_reset_token,
     decode_access_token,
+    decode_reset_token,
     hash_password,
     verify_password,
 )
 from app.db.session import get_db
 from app.models.user import User
+from app.notifications.emailer import send_email_html
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +36,15 @@ class RegisterBody(BaseModel):
 
 class LoginBody(BaseModel):
     email: EmailStr
+    password: str
+
+
+class ForgotPasswordBody(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordBody(BaseModel):
+    token: str
     password: str
 
 
@@ -119,3 +132,66 @@ async def login(body: LoginBody, db: Session = Depends(get_db)) -> LoginResponse
 async def me(current_user: User = Depends(get_current_user)) -> UserOut:
     """Return current authenticated user."""
     return UserOut(id=current_user.id, email=current_user.email, name=current_user.name)
+
+
+@router.post("/forgot-password")
+async def forgot_password(body: ForgotPasswordBody, db: Session = Depends(get_db)) -> dict:
+    """Send password reset email. Always returns 200 (no email enumeration)."""
+    user = db.query(User).filter(User.email == body.email.lower()).first()
+
+    if user and user.is_active:
+        token = create_reset_token(user_id=user.id, email=user.email)
+        reset_url = f"{settings.app_url}/reset-password?token={token}"
+
+        html = f"""
+        <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
+            <h2 style="color: #1e293b;">ProcureWatch</h2>
+            <p>Bonjour {user.name},</p>
+            <p>Vous avez demandé la réinitialisation de votre mot de passe.</p>
+            <p style="margin: 24px 0;">
+                <a href="{reset_url}"
+                   style="background: #2563eb; color: white; padding: 12px 24px;
+                          border-radius: 6px; text-decoration: none; font-weight: 500;">
+                    Réinitialiser mon mot de passe
+                </a>
+            </p>
+            <p style="color: #6b7280; font-size: 14px;">
+                Ce lien est valable 1 heure. Si vous n'êtes pas à l'origine de cette demande,
+                ignorez cet email.
+            </p>
+        </div>
+        """
+        try:
+            send_email_html(
+                to=user.email,
+                subject="ProcureWatch — Réinitialisation du mot de passe",
+                html_body=html,
+            )
+            logger.info(f"Password reset email sent to {user.email}")
+        except Exception as e:
+            logger.error(f"Failed to send reset email to {user.email}: {e}")
+
+    # Always return success (prevent email enumeration)
+    return {"message": "Si un compte existe avec cet email, un lien de réinitialisation a été envoyé."}
+
+
+@router.post("/reset-password")
+async def reset_password(body: ResetPasswordBody, db: Session = Depends(get_db)) -> dict:
+    """Reset password using a valid reset token."""
+    payload = decode_reset_token(body.token)
+    if not payload:
+        raise HTTPException(status_code=400, detail="Lien invalide ou expiré")
+
+    user_id = payload.get("user_id")
+    user = db.query(User).filter(User.id == user_id, User.is_active.is_(True)).first()
+    if not user:
+        raise HTTPException(status_code=400, detail="Lien invalide ou expiré")
+
+    if len(body.password) < 8:
+        raise HTTPException(status_code=422, detail="Le mot de passe doit contenir au moins 8 caractères")
+
+    user.password_hash = hash_password(body.password)
+    db.commit()
+    logger.info(f"Password reset for {user.email}")
+
+    return {"message": "Mot de passe modifié avec succès. Vous pouvez vous connecter."}

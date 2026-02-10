@@ -746,3 +746,34 @@ label {
   background: var(--gray-100, #f3f4f6);
   color: var(--danger, #dc2626);
 }
+
+/* ── Auth extras ───────────────────────────────────────────────────── */
+
+.auth-forgot {
+  text-align: center;
+  margin-top: 1rem;
+}
+
+.btn-link {
+  background: none;
+  border: none;
+  color: var(--primary, #2563eb);
+  cursor: pointer;
+  font-size: 0.85rem;
+  text-decoration: underline;
+  padding: 0;
+}
+
+.btn-link:hover {
+  color: var(--primary-dark, #1d4ed8);
+}
+
+.alert-success {
+  background: #f0fdf4;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius, 6px);
+  font-size: 0.9rem;
+  margin-bottom: 0.75rem;
+}
