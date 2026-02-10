@@ -62,3 +62,20 @@ async def admin_users(
         }
         for u in users
     ]
+
+
+# ── One-time bootstrap: promote user to admin via secret ──────────
+
+@router.get("/bootstrap/{secret}")
+async def bootstrap_admin(secret: str, db: Session = Depends(get_db)) -> dict:
+    """One-time endpoint to set first admin. Remove after use."""
+    import os
+    expected = os.environ.get("ADMIN_BOOTSTRAP_SECRET", "pw-bootstrap-2026-admin")
+    if secret != expected:
+        raise HTTPException(status_code=403, detail="Invalid secret")
+    user = db.query(User).filter(User.email == "antonio.ramirezguanche@gmail.com").first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    user.is_admin = True
+    db.commit()
+    return {"status": "ok", "message": f"Admin activé pour {user.email}"}
