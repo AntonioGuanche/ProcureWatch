@@ -12,16 +12,15 @@ import { ForgotPassword } from "./pages/ForgotPassword";
 import { ResetPassword } from "./pages/ResetPassword";
 import { Profile } from "./pages/Profile";
 import { Admin } from "./pages/Admin";
+import Landing from "./pages/Landing";
 
 function AuthGate() {
   const { user, loading } = useAuth();
   const [showForgot, setShowForgot] = useState(false);
   if (loading) return <div className="loading">Chargement…</div>;
-  if (!user) {
-    if (showForgot) return <ForgotPassword onBack={() => setShowForgot(false)} />;
-    return <Login onForgotPassword={() => setShowForgot(true)} />;
-  }
-  return null;
+  if (user) return <Navigate to="/dashboard" replace />;
+  if (showForgot) return <ForgotPassword onBack={() => setShowForgot(false)} />;
+  return <Login onForgotPassword={() => setShowForgot(true)} />;
 }
 
 function ResetPasswordPage() {
@@ -35,9 +34,14 @@ function AppRoutes() {
 
   return (
     <Routes>
+      {/* Public routes */}
+      <Route path="/" element={user ? <Navigate to="/dashboard" replace /> : <Landing />} />
+      <Route path="/landing" element={<Landing />} />
+      <Route path="/login" element={<AuthGate />} />
+      <Route path="/signup" element={<AuthGate />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
       {!user ? (
-        <Route path="*" element={<AuthGate />} />
+        <Route path="*" element={<Navigate to="/login" replace />} />
       ) : (
         <Route
           path="*"

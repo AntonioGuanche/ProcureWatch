@@ -83,6 +83,10 @@ app.include_router(admin.router, prefix="/api")
 app.include_router(admin_stats.router, prefix="/api")
 app.include_router(favorites.router, prefix="/api")
 
+# Public endpoints (no auth)
+from app.api.routes import public as public_routes
+app.include_router(public_routes.router, prefix="/api")
+
 
 # ── SPA frontend serving ────────────────────────────────────────────
 
