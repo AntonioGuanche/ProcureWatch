@@ -107,7 +107,7 @@ def _extract_ted_documents(raw: dict[str, Any]) -> list[dict[str, Any]]:
     return docs
 
 
-def _extract_bosa_documents(raw: dict[str, Any]) -> list[dict[str, Any]]:
+def _extract_bosa_documents(raw: dict[str, Any], notice: Any = None) -> list[dict[str, Any]]:
     """Extract document URLs from BOSA notice raw_data."""
     docs: list[dict[str, Any]] = []
     seen_urls: set[str] = set()
@@ -155,10 +155,18 @@ def _extract_bosa_documents(raw: dict[str, Any]) -> list[dict[str, Any]]:
                         title = doc.get("name") or doc.get("title") or ""
                         _add(url, title, doc.get("language", ""))
 
-    # 3) The notice URL itself as a document link
-    notice_url = raw.get("url")
-    if isinstance(notice_url, str) and _is_valid_url(notice_url):
-        _add(notice_url, "Avis sur e-Procurement", ftype="HTML")
+    # 3) Always create a portal link for BOSA notices so users can access
+    #    the documents (cahier des charges, DUME, etc.) via the web portal.
+    #    The BOSA API does NOT expose document download URLs.
+    workspace_id = None
+    if notice is not None:
+        workspace_id = getattr(notice, "publication_workspace_id", None) or getattr(notice, "source_id", None)
+    if not workspace_id:
+        workspace_id = raw.get("id") or raw.get("publicationWorkspaceId")
+
+    if workspace_id:
+        portal_url = f"https://publicprocurement.be/publication-workspaces/{workspace_id}/general"
+        _add(portal_url, "📄 Ouvrir sur e-Procurement (documents, DUME, dépôt)", ftype="HTML")
 
     return docs
 
@@ -213,9 +221,9 @@ def extract_and_save_documents(
     if "TED" in source:
         extracted = _extract_ted_documents(raw)
     elif "BOSA" in source:
-        extracted = _extract_bosa_documents(raw)
+        extracted = _extract_bosa_documents(raw, notice=notice)
     else:
-        extracted = _extract_ted_documents(raw) + _extract_bosa_documents(raw)
+        extracted = _extract_ted_documents(raw) + _extract_bosa_documents(raw, notice=notice)
 
     if not extracted:
         return 0
