@@ -101,10 +101,13 @@ def _safe_datetime(value: Any) -> Optional[datetime]:
 def _safe_decimal(value: Any) -> Optional[Decimal]:
     if value is None:
         return None
+    if isinstance(value, Decimal):
+        return value
+    s = _unwrap_ted_value(value)
+    if not s:
+        return None
     try:
-        if isinstance(value, Decimal):
-            return value
-        return Decimal(str(value))
+        return Decimal(s)
     except (ValueError, TypeError):
         return None
 
