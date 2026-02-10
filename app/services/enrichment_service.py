@@ -58,12 +58,12 @@ def _generate_ted_url(notice: Notice) -> Optional[str]:
 
 def _generate_bosa_url(notice: Notice) -> Optional[str]:
     """Generate BOSA notice URL from workspace ID.
-    Format: https://enot.publicprocurement.be/changeNotice/view/{workspace_id}
+    Format: https://publicprocurement.be/publication-workspaces/{workspace_id}/general
     """
     ws_id = notice.publication_workspace_id or notice.source_id
     if not ws_id:
         return None
-    return f"https://enot.publicprocurement.be/changeNotice/view/{ws_id.strip()}"
+    return f"https://publicprocurement.be/publication-workspaces/{ws_id.strip()}/general"
 
 
 # ── Text extraction helpers ──────────────────────────────────────────
