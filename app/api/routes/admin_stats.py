@@ -94,3 +94,78 @@ async def backfill_documents(
     from app.services.document_extraction import backfill_documents_for_all
     stats = backfill_documents_for_all(db, source=source, replace=replace)
     return {"status": "ok", **stats}
+
+
+# ── Full historical import (background) ──────────────────────────
+
+import threading
+from datetime import datetime, timezone as tz
+
+_full_import_status: dict = {"running": False}
+
+
+@router.post("/full-import")
+async def trigger_full_import(
+    ted_start: str = "2025-01-01",
+    run_bosa: bool = True,
+    run_ted: bool = True,
+    page_size: int = 200,
+    _admin: User = Depends(require_admin),
+) -> dict:
+    """Launch full historical import in background thread. Returns immediately."""
+    global _full_import_status
+
+    if _full_import_status.get("running"):
+        return {
+            "status": "already_running",
+            "started_at": _full_import_status.get("started_at"),
+            "progress": _full_import_status.get("progress", ""),
+        }
+
+    _full_import_status = {
+        "running": True,
+        "started_at": datetime.now(tz.utc).isoformat(),
+        "progress": "Starting...",
+        "result": None,
+    }
+
+    def _run():
+        global _full_import_status
+        try:
+            from scripts.full_import import run_full_import
+            result = run_full_import(
+                ted_start=ted_start,
+                run_bosa=run_bosa,
+                run_ted=run_ted,
+                page_size=page_size,
+            )
+            _full_import_status["result"] = result
+            _full_import_status["progress"] = (
+                f"Done: +{result['totals']['created']} created, "
+                f"{result['totals']['updated']} updated in {result['elapsed_seconds']}s"
+            )
+        except Exception as e:
+            _full_import_status["result"] = {"error": str(e)}
+            _full_import_status["progress"] = f"Error: {e}"
+        finally:
+            _full_import_status["running"] = False
+            _full_import_status["completed_at"] = datetime.now(tz.utc).isoformat()
+
+    thread = threading.Thread(target=_run, daemon=True)
+    thread.start()
+
+    return {
+        "status": "started",
+        "ted_start": ted_start,
+        "run_bosa": run_bosa,
+        "run_ted": run_ted,
+        "message": "Import lancé en arrière-plan. Vérifiez /api/admin/full-import/status",
+    }
+
+
+@router.get("/full-import/status")
+async def full_import_status(
+    _admin: User = Depends(require_admin),
+) -> dict:
+    """Check status of running full import."""
+    return _full_import_status
