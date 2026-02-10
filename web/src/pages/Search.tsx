@@ -1,12 +1,12 @@
 import { useEffect, useState, useCallback } from "react";
-import { searchNotices, getFacets, type SearchParams } from "../api";
-import type { NoticeSearchResponse, FacetsResponse } from "../types";
+import { searchNotices, getFacets, getFavoriteIds, addFavorite, removeFavorite, type SearchParams } from "../api";
+import type { NoticeSearchItem, NoticeSearchResponse, FacetsResponse } from "../types";
+import { NoticeModal } from "../components/NoticeModal";
 
 function fmtDate(s: string | null): string {
   if (!s) return "—";
-  try {
-    return new Date(s).toLocaleDateString("fr-BE", { day: "2-digit", month: "short", year: "numeric" });
-  } catch { return s; }
+  try { return new Date(s).toLocaleDateString("fr-BE", { day: "2-digit", month: "short", year: "numeric" }); }
+  catch { return s; }
 }
 
 function fmtValue(v: number | null): string {
@@ -47,11 +47,19 @@ export function Search() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => { getFacets().then(setFacets).catch(() => {}); }, []);
+  // Favorites
+  const [favIds, setFavIds] = useState<Set<string>>(new Set());
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  const doSearch = useCallback(async (p: number = 1) => {
+  useEffect(() => {
+    getFacets().then(setFacets).catch(() => {});
+    getFavoriteIds().then((r) => setFavIds(new Set(r.notice_ids))).catch(() => {});
+  }, []);
+
+  const doSearch = useCallback(async (p: number) => {
     setLoading(true);
     setError(null);
+    setPage(p);
     try {
       const params: SearchParams = { page: p, page_size: pageSize, sort };
       if (q.trim()) params.q = q.trim();
@@ -59,77 +67,68 @@ export function Search() {
       if (nuts) params.nuts = nuts;
       if (source) params.source = source;
       if (activeOnly) params.active_only = true;
-      const res = await searchNotices(params);
-      setResults(res);
-      setPage(p);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Erreur de recherche");
-    } finally { setLoading(false); }
-  }, [q, cpv, nuts, source, activeOnly, sort]);
+      const data = await searchNotices(params);
+      setResults(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erreur de recherche");
+    } finally {
+      setLoading(false);
+    }
+  }, [q, cpv, nuts, source, activeOnly, sort, pageSize]);
 
   useEffect(() => { doSearch(1); }, []);
 
   const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); doSearch(1); };
 
+  const handleToggleFav = async (noticeId: string, e?: React.MouseEvent) => {
+    if (e) { e.stopPropagation(); }
+    const isFav = favIds.has(noticeId);
+    try {
+      if (isFav) {
+        await removeFavorite(noticeId);
+        setFavIds((prev) => { const s = new Set(prev); s.delete(noticeId); return s; });
+      } else {
+        await addFavorite(noticeId);
+        setFavIds((prev) => new Set(prev).add(noticeId));
+      }
+    } catch { /* ignore */ }
+  };
+
+  const handleModalFavToggle = (noticeId: string, favorited: boolean) => {
+    setFavIds((prev) => {
+      const s = new Set(prev);
+      if (favorited) s.add(noticeId); else s.delete(noticeId);
+      return s;
+    });
+  };
+
   return (
     <div className="page">
-      <div className="page-header">
-        <h1>Marchés publics</h1>
-        <p className="page-subtitle">
-          Recherchez et filtrez les avis de marchés publics.
-          {facets && <> <strong>{facets.active_count.toLocaleString("fr-BE")}</strong> opportunités ouvertes</>}
-        </p>
-      </div>
+      <h1>Rechercher</h1>
+      <p className="page-subtitle">Recherchez et filtrez les marchés publics.</p>
 
-      {/* Filter bar */}
-      <form className="filter-bar" onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} className="search-form">
         <div className="filter-row">
-          <div className="search-field">
-            <span className="search-icon">🔍</span>
-            <input
-              type="text"
-              placeholder="Rechercher par mot-clé…"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-            />
-          </div>
-
+          <input type="text" value={q} onChange={(e) => setQ(e.target.value)}
+            placeholder="Rechercher par mot-clé…" className="filter-input" />
           <select value={cpv} onChange={(e) => setCpv(e.target.value)} className="filter-select">
             <option value="">Tous les CPV</option>
             {facets?.top_cpv_divisions.map((f) => (
               <option key={f.code} value={f.code}>{f.code} ({f.count})</option>
             ))}
           </select>
-
           <select value={nuts} onChange={(e) => setNuts(e.target.value)} className="filter-select">
             <option value="">Tous pays</option>
             {facets?.top_nuts_countries.map((f) => (
               <option key={f.code} value={f.code}>{f.code} ({f.count})</option>
             ))}
           </select>
-
-          {/* Source toggle buttons */}
           <div className="source-toggles">
-            <button
-              type="button"
-              className={`source-btn ${source === "" ? "active" : ""}`}
-              onClick={() => setSource("")}
-            >Tous</button>
-            <button
-              type="button"
-              className={`source-btn bosa ${source === "BOSA_EPROC" ? "active" : ""}`}
-              onClick={() => setSource(source === "BOSA_EPROC" ? "" : "BOSA_EPROC")}
-            >BOSA</button>
-            <button
-              type="button"
-              className={`source-btn ted ${source === "TED_EU" ? "active" : ""}`}
-              onClick={() => setSource(source === "TED_EU" ? "" : "TED_EU")}
-            >TED</button>
+            <button type="button" className={`source-btn ${source === "" ? "active" : ""}`} onClick={() => setSource("")}>Tous</button>
+            <button type="button" className={`source-btn bosa ${source === "BOSA_EPROC" ? "active" : ""}`} onClick={() => setSource(source === "BOSA_EPROC" ? "" : "BOSA_EPROC")}>BOSA</button>
+            <button type="button" className={`source-btn ted ${source === "TED_EU" ? "active" : ""}`} onClick={() => setSource(source === "TED_EU" ? "" : "TED_EU")}>TED</button>
           </div>
-
-          <button type="submit" className="btn-primary" disabled={loading}>
-            Rechercher
-          </button>
+          <button type="submit" className="btn-primary" disabled={loading}>Rechercher</button>
         </div>
 
         <div className="filter-row-secondary">
@@ -137,32 +136,25 @@ export function Search() {
             <input type="checkbox" checked={activeOnly} onChange={(e) => setActiveOnly(e.target.checked)} />
             Opportunités ouvertes uniquement
           </label>
-
           <div className="sort-control">
             <span>Trier par</span>
             <select value={sort} onChange={(e) => setSort(e.target.value)}>
               {SORT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           </div>
-
-          {results && (
-            <span className="results-count">
-              {results.total.toLocaleString("fr-BE")} résultat{results.total !== 1 ? "s" : ""}
-            </span>
-          )}
+          {results && <span className="results-count">{results.total.toLocaleString("fr-BE")} résultat{results.total !== 1 ? "s" : ""}</span>}
         </div>
       </form>
 
       {error && <div className="alert alert-error">{error}</div>}
-
       {loading && !results && <div className="loading">Chargement…</div>}
 
-      {/* Results table */}
       {results && results.items.length > 0 && (
         <div className="table-wrapper">
           <table className="data-table">
             <thead>
               <tr>
+                <th style={{ width: "3%" }}></th>
                 <th style={{ width: "35%" }}>Titre</th>
                 <th>CPV</th>
                 <th>Source</th>
@@ -173,30 +165,30 @@ export function Search() {
             </thead>
             <tbody>
               {results.items.map((n) => (
-                <tr key={n.id}>
+                <tr key={n.id} className="clickable-row" onClick={() => setSelectedId(n.id)}>
+                  <td onClick={(e) => e.stopPropagation()}>
+                    <button
+                      className={`btn-star ${favIds.has(n.id) ? "active" : ""}`}
+                      onClick={(e) => handleToggleFav(n.id, e)}
+                      title={favIds.has(n.id) ? "Retirer des favoris" : "Ajouter aux favoris"}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill={favIds.has(n.id) ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2">
+                        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                      </svg>
+                    </button>
+                  </td>
                   <td>
-                    {n.url ? (
-                      <a href={n.url} target="_blank" rel="noopener noreferrer" className="notice-link">
-                        {n.title || "Sans titre"}
-                      </a>
-                    ) : (
-                      <span className="notice-link">{n.title || "Sans titre"}</span>
-                    )}
-                    {n.description && (
-                      <p className="notice-desc">{n.description}</p>
-                    )}
+                    <span className="notice-link">{n.title || "Sans titre"}</span>
+                    {n.description && <p className="notice-desc">{n.description}</p>}
                   </td>
                   <td><code className="cpv-code">{n.cpv_main_code || "—"}</code></td>
                   <td>
                     <span className={`source-badge ${n.source.includes("BOSA") ? "bosa" : "ted"}`}>
-                      {n.source.includes("BOSA") ? "BOSA_EPROC" : "TED"}
+                      {n.source.includes("BOSA") ? "BOSA" : "TED"}
                     </span>
                   </td>
                   <td className="nowrap">{fmtDate(n.publication_date)}</td>
-                  <td className="nowrap">
-                    {fmtDate(n.deadline)}
-                    {n.deadline && <> {deadlineTag(n.deadline)}</>}
-                  </td>
+                  <td className="nowrap">{fmtDate(n.deadline)} {n.deadline && deadlineTag(n.deadline)}</td>
                   <td className="nowrap">{fmtValue(n.estimated_value)}</td>
                 </tr>
               ))}
@@ -209,13 +201,22 @@ export function Search() {
         <div className="empty-state">Aucun résultat trouvé. Essayez d'élargir vos critères.</div>
       )}
 
-      {/* Pagination */}
       {results && results.total_pages > 1 && (
         <div className="pagination">
           <button disabled={page <= 1} onClick={() => doSearch(page - 1)}>← Précédent</button>
           <span>Page {results.page} / {results.total_pages}</span>
           <button disabled={page >= results.total_pages} onClick={() => doSearch(page + 1)}>Suivant →</button>
         </div>
+      )}
+
+      {/* Notice detail modal */}
+      {selectedId && (
+        <NoticeModal
+          noticeId={selectedId}
+          isFavorited={favIds.has(selectedId)}
+          onToggleFavorite={handleModalFavToggle}
+          onClose={() => setSelectedId(null)}
+        />
       )}
     </div>
   );

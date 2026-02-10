@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.core.config import settings
 from app.core.logging import setup_logging
-from app.api.routes import admin, auth, filters, health, notices
+from app.api.routes import admin, favorites, auth, filters, health, notices
 from app.api.routes import dashboard
 from app.api.routes import watchlists_mvp as watchlists
 
@@ -79,6 +79,7 @@ app.include_router(notices.router, prefix="/api")
 app.include_router(watchlists.router, prefix="/api")
 app.include_router(dashboard.router, prefix="/api")
 app.include_router(admin.router, prefix="/api")
+app.include_router(favorites.router, prefix="/api")
 
 
 # ── SPA frontend serving ────────────────────────────────────────────

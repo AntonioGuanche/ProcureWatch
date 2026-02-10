@@ -209,3 +209,43 @@ export interface RefreshSummary {
   matched: number;
   added: number;
 }
+
+// ── Notice Detail (lots, documents) ─────────────────────────────────
+
+export interface NoticeLot {
+  id: string;
+  notice_id: string;
+  lot_number: string | null;
+  title: string | null;
+  description: string | null;
+  cpv_code: string | null;
+  nuts_code: string | null;
+}
+
+export interface NoticeDocument {
+  id: string;
+  notice_id: string;
+  lot_id: string | null;
+  title: string | null;
+  url: string;
+  file_type: string | null;
+  language: string | null;
+}
+
+// ── Favorites ───────────────────────────────────────────────────────
+
+export interface FavoriteItem {
+  notice: Notice;
+  favorited_at: string;
+}
+
+export interface FavoriteListResponse {
+  total: number;
+  page: number;
+  page_size: number;
+  items: FavoriteItem[];
+}
+
+export interface FavoriteIdsResponse {
+  notice_ids: string[];
+}

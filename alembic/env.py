@@ -20,6 +20,7 @@ from app.models.notice_lot import NoticeLot  # noqa: F401
 from app.models.watchlist import Watchlist  # noqa: F401
 from app.models.watchlist_match import WatchlistMatch  # noqa: F401
 from app.models.user import User  # noqa: F401
+from app.models.user_favorite import UserFavorite  # noqa: F401
 from app.models.import_run import ImportRun  # noqa: F401
 
 # this is the Alembic Config object, which provides

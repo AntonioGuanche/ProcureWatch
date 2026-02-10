@@ -19,8 +19,8 @@ with engine.connect() as conn:
     try:
         ver = conn.execute(text('SELECT version_num FROM alembic_version')).scalar()
         print(f'Current alembic version: {ver}')
-        if ver and ver not in ('001', '002', '003', '004'):
-            conn.execute(text(\"UPDATE alembic_version SET version_num = '004'\"))
+        if ver and ver not in ('001', '002', '003', '004', '005'):
+            conn.execute(text(\"UPDATE alembic_version SET version_num = '005'\"))
             conn.commit()
             print('Reset alembic_version to 004.')
         else:

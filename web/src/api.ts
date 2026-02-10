@@ -174,3 +174,35 @@ export function newSinceWatchlist(
     `/api/watchlists/${id}/new?page=${page}&page_size=${pageSize}`
   );
 }
+
+// ── Notice Detail ───────────────────────────────────────────────────
+
+export function getNotice(id: string): Promise<import("./types").Notice> {
+  return request(`/api/notices/${id}`);
+}
+
+export function getNoticeLots(noticeId: string): Promise<{ items: import("./types").NoticeLot[]; total: number }> {
+  return request(`/api/notices/${noticeId}/lots?page_size=50`);
+}
+
+export function getNoticeDocuments(noticeId: string): Promise<{ items: import("./types").NoticeDocument[]; total: number }> {
+  return request(`/api/notices/${noticeId}/documents?page_size=50`);
+}
+
+// ── Favorites ───────────────────────────────────────────────────────
+
+export function listFavorites(page = 1, pageSize = 25): Promise<import("./types").FavoriteListResponse> {
+  return request(`/api/favorites?page=${page}&page_size=${pageSize}`);
+}
+
+export function getFavoriteIds(): Promise<import("./types").FavoriteIdsResponse> {
+  return request(`/api/favorites/ids`);
+}
+
+export function addFavorite(noticeId: string): Promise<{ status: string }> {
+  return request(`/api/favorites/${noticeId}`, { method: "POST" });
+}
+
+export function removeFavorite(noticeId: string): Promise<{ status: string }> {
+  return request(`/api/favorites/${noticeId}`, { method: "DELETE" });
+}

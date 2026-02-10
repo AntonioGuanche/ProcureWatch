@@ -1,169 +1,198 @@
 import { useEffect, useState } from "react";
-import {
-  getDashboardOverview,
-  getDashboardTrends,
-  getDashboardTopCpv,
-  getDashboardHealth,
-} from "../api";
-import type {
-  DashboardOverview,
-  DashboardTrends,
-  DashboardTopCpv,
-  DashboardHealth,
-} from "../types";
+import { Link } from "react-router-dom";
+import { listFavorites, listWatchlists, getDashboardOverview, removeFavorite } from "../api";
+import { useAuth } from "../auth";
+import type { FavoriteItem, Watchlist, DashboardOverview } from "../types";
+import { NoticeModal } from "../components/NoticeModal";
 
-function fmt(n: number): string {
-  return n.toLocaleString("fr-BE");
+function fmtDate(s: string | null): string {
+  if (!s) return "—";
+  try { return new Date(s).toLocaleDateString("fr-BE", { day: "2-digit", month: "short", year: "numeric" }); }
+  catch { return s; }
+}
+
+function orgName(names: Record<string, string> | null): string {
+  if (!names) return "—";
+  return names.fr || names.nl || names.en || Object.values(names)[0] || "—";
+}
+
+function deadlineTag(deadline: string | null) {
+  if (!deadline) return null;
+  const days = Math.ceil((new Date(deadline).getTime() - Date.now()) / 86400000);
+  if (days < 0) return <span className="tag tag-muted">Expiré</span>;
+  if (days <= 3) return <span className="tag tag-danger">{days}j</span>;
+  if (days <= 7) return <span className="tag tag-warning">{days}j</span>;
+  return <span className="tag tag-default">{days}j</span>;
 }
 
 export function Dashboard() {
+  const { user } = useAuth();
+  const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
+  const [watchlists, setWatchlists] = useState<Watchlist[]>([]);
   const [overview, setOverview] = useState<DashboardOverview | null>(null);
-  const [trends, setTrends] = useState<DashboardTrends | null>(null);
-  const [topCpv, setTopCpv] = useState<DashboardTopCpv | null>(null);
-  const [health, setHealth] = useState<DashboardHealth | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [favIds, setFavIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     Promise.all([
-      getDashboardOverview(),
-      getDashboardTrends(30, "day"),
-      getDashboardTopCpv(10),
-      getDashboardHealth(),
-    ]).then(([ov, tr, cpv, hl]) => {
+      listFavorites(1, 10).catch(() => ({ items: [], total: 0, page: 1, page_size: 10 })),
+      listWatchlists(1, 10).catch(() => ({ items: [], total: 0 })),
+      getDashboardOverview().catch(() => null),
+    ]).then(([favs, wls, ov]) => {
+      setFavorites(favs.items);
+      setFavIds(new Set(favs.items.map((f: FavoriteItem) => f.notice.id)));
+      setWatchlists(wls.items);
       setOverview(ov);
-      setTrends(tr);
-      setTopCpv(cpv);
-      setHealth(hl);
-    }).catch((e) => {
-      setError(e instanceof Error ? e.message : "Erreur chargement");
     }).finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <div className="loading">Chargement du dashboard…</div>;
-  if (error) return <div className="alert alert-error">{error}</div>;
-  if (!overview) return null;
+  const handleRemoveFav = async (noticeId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await removeFavorite(noticeId);
+      setFavorites((prev) => prev.filter((f) => f.notice.id !== noticeId));
+      setFavIds((prev) => { const s = new Set(prev); s.delete(noticeId); return s; });
+    } catch { /* ignore */ }
+  };
 
-  // Aggregate trends
-  const trendByDate = new Map<string, number>();
-  trends?.data.forEach((p) => trendByDate.set(p.date, (trendByDate.get(p.date) || 0) + p.count));
-  const trendData = Array.from(trendByDate.entries())
-    .map(([d, c]) => ({ date: d, count: c }))
-    .sort((a, b) => a.date.localeCompare(b.date));
-  const trendMax = Math.max(...trendData.map((d) => d.count), 1);
+  const handleModalFavToggle = (noticeId: string, favorited: boolean) => {
+    if (favorited) {
+      setFavIds((prev) => new Set(prev).add(noticeId));
+    } else {
+      setFavIds((prev) => { const s = new Set(prev); s.delete(noticeId); return s; });
+      setFavorites((prev) => prev.filter((f) => f.notice.id !== noticeId));
+    }
+  };
 
-  const cpvMax = topCpv?.data.length ? topCpv.data[0].count : 1;
-
-  const freshHours = health?.freshness.hours_since_last_import;
+  if (loading) return <div className="page"><div className="loading">Chargement…</div></div>;
 
   return (
     <div className="page">
-      <div className="page-header">
-        <h1>Dashboard</h1>
-        <p className="page-subtitle">Vue d'ensemble de vos données marchés publics</p>
+      <div className="dash-welcome">
+        <h1>Bonjour{user?.name ? `, ${user.name.split(" ")[0]}` : ""}</h1>
+        <p className="page-subtitle">Votre tableau de bord ProcureWatch</p>
       </div>
 
-      {/* KPI row */}
-      <div className="kpi-row">
-        <div className="kpi-card">
-          <div className="kpi-number">{fmt(overview.total_notices)}</div>
-          <div className="kpi-label">Total avis</div>
-          <div className="kpi-sub">
-            {Object.entries(overview.by_source).map(([s, c]) => (
-              <span key={s} className="kpi-source">
-                <span className={`source-dot ${s.includes("BOSA") ? "bosa" : "ted"}`} />
-                {s.includes("BOSA") ? "BOSA" : "TED"} {fmt(c)}
-              </span>
-            ))}
+      {/* Stats cards */}
+      {overview && (
+        <div className="dash-stats">
+          <div className="stat-card">
+            <div className="stat-value">{overview.total_notices.toLocaleString("fr-BE")}</div>
+            <div className="stat-label">Marchés en base</div>
+          </div>
+          <div className="stat-card accent">
+            <div className="stat-value">{overview.active_notices.toLocaleString("fr-BE")}</div>
+            <div className="stat-label">Opportunités ouvertes</div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-value">{overview.expiring_7d}</div>
+            <div className="stat-label">Expirent sous 7 jours</div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-value">{watchlists.length}</div>
+            <div className="stat-label">Veilles actives</div>
           </div>
         </div>
-        <div className="kpi-card highlight">
-          <div className="kpi-number">{fmt(overview.active_notices)}</div>
-          <div className="kpi-label">Opportunités ouvertes</div>
-        </div>
-        <div className="kpi-card">
-          <div className="kpi-number">{fmt(overview.expiring_7d)}</div>
-          <div className="kpi-label">Expirent sous 7 jours</div>
-        </div>
-        <div className="kpi-card">
-          <div className="kpi-number">{overview.added_7d}</div>
-          <div className="kpi-label">Ajoutés (7j)</div>
-          <div className="kpi-sub">{overview.added_24h} dernières 24h</div>
-        </div>
-      </div>
+      )}
 
-      <div className="grid-2col">
-        {/* Trend chart */}
-        <div className="card">
-          <h3>Publications — 30 derniers jours</h3>
-          <div className="sparkline">
-            {trendData.slice(-30).map((d, i) => (
-              <div
-                key={i}
-                className="spark-bar"
-                style={{ height: `${Math.max((d.count / trendMax) * 100, 4)}%` }}
-                title={`${d.date}: ${d.count}`}
-              />
-            ))}
+      {/* Two-column layout */}
+      <div className="dash-grid">
+        {/* Favorites */}
+        <div className="dash-section">
+          <div className="dash-section-header">
+            <h2>Mes favoris</h2>
+            {favorites.length > 0 && <span className="badge">{favorites.length}</span>}
           </div>
-          {trends && (
-            <div className="chart-legend">
-              {Object.entries(trends.totals_by_source).map(([s, c]) => (
-                <span key={s}><span className={`source-dot ${s.includes("BOSA") ? "bosa" : "ted"}`} /> {s.includes("BOSA") ? "BOSA" : "TED"}: {fmt(c)}</span>
+          {favorites.length === 0 ? (
+            <div className="empty-hint">
+              <p>Aucun favori pour le moment.</p>
+              <p>Cliquez sur l'étoile ★ dans la <Link to="/search">recherche</Link> pour suivre un marché.</p>
+            </div>
+          ) : (
+            <div className="fav-list">
+              {favorites.map((f) => (
+                <div key={f.notice.id} className="fav-item clickable-row" onClick={() => setSelectedId(f.notice.id)}>
+                  <div className="fav-info">
+                    <div className="fav-title">{f.notice.title || "Sans titre"}</div>
+                    <div className="fav-meta">
+                      <span className={`source-badge small ${f.notice.source.includes("BOSA") ? "bosa" : "ted"}`}>
+                        {f.notice.source.includes("BOSA") ? "BOSA" : "TED"}
+                      </span>
+                      <span>{orgName(f.notice.organisation_names)}</span>
+                      {f.notice.deadline && <span>{deadlineTag(f.notice.deadline)}</span>}
+                    </div>
+                  </div>
+                  <button
+                    className="btn-icon small danger"
+                    onClick={(e) => handleRemoveFav(f.notice.id, e)}
+                    title="Retirer des favoris"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                  </button>
+                </div>
               ))}
             </div>
           )}
         </div>
 
-        {/* Top CPV */}
-        <div className="card">
-          <h3>Top secteurs (CPV)</h3>
-          <div className="cpv-bars">
-            {topCpv?.data.map((d) => (
-              <div key={d.code} className="cpv-row">
-                <span className="cpv-label">{d.code} {d.label}</span>
-                <div className="cpv-track">
-                  <div className="cpv-fill" style={{ width: `${(d.count / cpvMax) * 100}%` }} />
-                </div>
-                <span className="cpv-count">{fmt(d.count)}</span>
-              </div>
-            ))}
+        {/* Watchlists */}
+        <div className="dash-section">
+          <div className="dash-section-header">
+            <h2>Mes veilles</h2>
+            <Link to="/watchlists/new" className="btn-sm btn-primary-outline">+ Nouvelle</Link>
           </div>
+          {watchlists.length === 0 ? (
+            <div className="empty-hint">
+              <p>Aucune veille configurée.</p>
+              <p>Créez une veille pour être alerté automatiquement.</p>
+              <Link to="/watchlists/new" className="btn-primary" style={{ marginTop: ".5rem", display: "inline-block", textDecoration: "none", fontSize: ".85rem", padding: ".5rem 1rem" }}>
+                Créer une veille
+              </Link>
+            </div>
+          ) : (
+            <div className="wl-dash-list">
+              {watchlists.map((w) => (
+                <Link key={w.id} to={`/watchlists/${w.id}?tab=preview`} className="wl-dash-item">
+                  <div className="wl-dash-info">
+                    <span className="wl-dash-name">{w.name}</span>
+                    <span className={`tag small ${w.enabled ? "tag-success" : "tag-muted"}`}>
+                      {w.enabled ? "Active" : "Inactive"}
+                    </span>
+                  </div>
+                  <div className="wl-dash-tags">
+                    {w.keywords.slice(0, 3).map((k, i) => (
+                      <span key={i} className="tag tag-default small">{k}</span>
+                    ))}
+                    {w.keywords.length > 3 && <span className="tag tag-default small">+{w.keywords.length - 3}</span>}
+                  </div>
+                </Link>
+              ))}
+              <Link to="/watchlists" className="btn-link" style={{ marginTop: ".5rem", display: "inline-block" }}>
+                Voir toutes les veilles →
+              </Link>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Data health */}
-      {health && (
-        <div className="card">
-          <h3>Santé des données</h3>
-          <div className="health-row">
-            <div className="health-metric">
-              <span className="health-key">Fraîcheur</span>
-              <span className={
-                freshHours == null ? "" :
-                freshHours < 6 ? "text-success" :
-                freshHours < 24 ? "text-warning" : "text-danger"
-              }>
-                {freshHours != null ? `${freshHours}h` : "N/A"}
-              </span>
-            </div>
-            {Object.entries(health.field_fill_rates_pct).map(([field, pct]) => (
-              <div key={field} className="health-metric">
-                <span className="health-key">{field}</span>
-                <div className="progress-track">
-                  <div
-                    className="progress-fill"
-                    style={{
-                      width: `${pct}%`,
-                      background: pct > 80 ? "var(--green)" : pct > 50 ? "var(--amber)" : "var(--red)",
-                    }}
-                  />
-                </div>
-                <span className="health-val">{pct}%</span>
-              </div>
-            ))}
-          </div>
-        </div>
+      {/* Quick search */}
+      <div className="dash-cta">
+        <Link to="/search" className="btn-primary" style={{ textDecoration: "none" }}>
+          Rechercher des marchés publics →
+        </Link>
+      </div>
+
+      {/* Modal */}
+      {selectedId && (
+        <NoticeModal
+          noticeId={selectedId}
+          isFavorited={favIds.has(selectedId)}
+          onToggleFavorite={handleModalFavToggle}
+          onClose={() => setSelectedId(null)}
+        />
       )}
     </div>
   );
