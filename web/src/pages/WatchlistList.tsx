@@ -38,7 +38,7 @@ export function WatchlistList() {
     setRefreshingId(id);
     try {
       const r = await refreshWatchlist(id);
-      setToast(`Refresh terminé : ${r.imported_new_total} nouveaux`);
+      setToast(`Refresh terminé : ${r.matched} résultats, ${r.added} ajoutés`);
       load();
     } catch (e) {
       setToast(e instanceof Error ? e.message : "Erreur refresh");
@@ -86,8 +86,8 @@ export function WatchlistList() {
               <div className="wl-card-header">
                 <div>
                   <h3 className="wl-name">{w.name}</h3>
-                  <span className={`tag ${w.is_enabled ? "tag-success" : "tag-muted"}`}>
-                    {w.is_enabled ? "Active" : "Désactivée"}
+                  <span className={`tag ${w.enabled ? "tag-success" : "tag-muted"}`}>
+                    {w.enabled ? "Active" : "Désactivée"}
                   </span>
                 </div>
                 <div className="wl-actions">
@@ -104,10 +104,18 @@ export function WatchlistList() {
               </div>
 
               <div className="wl-card-tags">
-                {w.term && <span className="tag tag-default">{w.term}</span>}
-                {w.cpv_prefix && <span className="tag tag-default">CPV {w.cpv_prefix}</span>}
-                {w.country && <span className="tag tag-default">{w.country}</span>}
-                {w.buyer_contains && <span className="tag tag-default">{w.buyer_contains}</span>}
+                {w.keywords.map((k, i) => (
+                  <span key={`kw-${i}`} className="tag tag-default">{k}</span>
+                ))}
+                {w.cpv_prefixes.map((c, i) => (
+                  <span key={`cpv-${i}`} className="tag tag-default">CPV {c}</span>
+                ))}
+                {w.countries.map((c, i) => (
+                  <span key={`co-${i}`} className="tag tag-default">🌍 {c}</span>
+                ))}
+                {w.nuts_prefixes.map((n, i) => (
+                  <span key={`nuts-${i}`} className="tag tag-default">NUTS {n}</span>
+                ))}
               </div>
 
               <div className="wl-card-meta">

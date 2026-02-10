@@ -33,17 +33,18 @@ export interface Notice {
   source: string;
   source_id: string;
   title: string;
-  buyer_name: string | null;
-  country: string | null;
-  language: string | null;
-  cpv: string | null;
+  description: string | null;
   cpv_main_code: string | null;
-  procedure_type: string | null;
-  published_at: string | null;
-  deadline_at: string | null;
-  url: string;
-  first_seen_at: string;
-  last_seen_at: string;
+  nuts_codes: string[] | null;
+  organisation_names: Record<string, string> | null;
+  publication_date: string | null;
+  deadline: string | null;
+  estimated_value: number | null;
+  notice_type: string | null;
+  form_type: string | null;
+  url: string | null;
+  status: string | null;
+  reference_number: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -151,17 +152,14 @@ export interface DashboardHealth {
 export interface Watchlist {
   id: string;
   name: string;
-  is_enabled: boolean;
-  term: string | null;
-  cpv_prefix: string | null;
-  buyer_contains: string | null;
-  procedure_type: string | null;
-  country: string;
-  language: string | null;
+  keywords: string[];
+  countries: string[];
+  cpv_prefixes: string[];
+  nuts_prefixes: string[];
+  sources: string[];
+  enabled: boolean;
   notify_email: string | null;
   last_refresh_at: string | null;
-  last_refresh_status: string | null;
-  last_notified_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -175,33 +173,110 @@ export interface WatchlistListResponse {
 
 export interface WatchlistCreate {
   name: string;
-  is_enabled?: boolean;
-  term?: string | null;
-  cpv_prefix?: string | null;
-  buyer_contains?: string | null;
-  procedure_type?: string | null;
-  country?: string;
-  language?: string | null;
+  keywords?: string[];
+  countries?: string[];
+  cpv_prefixes?: string[];
+  nuts_prefixes?: string[];
+  sources?: string[];
+  enabled?: boolean;
   notify_email?: string | null;
 }
 
 export interface WatchlistUpdate {
   name?: string;
-  is_enabled?: boolean;
-  term?: string | null;
-  cpv_prefix?: string | null;
-  buyer_contains?: string | null;
-  procedure_type?: string | null;
-  country?: string;
-  language?: string | null;
+  keywords?: string[];
+  countries?: string[];
+  cpv_prefixes?: string[];
+  nuts_prefixes?: string[];
+  sources?: string[];
+  enabled?: boolean;
   notify_email?: string | null;
 }
 
+export interface WatchlistMatchesResponse {
+  total: number;
+  page: number;
+  page_size: number;
+  items: WatchlistMatchRead[];
+}
+
+export interface WatchlistMatchRead {
+  notice: Notice;
+  matched_on: string;
+}
+
 export interface RefreshSummary {
-  watchlist_id: string;
-  pages_fetched: number;
-  fetched_total: number;
-  imported_new_total: number;
-  imported_updated_total: number;
-  errors_total: number;
+  matched: number;
+  added: number;
+}
+
+/* ── Chip Input ────────────────────────────────────────────────────── */
+
+.chip-input-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--gray-300, #d1d5db);
+  border-radius: var(--radius, 6px);
+  background: white;
+  cursor: text;
+  min-height: 2.25rem;
+  align-items: center;
+}
+.chip-input-container:focus-within {
+  border-color: var(--primary, #2563eb);
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: var(--gray-100, #f3f4f6);
+  border: 1px solid var(--gray-200, #e5e7eb);
+  border-radius: 999px;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--gray-800, #1f2937);
+  white-space: nowrap;
+}
+
+.chip-remove {
+  all: unset;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  color: var(--gray-400, #9ca3af);
+  padding: 0 0.1rem;
+  border-radius: 50%;
+}
+.chip-remove:hover {
+  color: var(--danger, #dc2626);
+}
+
+.chip-input {
+  all: unset;
+  flex: 1;
+  min-width: 80px;
+  font-size: 0.87rem;
+  padding: 0.1rem 0;
+}
+
+/* ── Filter badges on detail page ──────────────────────────────────── */
+
+.filter-badge {
+  display: inline-block;
+  background: var(--gray-100, #f3f4f6);
+  border: 1px solid var(--gray-200, #e5e7eb);
+  border-radius: var(--radius, 6px);
+  padding: 0.2rem 0.6rem;
+  font-size: 0.82rem;
+  margin-right: 0.4rem;
+  margin-bottom: 0.25rem;
+}
+
+.wl-filters {
+  margin-bottom: 0.5rem;
 }

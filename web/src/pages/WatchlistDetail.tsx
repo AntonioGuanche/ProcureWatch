@@ -13,6 +13,11 @@ function formatDate(s: string | null): string {
   }
 }
 
+function chipList(items: string[], label: string): string {
+  if (!items || items.length === 0) return "";
+  return `${label}: ${items.join(", ")}`;
+}
+
 type Tab = "preview" | "new";
 
 export function WatchlistDetail() {
@@ -72,15 +77,32 @@ export function WatchlistDetail() {
 
   if (!watchlist) return <p>Loading watchlist…</p>;
 
+  // Build filter summary
+  const filters = [
+    chipList(watchlist.keywords, "Mots-clés"),
+    chipList(watchlist.cpv_prefixes, "CPV"),
+    chipList(watchlist.countries, "Pays"),
+    chipList(watchlist.nuts_prefixes, "NUTS"),
+  ].filter(Boolean);
+
   return (
     <>
       <h1>{watchlist.name}</h1>
       <div className="card">
+        <div className="wl-filters">
+          {filters.length > 0 ? (
+            <p>
+              <strong>Filtres :</strong>{" "}
+              {filters.map((f, i) => (
+                <span key={i} className="filter-badge">{f}</span>
+              ))}
+            </p>
+          ) : (
+            <p><strong>Filtres :</strong> <em>Aucun filtre — matche toutes les notices</em></p>
+          )}
+        </div>
         <p>
-          <strong>Filters:</strong> term={watchlist.term ?? "—"} | cpv={watchlist.cpv_prefix ?? "—"} | buyer={watchlist.buyer_contains ?? "—"} | country={watchlist.country} | procedure={watchlist.procedure_type ?? "—"}
-        </p>
-        <p>
-          Last refresh: {formatDate(watchlist.last_refresh_at)} | Last notified: {formatDate(watchlist.last_notified_at)} | Notify: {watchlist.notify_email ?? "—"}
+          Dernier refresh : {formatDate(watchlist.last_refresh_at)} | Notify : {watchlist.notify_email ?? "—"} | {watchlist.enabled ? "✅ Active" : "⏸️ Désactivée"}
         </p>
         <p>
           <Link to="/watchlists" className="btn">← Back to list</Link>
@@ -104,9 +126,6 @@ export function WatchlistDetail() {
           New since last notified
         </button>
       </div>
-      {tab === "new" && !watchlist?.last_notified_at && !watchlist?.last_refresh_at && (
-        <p style={{ color: "#666", marginBottom: "1rem" }}>No cutoff yet (first run). Run a refresh to see new items.</p>
-      )}
       {loading ? (
         <p>Loading notices…</p>
       ) : (
@@ -119,22 +138,24 @@ export function WatchlistDetail() {
                   <th>Title</th>
                   <th>Buyer</th>
                   <th>CPV</th>
-                  <th>Procedure</th>
+                  <th>Deadline</th>
                   <th>URL</th>
                 </tr>
               </thead>
               <tbody>
                 {notices.map((n) => (
                   <tr key={n.id}>
-                    <td>{formatDate(n.published_at)}</td>
+                    <td>{formatDate(n.publication_date)}</td>
                     <td>{n.title}</td>
-                    <td>{n.buyer_name ?? "—"}</td>
-                    <td>{n.cpv_main_code ?? n.cpv ?? "—"}</td>
-                    <td>{n.procedure_type ?? "—"}</td>
+                    <td>{n.organisation_names ? Object.values(n.organisation_names)[0] ?? "—" : "—"}</td>
+                    <td>{n.cpv_main_code ?? "—"}</td>
+                    <td>{formatDate(n.deadline)}</td>
                     <td>
-                      <a href={n.url} target="_blank" rel="noopener noreferrer">
-                        Link
-                      </a>
+                      {n.url ? (
+                        <a href={n.url} target="_blank" rel="noopener noreferrer">
+                          Link
+                        </a>
+                      ) : "—"}
                     </td>
                   </tr>
                 ))}
