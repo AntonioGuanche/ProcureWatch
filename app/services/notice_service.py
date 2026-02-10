@@ -29,15 +29,49 @@ def _safe_str(value: Any, max_len: Optional[int] = None) -> Optional[str]:
     return s
 
 
+def _unwrap_ted_value(value: Any) -> Optional[str]:
+    """Unwrap nested TED API values (dicts, lists) into a scalar string.
+
+    TED Search API returns field values in various shapes:
+      - Simple string: "2026-03-15T12:00:00+00:00"
+      - List: ["2026-03-15T12:00:00+00:00"]
+      - Dict (multilingual): {"ENG": "2026-03-15", "FRA": "2026-03-15"}
+      - Dict with list values: {"ENG": ["2026-03-15T12:00:00"]}
+      - List of dicts: [{"value": "2026-03-15"}]
+    """
+    if value is None:
+        return None
+    if isinstance(value, (str, int, float)):
+        return str(value).strip() or None
+    if isinstance(value, list):
+        for item in value:
+            result = _unwrap_ted_value(item)
+            if result:
+                return result
+        return None
+    if isinstance(value, dict):
+        for key in ("value", "text", "content"):
+            if key in value:
+                result = _unwrap_ted_value(value[key])
+                if result:
+                    return result
+        for v in value.values():
+            result = _unwrap_ted_value(v)
+            if result:
+                return result
+        return None
+    return str(value).strip() or None
+
+
 def _safe_date(value: Any) -> Optional[date]:
     if value is None:
         return None
     if isinstance(value, date):
         return value if not isinstance(value, datetime) else value.date()
+    s = _unwrap_ted_value(value)
+    if not s:
+        return None
     try:
-        s = str(value).strip()
-        if not s:
-            return None
         if "T" in s:
             return datetime.fromisoformat(s.replace("Z", "+00:00")).date()
         return datetime.strptime(s[:10], "%Y-%m-%d").date()
@@ -50,13 +84,18 @@ def _safe_datetime(value: Any) -> Optional[datetime]:
         return None
     if isinstance(value, datetime):
         return value
+    s = _unwrap_ted_value(value)
+    if not s:
+        return None
     try:
-        s = str(value).strip()
-        if not s:
-            return None
         return datetime.fromisoformat(s.replace("Z", "+00:00"))
     except (ValueError, TypeError):
-        return None
+        try:
+            d = datetime.strptime(s[:10], "%Y-%m-%d")
+            return d.replace(hour=23, minute=59, second=59)
+        except (ValueError, TypeError):
+            return None
+
 
 
 def _safe_decimal(value: Any) -> Optional[Decimal]:
@@ -445,19 +484,33 @@ def _map_search_item_to_notice(
 
 
 def _ted_pick_text(value: Any) -> Optional[str]:
-    """Extract text from TED multi-language value (str, or dict with eng/fra/...)."""
+    """Extract text from TED multi-language value (str, list, or dict with eng/fra/...)."""
     if value is None:
         return None
     if isinstance(value, str):
         return value.strip() or None
+    if isinstance(value, list):
+        for item in value:
+            result = _ted_pick_text(item)
+            if result:
+                return result
+        return None
     if isinstance(value, dict):
         for lang in ("eng", "ENG", "fra", "FRA", "en", "EN", "fr", "FR"):
             text = value.get(lang)
             if isinstance(text, str) and text.strip():
                 return text.strip()
+            if isinstance(text, list):
+                for t in text:
+                    if isinstance(t, str) and t.strip():
+                        return t.strip()
         for v in value.values():
             if isinstance(v, str) and v.strip():
                 return v.strip()
+            if isinstance(v, list):
+                for t in v:
+                    if isinstance(t, str) and t.strip():
+                        return t.strip()
     return None
 
 
