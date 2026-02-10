@@ -210,7 +210,7 @@ def _enrich_ted_notice(notice: Notice) -> dict[str, bool]:
                     break
 
     # URL
-    if not notice.url:
+    if not notice.url or "enot.publicprocurement.be" in (notice.url or ""):
         url = _generate_ted_url(notice)
         if url:
             notice.url = url
@@ -359,11 +359,11 @@ def _enrich_bosa_notice(notice: Notice) -> dict[str, bool]:
             notice.form_type = _safe_str(ft, 100)
             updated["form_type"] = True
 
-    # URL
-    if not notice.url:
-        url = raw.get("url")
+    # URL – also regenerate if old enot URL is present
+    if not notice.url or "enot.publicprocurement.be" in (notice.url or ""):
+        url = _generate_bosa_url(notice)
         if not url:
-            url = _generate_bosa_url(notice)
+            url = raw.get("url")
         if url:
             notice.url = _safe_str(url, 1000)
             updated["url"] = True
