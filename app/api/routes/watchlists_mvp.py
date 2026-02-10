@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from app.core.auth import rate_limit_public
 from sqlalchemy.orm import Session
 
-from app.api.schemas.notice import NoticeRead
+from app.api.schemas.notice import NoticeRead, NoticeListResponse
 from app.api.schemas.watchlist import (
     WatchlistCreate,
     WatchlistListResponse,
@@ -20,6 +20,8 @@ from app.db.crud.watchlists_mvp import (
     get_watchlist_by_id,
     list_watchlist_matches,
     list_watchlists,
+    list_notices_for_watchlist,
+    list_new_since_for_watchlist,
     refresh_watchlist_matches,
     update_watchlist,
     _parse_array,
@@ -107,6 +109,18 @@ async def del_watchlist(
         raise HTTPException(status_code=404, detail="Watchlist not found")
 
 
+@router.get("/{watchlist_id}", response_model=WatchlistRead)
+async def get_watchlist_endpoint(
+    watchlist_id: str,
+    db: Session = Depends(get_db),
+) -> WatchlistRead:
+    """Get a single watchlist by ID."""
+    wl = get_watchlist_by_id(db, watchlist_id)
+    if not wl:
+        raise HTTPException(status_code=404, detail="Watchlist not found")
+    return _to_read(wl)
+
+
 @router.post("/{watchlist_id}/refresh")
 async def post_watchlist_refresh(
     watchlist_id: str,
@@ -153,3 +167,45 @@ async def get_watchlist_matches(
         )
     
     return WatchlistMatchesResponse(total=total, page=page, page_size=page_size, items=items)
+
+
+@router.get("/{watchlist_id}/preview", response_model=NoticeListResponse)
+async def get_watchlist_preview(
+    watchlist_id: str,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(25, ge=1, le=100),
+    db: Session = Depends(get_db),
+) -> NoticeListResponse:
+    """Preview all notices matching this watchlist's filters."""
+    wl = get_watchlist_by_id(db, watchlist_id)
+    if not wl:
+        raise HTTPException(status_code=404, detail="Watchlist not found")
+    offset = (page - 1) * page_size
+    notices, total = list_notices_for_watchlist(db, wl, limit=page_size, offset=offset)
+    return NoticeListResponse(
+        total=total,
+        page=page,
+        page_size=page_size,
+        items=[NoticeRead.model_validate(n) for n in notices],
+    )
+
+
+@router.get("/{watchlist_id}/new", response_model=NoticeListResponse)
+async def get_watchlist_new(
+    watchlist_id: str,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(25, ge=1, le=100),
+    db: Session = Depends(get_db),
+) -> NoticeListResponse:
+    """Get notices matching this watchlist that were created since the last refresh."""
+    wl = get_watchlist_by_id(db, watchlist_id)
+    if not wl:
+        raise HTTPException(status_code=404, detail="Watchlist not found")
+    offset = (page - 1) * page_size
+    notices, total = list_new_since_for_watchlist(db, wl, limit=page_size, offset=offset)
+    return NoticeListResponse(
+        total=total,
+        page=page,
+        page_size=page_size,
+        items=[NoticeRead.model_validate(n) for n in notices],
+    )

@@ -213,7 +213,9 @@ def _match_cpv_prefixes_sql(query, cpv_prefixes: list[str]) -> Tuple[Any, list[s
                 )
         if additional_conditions:
             cpv_conditions.extend(additional_conditions)
-        query = query.filter(or_(*cpv_conditions)).distinct()
+        # Use group_by(Notice.id) instead of .distinct() to avoid
+        # "could not identify an equality operator for type json" on JSON columns.
+        query = query.filter(or_(*cpv_conditions)).group_by(Notice.id)
 
     return query, cpv_prefixes
 

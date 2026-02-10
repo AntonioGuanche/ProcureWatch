@@ -6,7 +6,7 @@ from decimal import Decimal
 from typing import Any, Optional
 
 from sqlalchemy import Boolean, Date, DateTime, Numeric, String, Text, func
-from sqlalchemy.types import JSON
+from sqlalchemy.dialects.postgresql import JSONB as JSON  # JSONB: supports DISTINCT & indexing
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base
