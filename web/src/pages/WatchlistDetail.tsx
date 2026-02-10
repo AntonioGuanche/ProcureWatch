@@ -171,13 +171,13 @@ export function WatchlistDetail() {
             <thead>
               <tr>
                 <th style={{ width: "3%" }}></th>
-                <th style={{ width: "35%" }}>Titre</th>
-                <th>Acheteur</th>
-                <th>CPV</th>
-                <th>Source</th>
-                <th>Publication</th>
-                <th>Deadline</th>
-                <th>Valeur</th>
+                <th style={{ width: "28%" }}>Titre</th>
+                <th style={{ width: "14%" }}>Acheteur</th>
+                <th style={{ width: "9%" }}>CPV</th>
+                <th style={{ width: "8%" }}>Source</th>
+                <th style={{ width: "11%" }}>Publication</th>
+                <th style={{ width: "14%" }}>Deadline</th>
+                <th style={{ width: "10%" }}>Valeur</th>
               </tr>
             </thead>
             <tbody>

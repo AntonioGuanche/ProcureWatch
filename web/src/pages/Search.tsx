@@ -155,12 +155,12 @@ export function Search() {
             <thead>
               <tr>
                 <th style={{ width: "3%" }}></th>
-                <th style={{ width: "35%" }}>Titre</th>
-                <th>CPV</th>
-                <th>Source</th>
-                <th>Publication</th>
-                <th>Deadline</th>
-                <th>Valeur</th>
+                <th style={{ width: "32%" }}>Titre</th>
+                <th style={{ width: "10%" }}>CPV</th>
+                <th style={{ width: "8%" }}>Source</th>
+                <th style={{ width: "12%" }}>Publication</th>
+                <th style={{ width: "15%" }}>Deadline</th>
+                <th style={{ width: "10%" }}>Valeur</th>
               </tr>
             </thead>
             <tbody>

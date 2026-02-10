@@ -101,7 +101,7 @@ a:hover { text-decoration: underline; }
 
 /* ── Page structure ────────────────────────────────────────────────── */
 
-.page-header { margin-bottom: 1.25rem; }
+.page-header { margin-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; }
 h1 { font-size: 1.5rem; font-weight: 700; color: var(--gray-900); letter-spacing: -.03em; }
 h3 { font-size: .95rem; font-weight: 600; color: var(--gray-800); margin-bottom: .75rem; }
 .page-subtitle { color: var(--gray-600); font-size: .92rem; margin-top: .15rem; }
@@ -231,6 +231,7 @@ label {
   border: 1px solid var(--gray-200);
   border-radius: var(--radius);
   overflow: hidden;
+  table-layout: fixed;
 }
 .data-table thead { background: var(--gray-50); }
 .data-table th {
@@ -258,6 +259,11 @@ label {
   text-decoration: none;
   display: block;
   line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 .notice-link:hover { color: var(--blue); text-decoration: underline; }
 
@@ -1085,9 +1091,10 @@ label {
   border-radius: var(--radius);
   border: 1px solid transparent;
   transition: all .1s;
+  min-width: 0;
 }
 .fav-item:hover { border-color: var(--gray-200); background: var(--gray-50); }
-.fav-info { min-width: 0; flex: 1; }
+.fav-info { min-width: 0; flex: 1; overflow: hidden; }
 .fav-title {
   font-size: .87rem;
   font-weight: 500;
@@ -1095,6 +1102,7 @@ label {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  max-width: 100%;
 }
 .fav-meta {
   display: flex;
