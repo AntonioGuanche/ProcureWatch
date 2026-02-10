@@ -59,6 +59,7 @@ def create_watchlist(
     sources: list[str] | None = None,
     enabled: bool = True,
     notify_email: str | None = None,
+    user_id: str | None = None,
 ) -> Watchlist:
     """Create a new watchlist with arrays."""
     wl = Watchlist(
@@ -70,6 +71,7 @@ def create_watchlist(
         sources=_join_sources_json(sources),
         enabled=enabled,
         notify_email=notify_email,
+        user_id=user_id,
     )
     db.add(wl)
     db.commit()
@@ -77,18 +79,24 @@ def create_watchlist(
     return wl
 
 
-def get_watchlist_by_id(db: Session, watchlist_id: str) -> Optional[Watchlist]:
+def get_watchlist_by_id(db: Session, watchlist_id: str, user_id: str | None = None) -> Optional[Watchlist]:
     """Get a watchlist by ID."""
-    return db.query(Watchlist).filter(Watchlist.id == watchlist_id).first()
+    query = db.query(Watchlist).filter(Watchlist.id == watchlist_id)
+    if user_id:
+        query = query.filter(Watchlist.user_id == user_id)
+    return query.first()
 
 
 def list_watchlists(
     db: Session,
     limit: int = 50,
     offset: int = 0,
+    user_id: str | None = None,
 ) -> Tuple[list[Watchlist], int]:
-    """List watchlists with pagination. Returns (watchlists, total_count)."""
+    """List watchlists with pagination, optionally filtered by user."""
     query = db.query(Watchlist)
+    if user_id:
+        query = query.filter(Watchlist.user_id == user_id)
     total = query.count()
     items = query.order_by(Watchlist.updated_at.desc()).offset(offset).limit(limit).all()
     return items, total

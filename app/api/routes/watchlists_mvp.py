@@ -1,10 +1,11 @@
-"""Watchlist MVP endpoints: create, list, refresh, matches."""
+"""Watchlist MVP endpoints: create, list, refresh, matches (multi-tenant)."""
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from app.core.auth import rate_limit_public
 from sqlalchemy.orm import Session
 
+from app.api.routes.auth import get_current_user
 from app.api.schemas.notice import NoticeRead, NoticeListResponse
 from app.api.schemas.watchlist import (
     WatchlistCreate,
@@ -28,6 +29,7 @@ from app.db.crud.watchlists_mvp import (
     _parse_sources_json,
 )
 from app.db.session import get_db
+from app.models.user import User
 
 router = APIRouter(prefix="/watchlists", tags=["watchlists"], dependencies=[Depends(rate_limit_public)])
 
@@ -55,10 +57,11 @@ async def get_watchlists(
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(25, ge=1, le=100, description="Items per page"),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> WatchlistListResponse:
-    """List watchlists with pagination."""
+    """List watchlists for the current user."""
     offset = (page - 1) * page_size
-    items, total = list_watchlists(db, limit=page_size, offset=offset)
+    items, total = list_watchlists(db, limit=page_size, offset=offset, user_id=current_user.id)
     return WatchlistListResponse(
         total=total, page=page, page_size=page_size,
         items=[_to_read(wl) for wl in items],
@@ -69,8 +72,9 @@ async def get_watchlists(
 async def post_watchlist(
     body: WatchlistCreate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> WatchlistRead:
-    """Create a new watchlist."""
+    """Create a new watchlist for the current user."""
     wl = create_watchlist(
         db,
         name=body.name,
@@ -81,6 +85,7 @@ async def post_watchlist(
         sources=body.sources,
         enabled=body.enabled,
         notify_email=body.notify_email,
+        user_id=current_user.id,
     )
     return _to_read(wl)
 
@@ -90,12 +95,15 @@ async def patch_watchlist(
     watchlist_id: str,
     body: WatchlistUpdate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> WatchlistRead:
-    """Partial update of a watchlist."""
-    update_data = body.model_dump(exclude_unset=True)
-    wl = update_watchlist(db, watchlist_id, **update_data)
+    """Partial update of a watchlist (owner only)."""
+    # Check ownership
+    wl = get_watchlist_by_id(db, watchlist_id, user_id=current_user.id)
     if not wl:
         raise HTTPException(status_code=404, detail="Watchlist not found")
+    update_data = body.model_dump(exclude_unset=True)
+    wl = update_watchlist(db, watchlist_id, **update_data)
     return _to_read(wl)
 
 
@@ -103,8 +111,12 @@ async def patch_watchlist(
 async def del_watchlist(
     watchlist_id: str,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> None:
-    """Delete a watchlist and its matches."""
+    """Delete a watchlist (owner only)."""
+    wl = get_watchlist_by_id(db, watchlist_id, user_id=current_user.id)
+    if not wl:
+        raise HTTPException(status_code=404, detail="Watchlist not found")
     if not delete_watchlist(db, watchlist_id):
         raise HTTPException(status_code=404, detail="Watchlist not found")
 
@@ -113,9 +125,10 @@ async def del_watchlist(
 async def get_watchlist_endpoint(
     watchlist_id: str,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> WatchlistRead:
-    """Get a single watchlist by ID."""
-    wl = get_watchlist_by_id(db, watchlist_id)
+    """Get a single watchlist by ID (owner only)."""
+    wl = get_watchlist_by_id(db, watchlist_id, user_id=current_user.id)
     if not wl:
         raise HTTPException(status_code=404, detail="Watchlist not found")
     return _to_read(wl)
@@ -125,16 +138,12 @@ async def get_watchlist_endpoint(
 async def post_watchlist_refresh(
     watchlist_id: str,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> dict[str, Any]:
-    """
-    Recompute matches for this watchlist idempotently.
-    Deletes existing matches, then recomputes and stores new ones.
-    Returns summary with matched count.
-    """
-    wl = get_watchlist_by_id(db, watchlist_id)
+    """Recompute matches for this watchlist (owner only)."""
+    wl = get_watchlist_by_id(db, watchlist_id, user_id=current_user.id)
     if not wl:
         raise HTTPException(status_code=404, detail="Watchlist not found")
-    
     summary = refresh_watchlist_matches(db, wl)
     return summary
 
@@ -145,12 +154,10 @@ async def get_watchlist_matches(
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(25, ge=1, le=100, description="Items per page"),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> WatchlistMatchesResponse:
-    """
-    Get stored matches for this watchlist with matched_on explanations.
-    Returns paginated list of matched notices.
-    """
-    wl = get_watchlist_by_id(db, watchlist_id)
+    """Get stored matches for this watchlist (owner only)."""
+    wl = get_watchlist_by_id(db, watchlist_id, user_id=current_user.id)
     if not wl:
         raise HTTPException(status_code=404, detail="Watchlist not found")
     
@@ -175,9 +182,10 @@ async def get_watchlist_preview(
     page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=1, le=100),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> NoticeListResponse:
-    """Preview all notices matching this watchlist's filters."""
-    wl = get_watchlist_by_id(db, watchlist_id)
+    """Preview all notices matching this watchlist's filters (owner only)."""
+    wl = get_watchlist_by_id(db, watchlist_id, user_id=current_user.id)
     if not wl:
         raise HTTPException(status_code=404, detail="Watchlist not found")
     offset = (page - 1) * page_size
@@ -196,9 +204,10 @@ async def get_watchlist_new(
     page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=1, le=100),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> NoticeListResponse:
-    """Get notices matching this watchlist that were created since the last refresh."""
-    wl = get_watchlist_by_id(db, watchlist_id)
+    """Get notices matching this watchlist that were created since the last refresh (owner only)."""
+    wl = get_watchlist_by_id(db, watchlist_id, user_id=current_user.id)
     if not wl:
         raise HTTPException(status_code=404, detail="Watchlist not found")
     offset = (page - 1) * page_size

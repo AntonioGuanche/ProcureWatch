@@ -1,16 +1,28 @@
-"""JWT token helpers for mock auth (Lovable)."""
+"""JWT token helpers + password hashing (bcrypt via passlib)."""
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from jose import JWTError, jwt
+from passlib.context import CryptContext
 
 from app.core.config import settings
 
+# Password hashing
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+
+def hash_password(plain: str) -> str:
+    """Hash a plain-text password."""
+    return pwd_context.hash(plain)
+
+
+def verify_password(plain: str, hashed: str) -> bool:
+    """Verify a plain-text password against a hash."""
+    return pwd_context.verify(plain, hashed)
+
 
 def create_access_token(sub: str, user_id: str, name: str | None = None) -> str:
-    """
-    Create a JWT access token. Mock auth: sub=email, user_id and name in payload.
-    """
+    """Create a JWT access token."""
     expire = datetime.now(timezone.utc) + timedelta(days=settings.jwt_expiry_days)
     payload: dict[str, Any] = {
         "sub": sub,

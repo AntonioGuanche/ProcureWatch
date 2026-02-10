@@ -19,10 +19,10 @@ with engine.connect() as conn:
     try:
         ver = conn.execute(text('SELECT version_num FROM alembic_version')).scalar()
         print(f'Current alembic version: {ver}')
-        if ver and ver not in ('001', '002', '003'):
-            conn.execute(text(\"UPDATE alembic_version SET version_num = '003'\"))
+        if ver and ver not in ('001', '002', '003', '004'):
+            conn.execute(text(\"UPDATE alembic_version SET version_num = '004'\"))
             conn.commit()
-            print('Reset alembic_version to 003.')
+            print('Reset alembic_version to 004.')
         else:
             print('Version is valid, no fix needed.')
     except Exception as e:

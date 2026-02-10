@@ -1,25 +1,41 @@
 /**
  * API client for ProcureWatch backend.
- * 
- * In dev: Vite proxy forwards /api/* to the backend (see vite.config.ts).
- * In prod: Set VITE_API_BASE_URL to the backend URL.
+ * Auth token is read from sessionStorage and injected automatically.
  */
 
-// Always use relative URLs — Vite proxy forwards /api/* to the backend
 const API_BASE = "";
+const TOKEN_KEY = "pw_token";
+
+function getToken(): string | null {
+  return sessionStorage.getItem(TOKEN_KEY);
+}
 
 async function request<T>(
   path: string,
   options?: RequestInit
 ): Promise<T> {
   const url = `${API_BASE}${path}`;
+  const token = getToken();
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(options?.headers as Record<string, string> || {}),
+  };
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
   const res = await fetch(url, {
     ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...options?.headers,
-    },
+    headers,
   });
+
+  // Auto-logout on 401
+  if (res.status === 401) {
+    sessionStorage.removeItem(TOKEN_KEY);
+    sessionStorage.removeItem("pw_user");
+    window.location.reload();
+    throw new Error("Session expirée");
+  }
+
   if (!res.ok) {
     const text = await res.text();
     let detail: string;
@@ -36,7 +52,6 @@ async function request<T>(
 }
 
 import type {
-  Watchlist,
   WatchlistListResponse,
   WatchlistCreate,
   WatchlistUpdate,
@@ -49,6 +64,7 @@ import type {
   DashboardTopAuthorities,
   DashboardHealth,
   RefreshSummary,
+  Watchlist,
 } from "./types";
 
 // ── Search & Facets ─────────────────────────────────────────────────
