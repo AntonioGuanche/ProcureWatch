@@ -206,3 +206,27 @@ export function addFavorite(noticeId: string): Promise<{ status: string }> {
 export function removeFavorite(noticeId: string): Promise<{ status: string }> {
   return request(`/api/favorites/${noticeId}`, { method: "DELETE" });
 }
+
+// ── Profile ─────────────────────────────────────────────────────────
+
+export function updateProfile(data: { name?: string; email?: string }): Promise<{ id: string; email: string; name: string; is_admin: boolean }> {
+  return request("/api/auth/profile", { method: "PUT", body: JSON.stringify(data) });
+}
+
+export function changePassword(data: { current_password: string; new_password: string }): Promise<{ status: string }> {
+  return request("/api/auth/password", { method: "PUT", body: JSON.stringify(data) });
+}
+
+export function deleteAccount(): Promise<{ status: string }> {
+  return request("/api/auth/account", { method: "DELETE" });
+}
+
+// ── Admin ───────────────────────────────────────────────────────────
+
+export function getAdminStats(): Promise<{ users: { total: number; active: number }; watchlists: { total: number; enabled: number }; favorites_total: number }> {
+  return request("/api/admin/stats");
+}
+
+export function getAdminUsers(): Promise<Array<{ id: string; email: string; name: string; is_admin: boolean; is_active: boolean; created_at: string | null }>> {
+  return request("/api/admin/users");
+}

@@ -5,6 +5,7 @@ interface User {
   id: string;
   email: string;
   name: string;
+  is_admin?: boolean;
 }
 
 interface AuthState {
@@ -14,6 +15,7 @@ interface AuthState {
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, name?: string) => Promise<void>;
   logout: () => void;
+  setUser: (user: User) => void;
 }
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -84,8 +86,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     sessionStorage.removeItem(USER_KEY);
   }, []);
 
+  const updateUser = useCallback((u: User) => {
+    setUser(u);
+    sessionStorage.setItem("pw_user", JSON.stringify(u));
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, token, loading, login, register, logout, setUser: updateUser }}>
       {children}
     </AuthContext.Provider>
   );

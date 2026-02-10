@@ -52,6 +52,7 @@ class UserOut(BaseModel):
     id: str
     email: str
     name: str
+    is_admin: bool = False
 
 
 class LoginResponse(BaseModel):
@@ -108,7 +109,7 @@ async def register(body: RegisterBody, db: Session = Depends(get_db)) -> LoginRe
     token = create_access_token(sub=user.email, user_id=user.id, name=user.name)
     return LoginResponse(
         access_token=token,
-        user=UserOut(id=user.id, email=user.email, name=user.name),
+        user=UserOut(id=user.id, email=user.email, name=user.name, is_admin=getattr(user, 'is_admin', False)),
     )
 
 
@@ -124,14 +125,14 @@ async def login(body: LoginBody, db: Session = Depends(get_db)) -> LoginResponse
     token = create_access_token(sub=user.email, user_id=user.id, name=user.name)
     return LoginResponse(
         access_token=token,
-        user=UserOut(id=user.id, email=user.email, name=user.name),
+        user=UserOut(id=user.id, email=user.email, name=user.name, is_admin=getattr(user, 'is_admin', False)),
     )
 
 
 @router.get("/me", response_model=UserOut)
 async def me(current_user: User = Depends(get_current_user)) -> UserOut:
     """Return current authenticated user."""
-    return UserOut(id=current_user.id, email=current_user.email, name=current_user.name)
+    return UserOut(id=current_user.id, email=current_user.email, name=current_user.name, is_admin=getattr(current_user, 'is_admin', False))
 
 
 @router.post("/forgot-password")
@@ -195,3 +196,74 @@ async def reset_password(body: ResetPasswordBody, db: Session = Depends(get_db))
     logger.info(f"Password reset for {user.email}")
 
     return {"message": "Mot de passe modifié avec succès. Vous pouvez vous connecter."}
+
+
+# --- Profile Management ---
+
+
+class UpdateProfileBody(BaseModel):
+    name: str | None = None
+    email: EmailStr | None = None
+
+
+class ChangePasswordBody(BaseModel):
+    current_password: str
+    new_password: str
+
+
+@router.put("/profile", response_model=UserOut)
+async def update_profile(
+    body: UpdateProfileBody,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> UserOut:
+    """Update current user's profile (name, email)."""
+    if body.name is not None:
+        current_user.name = body.name.strip()
+    if body.email is not None:
+        new_email = body.email.lower()
+        if new_email != current_user.email:
+            existing = db.query(User).filter(User.email == new_email).first()
+            if existing:
+                raise HTTPException(status_code=409, detail="Cet email est déjà utilisé")
+            current_user.email = new_email
+    db.commit()
+    db.refresh(current_user)
+    return UserOut(id=current_user.id, email=current_user.email, name=current_user.name, is_admin=getattr(current_user, 'is_admin', False))
+
+
+@router.put("/password")
+async def change_password(
+    body: ChangePasswordBody,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Change password (requires current password)."""
+    if not verify_password(body.current_password, current_user.password_hash):
+        raise HTTPException(status_code=401, detail="Mot de passe actuel incorrect")
+    if len(body.new_password) < 8:
+        raise HTTPException(status_code=422, detail="Le nouveau mot de passe doit contenir au moins 8 caractères")
+    current_user.password_hash = hash_password(body.new_password)
+    db.commit()
+    return {"status": "ok", "message": "Mot de passe modifié"}
+
+
+@router.delete("/account")
+async def delete_account(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Permanently delete current user account and all associated data."""
+    from app.models.watchlist import Watchlist, WatchlistMatch
+    from app.models.user_favorite import UserFavorite
+
+    # Delete user's watchlist matches, watchlists, favorites
+    wl_ids = [w.id for w in db.query(Watchlist.id).filter(Watchlist.user_id == current_user.id).all()]
+    if wl_ids:
+        db.query(WatchlistMatch).filter(WatchlistMatch.watchlist_id.in_(wl_ids)).delete(synchronize_session=False)
+    db.query(Watchlist).filter(Watchlist.user_id == current_user.id).delete(synchronize_session=False)
+    db.query(UserFavorite).filter(UserFavorite.user_id == current_user.id).delete(synchronize_session=False)
+    db.delete(current_user)
+    db.commit()
+    logger.info(f"User account deleted: {current_user.email} (id={current_user.id})")
+    return {"status": "ok", "message": "Compte supprimé"}

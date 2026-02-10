@@ -171,13 +171,13 @@ export function WatchlistDetail() {
             <thead>
               <tr>
                 <th style={{ width: "3%" }}></th>
-                <th style={{ width: "28%" }}>Titre</th>
-                <th style={{ width: "14%" }}>Acheteur</th>
-                <th style={{ width: "9%" }}>CPV</th>
-                <th style={{ width: "8%" }}>Source</th>
+                <th style={{ width: "30%" }}>Titre</th>
+                <th style={{ width: "13%" }}>Acheteur</th>
+                <th style={{ width: "8%" }}>CPV</th>
+                <th style={{ width: "7%" }}>Source</th>
                 <th style={{ width: "11%" }}>Publication</th>
                 <th style={{ width: "14%" }}>Deadline</th>
-                <th style={{ width: "10%" }}>Valeur</th>
+                <th style={{ width: "9%" }}>Valeur</th>
               </tr>
             </thead>
             <tbody>
@@ -196,7 +196,7 @@ export function WatchlistDetail() {
                     <span className="notice-link">{n.title || "Sans titre"}</span>
                     {n.description && <p className="notice-desc">{n.description}</p>}
                   </td>
-                  <td className="nowrap">{orgName(n.organisation_names)}</td>
+                  <td className="truncate" title={orgName(n.organisation_names)}>{orgName(n.organisation_names)}</td>
                   <td><code className="cpv-code">{n.cpv_main_code || "—"}</code></td>
                   <td>
                     <span className={`source-badge ${n.source.includes("BOSA") ? "bosa" : "ted"}`}>

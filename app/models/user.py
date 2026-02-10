@@ -27,6 +27,9 @@ class User(Base):
     is_active: Mapped[bool] = mapped_column(
         Boolean, default=True, server_default="true", nullable=False,
     )
+    is_admin: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false", nullable=False,
+    )
     created_at: Mapped[datetime] = mapped_column(
         default=func.now(), server_default=func.now(),
     )

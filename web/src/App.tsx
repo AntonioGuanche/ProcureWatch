@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BrowserRouter, Routes, Route, NavLink, Navigate, useNavigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, NavLink, Navigate, useNavigate, Link } from "react-router-dom";
 import { AuthProvider, useAuth } from "./auth";
 import { Dashboard } from "./pages/Dashboard";
 import { Search } from "./pages/Search";
@@ -10,6 +10,8 @@ import { WatchlistEdit } from "./pages/WatchlistEdit";
 import { Login } from "./pages/Login";
 import { ForgotPassword } from "./pages/ForgotPassword";
 import { ResetPassword } from "./pages/ResetPassword";
+import { Profile } from "./pages/Profile";
+import { Admin } from "./pages/Admin";
 
 function AuthGate() {
   const { user, loading } = useAuth();
@@ -58,9 +60,18 @@ function AppRoutes() {
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
                     Veilles
                   </NavLink>
+                  {user.is_admin && (
+                    <NavLink to="/admin" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
+                      Admin
+                    </NavLink>
+                  )}
                 </nav>
                 <div className="header-right">
-                  <span className="user-name">{user.name}</span>
+                  <Link to="/profile" className="user-name-link">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    {user.name}
+                  </Link>
                   <button onClick={logout} className="btn-sm btn-outline" title="Déconnexion">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
@@ -78,6 +89,8 @@ function AppRoutes() {
                   <Route path="/watchlists/new" element={<WatchlistNew />} />
                   <Route path="/watchlists/:id" element={<WatchlistDetail />} />
                   <Route path="/watchlists/:id/edit" element={<WatchlistEdit />} />
+                  <Route path="/profile" element={<Profile />} />
+                  {user.is_admin && <Route path="/admin" element={<Admin />} />}
                   <Route path="*" element={<Navigate to="/dashboard" replace />} />
                 </Routes>
               </main>
