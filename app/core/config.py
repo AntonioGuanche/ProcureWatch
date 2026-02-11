@@ -144,6 +144,14 @@ class Settings(BaseSettings):
     # --- App URL (for email links) ---
     app_url: str = Field("https://app.procurewatch.eu", validation_alias="APP_URL")
 
+    # --- Stripe billing ---
+    stripe_secret_key: str = Field("", validation_alias="STRIPE_SECRET_KEY")
+    stripe_webhook_secret: str = Field("", validation_alias="STRIPE_WEBHOOK_SECRET")
+    stripe_price_pro_monthly: str = Field("", validation_alias="STRIPE_PRICE_PRO_MONTHLY")
+    stripe_price_pro_annual: str = Field("", validation_alias="STRIPE_PRICE_PRO_ANNUAL")
+    stripe_price_business_monthly: str = Field("", validation_alias="STRIPE_PRICE_BUSINESS_MONTHLY")
+    stripe_price_business_annual: str = Field("", validation_alias="STRIPE_PRICE_BUSINESS_ANNUAL")
+
     # --- Rate limiting ---
     rate_limit_per_minute: int = Field(60, validation_alias="RATE_LIMIT_PER_MINUTE")
     rate_limit_burst: int = Field(10, validation_alias="RATE_LIMIT_BURST")

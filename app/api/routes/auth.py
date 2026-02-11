@@ -53,6 +53,7 @@ class UserOut(BaseModel):
     email: str
     name: str
     is_admin: bool = False
+    plan: str = "free"
 
 
 class LoginResponse(BaseModel):
@@ -109,7 +110,7 @@ async def register(body: RegisterBody, db: Session = Depends(get_db)) -> LoginRe
     token = create_access_token(sub=user.email, user_id=user.id, name=user.name)
     return LoginResponse(
         access_token=token,
-        user=UserOut(id=user.id, email=user.email, name=user.name, is_admin=getattr(user, 'is_admin', False)),
+        user=UserOut(id=user.id, email=user.email, name=user.name, is_admin=getattr(user, 'is_admin', False), plan=getattr(user, 'plan', 'free')),
     )
 
 
@@ -125,14 +126,14 @@ async def login(body: LoginBody, db: Session = Depends(get_db)) -> LoginResponse
     token = create_access_token(sub=user.email, user_id=user.id, name=user.name)
     return LoginResponse(
         access_token=token,
-        user=UserOut(id=user.id, email=user.email, name=user.name, is_admin=getattr(user, 'is_admin', False)),
+        user=UserOut(id=user.id, email=user.email, name=user.name, is_admin=getattr(user, 'is_admin', False), plan=getattr(user, 'plan', 'free')),
     )
 
 
 @router.get("/me", response_model=UserOut)
 async def me(current_user: User = Depends(get_current_user)) -> UserOut:
     """Return current authenticated user."""
-    return UserOut(id=current_user.id, email=current_user.email, name=current_user.name, is_admin=getattr(current_user, 'is_admin', False))
+    return UserOut(id=current_user.id, email=current_user.email, name=current_user.name, is_admin=getattr(current_user, 'is_admin', False), plan=getattr(current_user, 'plan', 'free'))
 
 
 @router.post("/forgot-password")
@@ -229,7 +230,7 @@ async def update_profile(
             current_user.email = new_email
     db.commit()
     db.refresh(current_user)
-    return UserOut(id=current_user.id, email=current_user.email, name=current_user.name, is_admin=getattr(current_user, 'is_admin', False))
+    return UserOut(id=current_user.id, email=current_user.email, name=current_user.name, is_admin=getattr(current_user, 'is_admin', False), plan=getattr(current_user, 'plan', 'free'))
 
 
 @router.put("/password")

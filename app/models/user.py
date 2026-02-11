@@ -30,6 +30,22 @@ class User(Base):
     is_admin: Mapped[bool] = mapped_column(
         Boolean, default=False, server_default="false", nullable=False,
     )
+    # ── Subscription / billing ──
+    plan: Mapped[str] = mapped_column(
+        String(20), default="free", server_default="free", nullable=False,
+    )
+    stripe_customer_id: Mapped[Optional[str]] = mapped_column(
+        String(255), nullable=True, unique=True, index=True,
+    )
+    stripe_subscription_id: Mapped[Optional[str]] = mapped_column(
+        String(255), nullable=True,
+    )
+    subscription_status: Mapped[str] = mapped_column(
+        String(30), default="none", server_default="none", nullable=False,
+    )
+    subscription_ends_at: Mapped[Optional[datetime]] = mapped_column(
+        nullable=True, comment="End of current billing period (UTC)",
+    )
     created_at: Mapped[datetime] = mapped_column(
         default=func.now(), server_default=func.now(),
     )

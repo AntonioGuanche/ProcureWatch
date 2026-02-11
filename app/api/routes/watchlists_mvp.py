@@ -6,6 +6,7 @@ from app.core.auth import rate_limit_public
 from sqlalchemy.orm import Session
 
 from app.api.routes.auth import get_current_user
+from app.services.subscription import check_watchlist_limit
 from app.api.schemas.notice import NoticeRead, NoticeListResponse
 from app.api.schemas.watchlist import (
     WatchlistCreate,
@@ -75,6 +76,10 @@ async def post_watchlist(
     current_user: User = Depends(get_current_user),
 ) -> WatchlistRead:
     """Create a new watchlist for the current user."""
+    # Check plan limits
+    limit_error = check_watchlist_limit(db, current_user)
+    if limit_error:
+        raise HTTPException(status_code=403, detail=limit_error)
     wl = create_watchlist(
         db,
         name=body.name,
