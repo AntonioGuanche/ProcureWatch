@@ -1,6 +1,6 @@
 # ============================================================
-# ProcureWatch – TED CAN import for BELGIUM ONLY
-# Faster variant: ~5K-10K CANs/year for Belgium
+# ProcureWatch – TED Result (CAN) import for BELGIUM ONLY
+# Faster variant: year-by-year (Belgium volume is manageable)
 # ============================================================
 # Usage: .\import_ted_can_belgium.ps1
 # ============================================================
@@ -8,7 +8,6 @@
 $headers = @{"X-Admin-Key"="Amu'Semois_R&R.2026"}
 $base = "https://web-production-4d5c0.up.railway.app/api/admin/bulk-import"
 
-# ── Year-by-year (Belgium volume is low enough for yearly chunks) ──
 $startYear = 2020
 $endYear   = 2026
 
@@ -24,8 +23,8 @@ for ($y = $startYear; $y -le $endYear; $y++) {
     $pdFrom = "${y}0101"
     $pdTo   = if ($y -eq $endYear) { "${y}0228" } else { "${y}1231" }
 
-    # Belgium CANs only
-    $expertQuery = "notice-type = can AND buyer-country = BEL AND PD >= $pdFrom AND PD <= $pdTo"
+    # Belgium CANs: form-type = result (TED v3 eForms)
+    $expertQuery = "form-type = result AND buyer-country = BEL AND PD >= $pdFrom AND PD <= $pdTo"
 
     Write-Host "`n=== TED CAN Belgium $y ===" -ForegroundColor Cyan
 
