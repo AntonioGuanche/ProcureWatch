@@ -1,7 +1,10 @@
 """Watchlist matcher: match new notices to enabled watchlists and send consolidated email digests.
 
-Key change from v6: instead of 1 email per watchlist, we group all watchlists
-by user and send 1 consolidated email per user.
+Key behaviors:
+- 1 email per user (consolidated across all watchlists)
+- Auto-resolve email from user account if notify_email not set on watchlist
+- Always send digest if there are open matches (reminder), even without new ones
+- New matches are highlighted, existing open matches shown as reminders
 
 Called after each import run via run_watchlist_matcher(db).
 """
@@ -152,6 +155,58 @@ def _build_explanation(watchlist: Watchlist) -> str:
     return ", ".join(parts) if parts else "all notices"
 
 
+# ── Resolve user email ───────────────────────────────────────────────
+
+def _resolve_email(db: Session, watchlist: Watchlist) -> Optional[str]:
+    """Get email for digest: notify_email on watchlist, or user's account email."""
+    # 1. Explicit notify_email on watchlist
+    email = getattr(watchlist, "notify_email", None)
+    if email:
+        return email
+
+    # 2. Fall back to user account email
+    user_id = getattr(watchlist, "user_id", None)
+    if user_id:
+        from app.models.user import User
+        user = db.query(User).filter(User.id == user_id).first()
+        if user and user.email:
+            return user.email
+
+    return None
+
+
+def _resolve_user_name(db: Session, watchlist: Watchlist) -> str:
+    """Get display name for email greeting."""
+    user_id = getattr(watchlist, "user_id", None)
+    if user_id:
+        from app.models.user import User
+        user = db.query(User).filter(User.id == user_id).first()
+        if user:
+            return getattr(user, "full_name", None) or user.email.split("@")[0]
+    return ""
+
+
+# ── Get existing open matches for reminder ───────────────────────────
+
+def _get_open_matches(db: Session, watchlist: Watchlist, limit: int = 20) -> list[Notice]:
+    """Get existing matched notices that are still open (deadline in future or no deadline)."""
+    now = datetime.now(timezone.utc).date()
+    query = (
+        db.query(Notice)
+        .join(WatchlistMatch, WatchlistMatch.notice_id == Notice.id)
+        .filter(WatchlistMatch.watchlist_id == watchlist.id)
+        .filter(
+            or_(
+                Notice.deadline.is_(None),
+                Notice.deadline >= now,
+            )
+        )
+        .order_by(Notice.deadline.asc().nullslast())
+        .limit(limit)
+    )
+    return query.all()
+
+
 # ── Core matching ────────────────────────────────────────────────────
 
 def match_watchlist(
@@ -193,7 +248,7 @@ def match_watchlist(
     return new_matches
 
 
-def _notice_to_email_dict(notice: Notice) -> dict[str, Any]:
+def _notice_to_email_dict(notice: Notice, is_new: bool = False) -> dict[str, Any]:
     """Convert notice to dict for email template."""
     buyer = None
     if notice.organisation_names and isinstance(notice.organisation_names, dict):
@@ -212,6 +267,7 @@ def _notice_to_email_dict(notice: Notice) -> dict[str, Any]:
         "source": notice.source,
         "publication_date": notice.publication_date,
         "cpv": notice.cpv_main_code,
+        "is_new": is_new,
     }
 
 
@@ -223,46 +279,73 @@ def run_watchlist_matcher(db: Session) -> dict[str, Any]:
     email per user (not per watchlist).
 
     Flow:
-      1. For each enabled watchlist: match new notices
-      2. Group results by user (via notify_email or user_id)
-      3. For each user with matches: send 1 consolidated email
+      1. For each enabled watchlist: match NEW notices + get existing OPEN matches
+      2. Group results by user email (auto-resolved from user account)
+      3. For each user with any matches (new or open): send 1 consolidated digest
     """
     watchlists = db.query(Watchlist).filter(Watchlist.enabled == True).all()
 
     results = {
         "watchlists_processed": 0,
         "total_new_matches": 0,
+        "total_open_matches": 0,
         "emails_sent": 0,
         "details": [],
     }
 
     # Step 1: Match all watchlists, collect results grouped by user email
-    # Key: notify_email → list of { watchlist, new_matches }
     user_digests: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    user_names: dict[str, str] = {}
 
     for wl in watchlists:
         try:
+            # 1a. Find new matches
             new_matches = match_watchlist(db, wl)
+
+            # 1b. Get all open matches (includes new ones + existing reminders)
+            open_matches = _get_open_matches(db, wl, limit=20)
+
+            # Track which notice IDs are new for highlighting
+            new_ids = {n.id for n in new_matches}
+
             detail = {
                 "watchlist_id": wl.id,
                 "watchlist_name": wl.name,
                 "new_matches": len(new_matches),
+                "open_matches": len(open_matches),
                 "email_sent": False,
             }
 
-            # Collect for consolidated digest
-            if new_matches and getattr(wl, "notify_email", None):
-                email_data = [_notice_to_email_dict(n) for n in new_matches]
-                user_digests[wl.notify_email].append({
+            # 1c. Resolve email (watchlist notify_email → user account email)
+            email_addr = _resolve_email(db, wl)
+
+            if email_addr and open_matches:
+                email_data = [
+                    _notice_to_email_dict(n, is_new=(n.id in new_ids))
+                    for n in open_matches
+                ]
+                user_digests[email_addr].append({
                     "watchlist": wl,
                     "watchlist_name": wl.name,
                     "watchlist_keywords": wl.keywords or "",
                     "matches": email_data,
+                    "new_count": len(new_matches),
                 })
                 detail["queued_for_digest"] = True
+                detail["resolved_email"] = email_addr
+
+                if email_addr not in user_names:
+                    user_names[email_addr] = _resolve_user_name(db, wl)
+
+            elif not email_addr:
+                detail["skipped_reason"] = "no email (no notify_email and no user account)"
+
+            elif not open_matches:
+                detail["skipped_reason"] = "no open matches"
 
             results["watchlists_processed"] += 1
             results["total_new_matches"] += len(new_matches)
+            results["total_open_matches"] += len(open_matches)
             results["details"].append(detail)
 
         except Exception as e:
@@ -278,16 +361,9 @@ def run_watchlist_matcher(db: Session) -> dict[str, Any]:
 
     for email_addr, wl_results in user_digests.items():
         try:
-            # Try to get user name from the first watchlist's user
-            user_name = ""
-            first_wl = wl_results[0]["watchlist"]
-            if hasattr(first_wl, "user_id") and first_wl.user_id:
-                from app.models.user import User
-                user = db.query(User).filter(User.id == first_wl.user_id).first()
-                if user and hasattr(user, "full_name"):
-                    user_name = user.full_name or user.email.split("@")[0]
-                elif user:
-                    user_name = user.email.split("@")[0]
+            user_name = user_names.get(email_addr, email_addr.split("@")[0])
+            total_matches = sum(len(wr["matches"]) for wr in wl_results)
+            total_new = sum(wr.get("new_count", 0) for wr in wl_results)
 
             send_consolidated_digest(
                 to_address=email_addr,
@@ -295,15 +371,12 @@ def run_watchlist_matcher(db: Session) -> dict[str, Any]:
                 watchlist_results=wl_results,
             )
 
-            total_matches = sum(len(wr["matches"]) for wr in wl_results)
-            n_wl = len(wl_results)
             results["emails_sent"] += 1
             logger.info(
                 f"Consolidated digest → {email_addr}: "
-                f"{total_matches} matches from {n_wl} watchlist(s)"
+                f"{total_matches} matches ({total_new} new) from {len(wl_results)} watchlist(s)"
             )
 
-            # Mark details as sent
             wl_ids_sent = {wr["watchlist"].id for wr in wl_results}
             for d in results["details"]:
                 if d.get("watchlist_id") in wl_ids_sent:
@@ -311,7 +384,6 @@ def run_watchlist_matcher(db: Session) -> dict[str, Any]:
 
         except Exception as e:
             logger.error(f"Failed to send consolidated digest to {email_addr}: {e}")
-            # Mark error on all related watchlists
             wl_ids = {wr["watchlist"].id for wr in wl_results}
             for d in results["details"]:
                 if d.get("watchlist_id") in wl_ids:
