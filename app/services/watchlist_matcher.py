@@ -329,6 +329,7 @@ def run_watchlist_matcher(db: Session) -> dict[str, Any]:
             user_id = getattr(wl, "user_id", None)
             if user_id:
                 from app.services.subscription import effective_plan as _eff_plan, get_plan_limits as _get_limits
+                from app.models.user import User
                 user_obj = db.query(User).filter(User.id == user_id).first()
                 if user_obj:
                     plan_limits = _get_limits(_eff_plan(user_obj))

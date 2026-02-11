@@ -52,16 +52,10 @@ DEFAULT_FIELDS = [
     # Links / documents
     "links",
     "document-url-lot",
-    # --- CAN (Contract Award Notice) fields ---
-    "winner-name",
-    "winner-country-code",
-    "contract-value-lot",
-    "total-value",
-    "number-of-tenders",
-    "award-criteria-type",
-    "award-date",
-    "reference-number",
-    "procedure-identifier",
+    # NOTE: CAN-specific fields (winner-name, contract-value-lot, total-value,
+    # number-of-tenders, award-criteria-type, award-date, reference-number,
+    # procedure-identifier) are NOT supported by TED Search API v3 fields param.
+    # CAN award data is extracted from description/title fields or via notice XML.
 ]
 
 
