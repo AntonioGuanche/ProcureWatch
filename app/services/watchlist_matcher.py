@@ -1,12 +1,12 @@
-"""Watchlist matcher: match new notices to enabled watchlists and send email digests.
+"""Watchlist matcher: match new notices to enabled watchlists and send consolidated email digests.
 
-Called after each import run. For each enabled watchlist with a notify_email:
-1. Find notices created since last_refresh_at that match the watchlist criteria
-2. Store new matches in watchlist_matches (dedup via unique constraint)
-3. Send email digest with new matches
-4. Update last_refresh_at
+Key change from v6: instead of 1 email per watchlist, we group all watchlists
+by user and send 1 consolidated email per user.
+
+Called after each import run via run_watchlist_matcher(db).
 """
 import logging
+from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Any, Optional
 
@@ -17,20 +17,19 @@ from sqlalchemy.orm import Session
 from app.models.notice import ProcurementNotice as Notice, NoticeSource
 from app.models.watchlist import Watchlist
 from app.models.watchlist_match import WatchlistMatch
-from app.services.notification_service import send_watchlist_notification
 
 logger = logging.getLogger(__name__)
 
 
+# ── Helpers ──────────────────────────────────────────────────────────
+
 def _parse_csv(val: Optional[str]) -> list[str]:
-    """Parse comma-separated string to list."""
     if not val:
         return []
     return [v.strip() for v in val.split(",") if v.strip()]
 
 
 def _source_map(src: str) -> Optional[str]:
-    """Map watchlist source name to DB enum value."""
     s = src.strip().upper()
     if s in ("BOSA", "BOSA_EPROC"):
         return NoticeSource.BOSA_EPROC.value
@@ -40,7 +39,6 @@ def _source_map(src: str) -> Optional[str]:
 
 
 def _parse_sources_json(val: Optional[str]) -> list[str]:
-    """Parse JSON array of sources."""
     if not val:
         return ["TED", "BOSA"]
     import json
@@ -56,14 +54,10 @@ def _build_match_query(
     watchlist: Watchlist,
     since: Optional[datetime] = None,
 ) -> Any:
-    """
-    Build SQLAlchemy query for notices matching watchlist criteria.
-    If since is provided, only matches notices created after that time.
-    """
+    """Build SQLAlchemy query for notices matching watchlist criteria."""
     is_pg = db.bind.dialect.name == "postgresql"
     query = db.query(Notice)
 
-    # Time filter: only new notices
     if since:
         query = query.filter(Notice.created_at > since)
 
@@ -84,7 +78,7 @@ def _build_match_query(
             kw_conditions.append(Notice.description.ilike(like))
         query = query.filter(or_(*kw_conditions))
 
-    # CPV prefix filter (any prefix matches)
+    # CPV prefix filter
     cpv_prefixes = _parse_csv(watchlist.cpv_prefixes)
     if cpv_prefixes:
         cpv_conditions = []
@@ -114,7 +108,7 @@ def _build_match_query(
         if nuts_conditions:
             query = query.filter(or_(*nuts_conditions))
 
-    # Country filter (via NUTS codes — country = first 2 chars of NUTS)
+    # Country filter
     countries = _parse_csv(watchlist.countries)
     if countries:
         if is_pg:
@@ -142,7 +136,6 @@ def _build_match_query(
 
 
 def _build_explanation(watchlist: Watchlist) -> str:
-    """Build human-readable explanation of match criteria."""
     parts = []
     kw = _parse_csv(watchlist.keywords)
     if kw:
@@ -159,16 +152,14 @@ def _build_explanation(watchlist: Watchlist) -> str:
     return ", ".join(parts) if parts else "all notices"
 
 
+# ── Core matching ────────────────────────────────────────────────────
+
 def match_watchlist(
     db: Session,
     watchlist: Watchlist,
     since: Optional[datetime] = None,
 ) -> list[Notice]:
-    """
-    Find new notices matching watchlist criteria since last_refresh_at.
-    Stores matches (dedup via try/except on unique constraint).
-    Returns list of newly matched notices.
-    """
+    """Find new notices matching watchlist, store matches (dedup), update last_refresh_at."""
     cutoff = since or watchlist.last_refresh_at
     query = _build_match_query(db, watchlist, since=cutoff)
     candidates = query.all()
@@ -177,7 +168,6 @@ def match_watchlist(
     new_matches = []
 
     for notice in candidates:
-        # Check if match already exists
         existing = (
             db.query(WatchlistMatch.id)
             .filter(
@@ -197,7 +187,6 @@ def match_watchlist(
         db.add(match)
         new_matches.append(notice)
 
-    # Update last_refresh_at
     watchlist.last_refresh_at = datetime.now(timezone.utc)
     db.commit()
 
@@ -226,11 +215,17 @@ def _notice_to_email_dict(notice: Notice) -> dict[str, Any]:
     }
 
 
+# ── Consolidated per-user digest ─────────────────────────────────────
+
 def run_watchlist_matcher(db: Session) -> dict[str, Any]:
     """
-    Run matcher for ALL enabled watchlists.
-    For each: match new notices, send email if notify_email is set.
-    Returns summary stats.
+    Run matcher for ALL enabled watchlists, then send ONE consolidated
+    email per user (not per watchlist).
+
+    Flow:
+      1. For each enabled watchlist: match new notices
+      2. Group results by user (via notify_email or user_id)
+      3. For each user with matches: send 1 consolidated email
     """
     watchlists = db.query(Watchlist).filter(Watchlist.enabled == True).all()
 
@@ -240,6 +235,10 @@ def run_watchlist_matcher(db: Session) -> dict[str, Any]:
         "emails_sent": 0,
         "details": [],
     }
+
+    # Step 1: Match all watchlists, collect results grouped by user email
+    # Key: notify_email → list of { watchlist, new_matches }
+    user_digests: dict[str, list[dict[str, Any]]] = defaultdict(list)
 
     for wl in watchlists:
         try:
@@ -251,17 +250,16 @@ def run_watchlist_matcher(db: Session) -> dict[str, Any]:
                 "email_sent": False,
             }
 
-            # Send email if configured and there are new matches
+            # Collect for consolidated digest
             if new_matches and getattr(wl, "notify_email", None):
-                try:
-                    email_data = [_notice_to_email_dict(n) for n in new_matches]
-                    send_watchlist_notification(wl, email_data, to_address=wl.notify_email)
-                    detail["email_sent"] = True
-                    results["emails_sent"] += 1
-                    logger.info(f"Sent {len(new_matches)} match(es) to {wl.notify_email} for watchlist '{wl.name}'")
-                except Exception as e:
-                    detail["email_error"] = str(e)
-                    logger.error(f"Failed to send email for watchlist '{wl.name}': {e}")
+                email_data = [_notice_to_email_dict(n) for n in new_matches]
+                user_digests[wl.notify_email].append({
+                    "watchlist": wl,
+                    "watchlist_name": wl.name,
+                    "watchlist_keywords": wl.keywords or "",
+                    "matches": email_data,
+                })
+                detail["queued_for_digest"] = True
 
             results["watchlists_processed"] += 1
             results["total_new_matches"] += len(new_matches)
@@ -274,5 +272,49 @@ def run_watchlist_matcher(db: Session) -> dict[str, Any]:
                 "watchlist_name": wl.name,
                 "error": str(e),
             })
+
+    # Step 2: Send consolidated email per user
+    from app.services.notification_service import send_consolidated_digest
+
+    for email_addr, wl_results in user_digests.items():
+        try:
+            # Try to get user name from the first watchlist's user
+            user_name = ""
+            first_wl = wl_results[0]["watchlist"]
+            if hasattr(first_wl, "user_id") and first_wl.user_id:
+                from app.models.user import User
+                user = db.query(User).filter(User.id == first_wl.user_id).first()
+                if user and hasattr(user, "full_name"):
+                    user_name = user.full_name or user.email.split("@")[0]
+                elif user:
+                    user_name = user.email.split("@")[0]
+
+            send_consolidated_digest(
+                to_address=email_addr,
+                user_name=user_name,
+                watchlist_results=wl_results,
+            )
+
+            total_matches = sum(len(wr["matches"]) for wr in wl_results)
+            n_wl = len(wl_results)
+            results["emails_sent"] += 1
+            logger.info(
+                f"Consolidated digest → {email_addr}: "
+                f"{total_matches} matches from {n_wl} watchlist(s)"
+            )
+
+            # Mark details as sent
+            wl_ids_sent = {wr["watchlist"].id for wr in wl_results}
+            for d in results["details"]:
+                if d.get("watchlist_id") in wl_ids_sent:
+                    d["email_sent"] = True
+
+        except Exception as e:
+            logger.error(f"Failed to send consolidated digest to {email_addr}: {e}")
+            # Mark error on all related watchlists
+            wl_ids = {wr["watchlist"].id for wr in wl_results}
+            for d in results["details"]:
+                if d.get("watchlist_id") in wl_ids:
+                    d["email_error"] = str(e)
 
     return results
