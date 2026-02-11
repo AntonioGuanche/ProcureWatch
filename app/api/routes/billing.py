@@ -111,6 +111,7 @@ async def create_checkout_session(
 
     session = stripe.checkout.Session.create(
         customer=customer_id,
+        customer_update={"name": "auto", "address": "auto"},
         mode="subscription",
         line_items=[{"price": price_id, "quantity": 1}],
         success_url=f"{app_url}/billing?session_id={{CHECKOUT_SESSION_ID}}&status=success",
