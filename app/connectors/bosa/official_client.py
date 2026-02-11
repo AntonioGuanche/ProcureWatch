@@ -317,11 +317,14 @@ class OfficialEProcurementClient:
         url = f"{base_url}{path}"
 
         # GET /search/publications: query params only, no JSON body
-        qparams = {
-            term_param: term,
+        # Note: BOSA PR rejects "*" as search term; omit term_param entirely for wildcard/all.
+        qparams: dict[str, Any] = {
             page_param: page,
             page_size_param: page_size,
         }
+        # Only include search term if it's a real keyword (not wildcard or empty)
+        if term and term.strip() not in ("*", ""):
+            qparams[term_param] = term
         headers = self._auth_headers()
         try:
             if method == "GET":
