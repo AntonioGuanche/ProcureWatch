@@ -144,7 +144,7 @@ def bulk_import_source(
     }
 
     page = 1
-    effective_max = min(max_pages or MAX_TOTAL_PAGES, MAX_TOTAL_PAGES)
+    effective_max = min(max_pages if max_pages is not None else MAX_TOTAL_PAGES, MAX_TOTAL_PAGES)
 
     while page <= effective_max:
         page_start = datetime.now(timezone.utc)
@@ -298,7 +298,9 @@ def bulk_import_all(
     results["total_updated"] = total_updated
 
     # Backfill enrichment
-    if run_backfill and (total_created > 0 or total_updated > 0):
+    # Run if: new data imported OR explicitly requested with max_pages=0 (backfill-only mode)
+    backfill_only_mode = max_pages is not None and max_pages == 0
+    if run_backfill and (total_created > 0 or total_updated > 0 or backfill_only_mode):
         try:
             from app.services.enrichment_service import backfill_from_raw_data, refresh_search_vectors
             bf = backfill_from_raw_data(db)
@@ -311,7 +313,7 @@ def bulk_import_all(
             logger.exception("[Bulk] Backfill failed")
 
     # Watchlist matcher
-    if run_matcher and total_created > 0:
+    if run_matcher and (total_created > 0 or backfill_only_mode):
         try:
             from app.services.watchlist_matcher import run_watchlist_matcher
             results["watchlist_matcher"] = run_watchlist_matcher(db)

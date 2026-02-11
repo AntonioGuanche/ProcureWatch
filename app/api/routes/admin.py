@@ -253,7 +253,7 @@ def trigger_bulk_import(
     term_ted: Optional[str] = Query(None, description="TED expert query override (e.g. 'notice-type = can' for award notices)"),
     ted_days_back: int = Query(3, ge=1, le=3650, description="TED rolling date window in days (default: 3, use 3650 for full history)"),
     page_size: int = Query(100, ge=1, le=250, description="Results per page"),
-    max_pages: Optional[int] = Query(None, ge=1, le=100, description="Max pages (None=auto from totalCount)"),
+    max_pages: Optional[int] = Query(None, ge=0, le=100, description="Max pages (None=auto, 0=skip fetch/backfill only)"),
     fetch_details: bool = Query(False, description="Fetch workspace details (BOSA, slower)"),
     run_backfill: bool = Query(True, description="Run enrichment backfill after import"),
     run_matcher: bool = Query(True, description="Run watchlist matcher after import"),
