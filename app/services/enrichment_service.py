@@ -119,6 +119,7 @@ def _enrich_ted_notice(notice: Notice) -> dict[str, bool]:
             _pick_text(raw.get("description-lot"))
             or _pick_text(raw.get("description-glo"))
             or _pick_text(raw.get("description-proc"))
+            or _pick_text(raw.get("description-part"))
             or _pick_text(raw.get("additional-information-lot"))
             or _pick_text(raw.get("description"))
             or _pick_text(raw.get("summary"))
@@ -218,7 +219,10 @@ def _enrich_ted_notice(notice: Notice) -> dict[str, bool]:
 
     # Estimated value
     if not notice.estimated_value:
-        for key in ("estimated-value-lot", "framework-estimated-value-glo", "estimated-value", "estimatedValue", "value", "total-value"):
+        # Cascade: lot (most specific) → proc → glo → framework (broadest)
+        for key in ("estimated-value-lot", "estimated-value-proc", "estimated-value-glo",
+                     "framework-estimated-value-glo", "estimated-value", "estimatedValue",
+                     "value", "total-value"):
             v = raw.get(key)
             if v is not None:
                 try:

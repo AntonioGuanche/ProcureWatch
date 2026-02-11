@@ -136,10 +136,19 @@ def _safe_int(value: Any) -> Optional[int]:
 
 def _extract_award_criteria(item: dict[str, Any]) -> Optional[dict[str, Any]]:
     """Extract award criteria from TED CAN notice as structured JSON."""
-    criteria_type = _unwrap_ted_value(item.get("award-criteria-type"))
+    # v3 search field is 'award-criterion-type-lot', fallback to old names
+    criteria_type = (
+        _unwrap_ted_value(item.get("award-criterion-type-lot"))
+        or _unwrap_ted_value(item.get("award-criteria-type"))
+    )
     if not criteria_type:
         return None
-    return {"type": criteria_type}
+    result: dict[str, Any] = {"type": criteria_type}
+    # Also capture criterion names if available
+    criteria_name = _unwrap_ted_value(item.get("award-criterion-name-lot"))
+    if criteria_name:
+        result["name"] = criteria_name
+    return result
 
 
 def _safe_json_dict(value: Any) -> Optional[dict[str, str]]:
@@ -686,9 +695,9 @@ def _map_ted_item_to_notice(item: dict[str, Any], source_id: str) -> dict[str, A
     deadline_val = (
         item.get("deadline-receipt-tender-date-lot")
         or item.get("deadline-date-lot")
+        or item.get("deadline")
         or item.get("deadline-receipt-tender")
         or item.get("deadlineDate")
-        or item.get("deadline")
         or item.get("submissionDeadline")
     )
     deadline = _safe_datetime(deadline_val)
@@ -744,13 +753,18 @@ def _map_ted_item_to_notice(item: dict[str, Any], source_id: str) -> dict[str, A
             _ted_pick_text(item.get("description-lot"))
             or _ted_pick_text(item.get("description-glo"))
             or _ted_pick_text(item.get("description-proc"))
+            or _ted_pick_text(item.get("description-part"))
             or _ted_pick_text(item.get("additional-information-lot"))
             or item.get("description")
             or item.get("summary")
         ),
         "deadline": deadline,
+        # Value cascade: lot (most specific) → proc → glo → framework (broadest)
+        # With currency tracking in raw_data for future use
         "estimated_value": _safe_decimal(
             item.get("estimated-value-lot")
+            or item.get("estimated-value-proc")
+            or item.get("estimated-value-glo")
             or item.get("framework-estimated-value-glo")
             or item.get("estimatedValue")
             or item.get("estimated-value")
@@ -758,12 +772,15 @@ def _map_ted_item_to_notice(item: dict[str, Any], source_id: str) -> dict[str, A
         ),
         "url": _generate_ted_url_from_item(item),
         # --- CAN (Contract Award Notice) fields ---
+        # winner-name is NOT a valid v3 search field; winner-country IS
         "award_winner_name": _safe_str(
-            _ted_pick_text(item.get("winner-name")),
+            _ted_pick_text(item.get("winner-country"))
+            or _ted_pick_text(item.get("winner-name")),
             500,
         ),
         "award_value": _safe_decimal(
-            item.get("total-value")
+            item.get("tender-value-cur")
+            or item.get("total-value")
             or item.get("contract-value-lot")
         ),
         "award_date": _safe_date(item.get("award-date")),

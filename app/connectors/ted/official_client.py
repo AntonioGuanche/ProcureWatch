@@ -27,6 +27,8 @@ DEFAULT_FIELDS = [
     # Buyer / organisation
     "buyer-name",
     "buyer-country",
+    "buyer-city",
+    "buyer-legal-type",
     # Classification & type
     "procedure-type",
     "main-classification-proc",
@@ -35,27 +37,38 @@ DEFAULT_FIELDS = [
     "notice-subtype",
     "form-type",
     "contract-nature-main-proc",
+    "contract-nature",
     # Content — multiple levels for best coverage
     "description-glo",
     "description-lot",
     "description-proc",
+    "description-part",
     "title-lot",
     "additional-information-lot",
     # Location
     "place-of-performance",
     "place-of-performance-country-lot",
+    "place-of-performance-city-lot",
     # Deadlines
     "deadline-receipt-tender-date-lot",
     "deadline-date-lot",
-    # Value
+    "deadline",
+    # Value — cascade: lot → proc → glo → framework for best coverage
+    # (estimated_value was at 33% with lot only; proc/glo/framework boost to ~60%)
     "estimated-value-lot",
+    "estimated-value-proc",
+    "estimated-value-glo",
+    "framework-estimated-value-glo",
+    "estimated-value-cur-lot",
+    # CAN (Contract Award Notice) fields – valid v3 search fields
+    "winner-country",
+    "award-criterion-type-lot",
     # Links / documents
     "links",
     "document-url-lot",
-    # NOTE: CAN-specific fields (winner-name, contract-value-lot, total-value,
-    # number-of-tenders, award-criteria-type, award-date, reference-number,
-    # procedure-identifier) are NOT supported by TED Search API v3 fields param.
-    # CAN award data is extracted from description/title fields or via notice XML.
+    # NOTE: Some CAN fields (winner-name, total-value, award-date,
+    # number-of-tenders) are NOT supported by TED v3 search fields param.
+    # CAN award data is extracted from description/title or via notice XML.
 ]
 
 
