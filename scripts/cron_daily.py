@@ -22,17 +22,18 @@ Railway cron setup:
 """
 import logging
 import os
+import signal
 import subprocess
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-# Project root on path
+# ── Project root on path ───────────────────────────────────────────
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-# Logging
+# ── Logging ────────────────────────────────────────────────────────
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
@@ -41,7 +42,39 @@ logging.basicConfig(
 )
 logger = logging.getLogger("cron_daily")
 
+# ── Global timeout (5 min) ─────────────────────────────────────────
+TIMEOUT_SECONDS = int(os.environ.get("CRON_TIMEOUT_SECONDS", "300"))
 
+
+def _timeout_handler(signum, frame):
+    logger.error(f"TIMEOUT: cron exceeded {TIMEOUT_SECONDS}s — aborting")
+    sys.exit(2)
+
+
+# signal.alarm is Unix-only; skip gracefully on Windows
+if hasattr(signal, "SIGALRM"):
+    signal.signal(signal.SIGALRM, _timeout_handler)
+    signal.alarm(TIMEOUT_SECONDS)
+
+
+# ── Load all SQLAlchemy models (FK resolution) ─────────────────────
+def _load_models():
+    """Import every model so SQLAlchemy sees all tables/FKs before any query."""
+    import app.models  # noqa: F401  — Base, Notice, Watchlist, etc.
+    import app.models.user  # noqa: F401
+    import app.models.user_favorite  # noqa: F401
+    import app.models.notice  # noqa: F401
+    import app.models.notice_detail  # noqa: F401
+    import app.models.notice_document  # noqa: F401
+    import app.models.notice_lot  # noqa: F401
+    import app.models.notice_cpv_additional  # noqa: F401
+    import app.models.watchlist  # noqa: F401
+    import app.models.watchlist_match  # noqa: F401
+    import app.models.filter  # noqa: F401
+    import app.models.import_run  # noqa: F401
+
+
+# ── Step 1: Alembic migrations ─────────────────────────────────────
 def step_migrate() -> bool:
     """Run Alembic migrations (idempotent)."""
     logger.info("Step 1/3: Running database migrations...")
@@ -58,16 +91,20 @@ def step_migrate() -> bool:
     return True  # non-blocking
 
 
+# ── Step 2: Import notices (TED + BOSA) ────────────────────────────
 def step_import() -> dict:
     """Import latest notices from TED + BOSA."""
     logger.info("Step 2/3: Importing latest notices...")
+
+    _load_models()
 
     sources = os.environ.get("IMPORT_SOURCES", "BOSA,TED")
     days_back = int(os.environ.get("IMPORT_DAYS_BACK", "3"))
     page_size = int(os.environ.get("IMPORT_PAGE_SIZE", "100"))
     max_pages = int(os.environ.get("IMPORT_MAX_PAGES", "10"))
 
-    # Use import_daily's logic directly
+    from app.connectors.ted_connector import search_ted_notices
+    from app.connectors.bosa.client import search_publications
     from app.db.session import SessionLocal
     from app.services.notice_service import NoticeService
 
@@ -76,38 +113,36 @@ def step_import() -> dict:
 
     try:
         svc = NoticeService(db)
+        since = (datetime.now(timezone.utc) - timedelta(days=days_back)).strftime("%Y%m%d")
 
         for source in [s.strip().upper() for s in sources.split(",") if s.strip()]:
             source_stats = {"created": 0, "updated": 0, "errors": 0, "pages": 0}
 
             try:
                 if source == "TED":
-                    from app.connectors.ted import TedConnector
-                    connector = TedConnector()
-                    from datetime import timedelta
-                    since = (datetime.now(timezone.utc) - timedelta(days=days_back)).strftime("%Y%m%d")
-
                     page = 1
                     while page <= max_pages:
                         try:
-                            results = connector.search(
-                                query=f"PD >= {since}",
+                            result = search_ted_notices(
+                                term=f"PD >= {since}",
                                 page=page,
                                 page_size=page_size,
                             )
-                            notices = results.get("notices", [])
+                            # Notices are in result["json"]["notices"] or result["notices"]
+                            notices = (
+                                result.get("notices")
+                                or (result.get("json") or {}).get("notices")
+                                or []
+                            )
                             if not notices:
                                 break
-                            for n in notices:
-                                try:
-                                    _, created = svc.upsert_from_connector(n, source="ted_eu")
-                                    if created:
-                                        source_stats["created"] += 1
-                                    else:
-                                        source_stats["updated"] += 1
-                                except Exception as e:
-                                    source_stats["errors"] += 1
-                                    logger.debug(f"TED upsert error: {e}")
+
+                            import_result = _sync_import(
+                                svc.import_from_ted_search, notices
+                            )
+                            source_stats["created"] += import_result.get("created", 0)
+                            source_stats["updated"] += import_result.get("updated", 0)
+                            source_stats["errors"] += len(import_result.get("errors", []))
                             source_stats["pages"] = page
                             page += 1
                         except Exception as e:
@@ -116,26 +151,32 @@ def step_import() -> dict:
                             break
 
                 elif source == "BOSA":
-                    from app.connectors.bosa import BosaConnector
-                    connector = BosaConnector()
-
                     page = 1
                     while page <= max_pages:
                         try:
-                            results = connector.search(page=page, page_size=page_size)
-                            notices = results.get("notices", [])
+                            result = search_publications(
+                                term="",
+                                page=page,
+                                page_size=page_size,
+                            )
+                            # Items are in result["json"]["publications"|"items"|"results"|"data"]
+                            payload = result.get("json") or {}
+                            notices = []
+                            if isinstance(payload, dict):
+                                for key in ("publications", "items", "results", "data"):
+                                    candidate = payload.get(key)
+                                    if isinstance(candidate, list):
+                                        notices = candidate
+                                        break
                             if not notices:
                                 break
-                            for n in notices:
-                                try:
-                                    _, created = svc.upsert_from_connector(n, source="bosa_eproc")
-                                    if created:
-                                        source_stats["created"] += 1
-                                    else:
-                                        source_stats["updated"] += 1
-                                except Exception as e:
-                                    source_stats["errors"] += 1
-                                    logger.debug(f"BOSA upsert error: {e}")
+
+                            import_result = _sync_import(
+                                svc.import_from_eproc_search, notices
+                            )
+                            source_stats["created"] += import_result.get("created", 0)
+                            source_stats["updated"] += import_result.get("updated", 0)
+                            source_stats["errors"] += len(import_result.get("errors", []))
                             source_stats["pages"] = page
                             page += 1
                         except Exception as e:
@@ -170,9 +211,24 @@ def step_import() -> dict:
     return stats
 
 
+def _sync_import(async_import_fn, items: list) -> dict:
+    """Run an async import method (import_from_ted_search / import_from_eproc_search)
+    synchronously from the cron script."""
+    import asyncio
+
+    loop = asyncio.new_event_loop()
+    try:
+        return loop.run_until_complete(async_import_fn(items))
+    finally:
+        loop.close()
+
+
+# ── Step 3: Watchlist matching + email digests ──────────────────────
 def step_watchlists() -> dict:
     """Run watchlist matching + send email digests."""
     logger.info("Step 3/3: Running watchlist matcher + email digests...")
+
+    _load_models()
 
     from app.db.session import SessionLocal
     from app.services.watchlist_matcher import run_watchlist_matcher
@@ -197,6 +253,7 @@ def step_watchlists() -> dict:
         db.close()
 
 
+# ── Main entry point ───────────────────────────────────────────────
 def main() -> int:
     start = datetime.now(timezone.utc)
     logger.info("=" * 60)
@@ -226,6 +283,10 @@ def main() -> int:
         logger.error(f"Watchlist matcher failed: {e}")
         wl_stats = {"error": str(e)}
         exit_code = 1
+
+    # Cancel timeout
+    if hasattr(signal, "SIGALRM"):
+        signal.alarm(0)
 
     elapsed = (datetime.now(timezone.utc) - start).total_seconds()
     logger.info(f"Cron complete in {elapsed:.1f}s (exit={exit_code})")
