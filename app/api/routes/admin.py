@@ -250,6 +250,8 @@ async def import_runs_summary(
 def trigger_bulk_import(
     sources: str = Query("BOSA,TED", description="Comma-separated: BOSA,TED"),
     term: str = Query("*", description="Search term"),
+    term_ted: Optional[str] = Query(None, description="TED expert query override (e.g. 'notice-type = can' for award notices)"),
+    ted_days_back: int = Query(3, ge=1, le=3650, description="TED rolling date window in days (default: 3, use 3650 for full history)"),
     page_size: int = Query(100, ge=1, le=250, description="Results per page"),
     max_pages: Optional[int] = Query(None, ge=1, le=100, description="Max pages (None=auto from totalCount)"),
     fetch_details: bool = Query(False, description="Fetch workspace details (BOSA, slower)"),
@@ -263,10 +265,14 @@ def trigger_bulk_import(
     Bulk import: auto-paginates through all available results.
     Much larger than /import (which fetches 1 page by default).
     Returns per-page breakdown and triggers backfill + matcher.
+
+    TED CAN import example:
+        term_ted=notice-type = can&ted_days_back=365&sources=TED
     """
     from app.services.bulk_import import bulk_import_all
     return bulk_import_all(
-        db, sources=sources, term=term, page_size=page_size,
+        db, sources=sources, term=term, term_ted=term_ted,
+        ted_days_back=ted_days_back, page_size=page_size,
         max_pages=max_pages, fetch_details=fetch_details,
         run_backfill=run_backfill, run_matcher=run_matcher,
         date_from=date_from, date_to=date_to,

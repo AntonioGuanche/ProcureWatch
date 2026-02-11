@@ -18,6 +18,7 @@ DEBUG_BODY_ON_ERROR_CHARS = 1000
 TED_SEARCH_PATH = "/v3/notices/search"
 
 # Default fields for TED Search API (required, non-empty)
+# Constraint: fields × limit ≤ 10000  →  40 fields × 250 = 10000
 DEFAULT_FIELDS = [
     # Core identification
     "publication-number",
@@ -63,12 +64,13 @@ DEFAULT_FIELDS = [
     # CAN (Contract Award Notice) fields – valid v3 search fields
     "winner-country",
     "award-criterion-type-lot",
+    # ── NEW CAN fields (Phase 1 intelligence roadmap) ──
+    "business-name",          # Winner/tenderer company name (most valuable!)
+    "tender-value",           # Awarded contract value
+    "winner-decision-date",   # Date the winner was chosen
     # Links / documents
     "links",
     "document-url-lot",
-    # NOTE: Some CAN fields (winner-name, total-value, award-date,
-    # number-of-tenders) are NOT supported by TED v3 search fields param.
-    # CAN award data is extracted from description/title or via notice XML.
 ]
 
 

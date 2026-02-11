@@ -836,19 +836,32 @@ def _map_ted_item_to_notice(item: dict[str, Any], source_id: str) -> dict[str, A
         ),
         "url": _generate_ted_url_from_item(item),
         # --- CAN (Contract Award Notice) fields ---
-        # winner-name is NOT a valid v3 search field; winner-country IS
+        # Cascade: business-name (v3 search field, best) → winner-name (rare) → winner-country (fallback)
         "award_winner_name": _safe_str(
-            _ted_pick_text(item.get("winner-country"))
-            or _ted_pick_text(item.get("winner-name")),
+            _ted_pick_text(item.get("business-name"))
+            or _ted_pick_text(item.get("winner-name"))
+            or _ted_pick_text(item.get("organisation-name-tenderer"))
+            or _ted_pick_text(item.get("organisation-partname-tenderer"))
+            or _ted_pick_text(item.get("winner-country")),
             500,
         ),
+        # Value cascade: tender-value (awarded) → total-value → tender-value-cur → contract-value-lot
         "award_value": _safe_decimal(
-            item.get("tender-value-cur")
+            item.get("tender-value")
             or item.get("total-value")
+            or item.get("tender-value-cur")
+            or item.get("result-value-lot")
             or item.get("contract-value-lot")
         ),
-        "award_date": _safe_date(item.get("award-date")),
-        "number_tenders_received": _safe_int(item.get("number-of-tenders")),
+        # Date cascade: winner-decision-date (v3 field) → award-date
+        "award_date": _safe_date(
+            item.get("winner-decision-date")
+            or item.get("award-date")
+        ),
+        "number_tenders_received": _safe_int(
+            item.get("received-submissions-type-val")
+            or item.get("number-of-tenders")
+        ),
         "award_criteria_json": _extract_award_criteria(item),
     }
 

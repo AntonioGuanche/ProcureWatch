@@ -251,6 +251,61 @@ def _enrich_ted_notice(notice: Notice) -> dict[str, bool]:
                 except Exception:
                     pass
 
+    # ── CAN (Contract Award Notice) fields from raw_data ─────────
+    # Re-extract award fields using improved cascade (business-name, tender-value, winner-decision-date)
+
+    # Award winner name
+    if not notice.award_winner_name:
+        winner = (
+            _pick_text(raw.get("business-name"))
+            or _pick_text(raw.get("winner-name"))
+            or _pick_text(raw.get("organisation-name-tenderer"))
+            or _pick_text(raw.get("organisation-partname-tenderer"))
+        )
+        if winner:
+            notice.award_winner_name = _safe_str(winner, 500)
+            updated["award_winner_name"] = True
+        else:
+            # Fallback: winner-country is better than nothing
+            wc = _pick_text(raw.get("winner-country"))
+            if wc and not notice.award_winner_name:
+                notice.award_winner_name = _safe_str(wc, 500)
+                updated["award_winner_name"] = True
+
+    # Award value
+    if not notice.award_value:
+        for key in ("tender-value", "total-value", "tender-value-cur",
+                     "result-value-lot", "contract-value-lot"):
+            v = raw.get(key)
+            if v is not None:
+                try:
+                    notice.award_value = Decimal(str(v))
+                    updated["award_value"] = True
+                    break
+                except Exception:
+                    pass
+
+    # Award date
+    if not notice.award_date:
+        ad_raw = raw.get("winner-decision-date") or raw.get("award-date")
+        if ad_raw:
+            try:
+                if isinstance(ad_raw, str):
+                    notice.award_date = date.fromisoformat(ad_raw[:10])
+                    updated["award_date"] = True
+            except Exception:
+                pass
+
+    # Number of tenders received
+    if not notice.number_tenders_received:
+        nt = raw.get("received-submissions-type-val") or raw.get("number-of-tenders")
+        if nt is not None:
+            try:
+                notice.number_tenders_received = int(nt)
+                updated["number_tenders_received"] = True
+            except (ValueError, TypeError):
+                pass
+
     return updated
 
 
@@ -590,10 +645,12 @@ def get_data_quality_report(db: Session) -> dict[str, Any]:
     string_fields = [
         "title", "description", "notice_type",
         "cpv_main_code", "url", "form_type", "reference_number",
+        "award_winner_name",
     ]
     non_string_fields = [
         "organisation_names", "nuts_codes",  # JSON
         "deadline", "estimated_value",       # datetime, numeric
+        "award_value", "award_date",         # CAN fields
     ]
 
     # Global fill rates
