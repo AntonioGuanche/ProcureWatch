@@ -255,6 +255,8 @@ def trigger_bulk_import(
     fetch_details: bool = Query(False, description="Fetch workspace details (BOSA, slower)"),
     run_backfill: bool = Query(True, description="Run enrichment backfill after import"),
     run_matcher: bool = Query(True, description="Run watchlist matcher after import"),
+    date_from: Optional[str] = Query(None, description="BOSA publication date from (YYYY-MM-DD)"),
+    date_to: Optional[str] = Query(None, description="BOSA publication date to (YYYY-MM-DD)"),
     db: Session = Depends(get_db),
 ) -> dict:
     """
@@ -267,6 +269,7 @@ def trigger_bulk_import(
         db, sources=sources, term=term, page_size=page_size,
         max_pages=max_pages, fetch_details=fetch_details,
         run_backfill=run_backfill, run_matcher=run_matcher,
+        date_from=date_from, date_to=date_to,
     )
 
 

@@ -340,6 +340,29 @@ def _enrich_bosa_notice(notice: Notice) -> dict[str, bool]:
                 notice.description = desc[:10000]
                 updated["description"] = True
 
+    # ── Enrich short descriptions with lot info ───────────────────
+    if notice.description and len(notice.description) < 200:
+        lots_raw = raw.get("lots") or []
+        if isinstance(lots_raw, list) and lots_raw:
+            lot_texts = []
+            for lot in lots_raw[:10]:  # max 10 lots to avoid bloat
+                if not isinstance(lot, dict):
+                    continue
+                lot_descs = lot.get("descriptions") or lot.get("titles") or []
+                if isinstance(lot_descs, list):
+                    for entry in lot_descs:
+                        if isinstance(entry, dict):
+                            lang = str(entry.get("language", "")).upper()
+                            text = str(entry.get("text", "")).strip()
+                            if text and lang in ("FR", "NL", "EN", ""):
+                                lot_num = lot.get("number", "?")
+                                lot_texts.append(f"Lot {lot_num}: {text}")
+                                break
+            if lot_texts:
+                enriched = notice.description + "\n\n" + "\n".join(lot_texts)
+                notice.description = enriched[:10000]
+                updated["description"] = True
+
     # Notice type: publicationType is the correct BOSA field
     if not notice.notice_type:
         nt = (
@@ -380,6 +403,82 @@ def _enrich_bosa_notice(notice: Notice) -> dict[str, bool]:
             if codes:
                 notice.nuts_codes = codes
                 updated["nuts_codes"] = True
+
+    # ── Required accreditation from dossier.accreditations ────────
+    if not notice.required_accreditation:
+        dossier = raw.get("dossier")
+        if isinstance(dossier, dict):
+            accreditations = dossier.get("accreditations")
+            if isinstance(accreditations, dict) and accreditations:
+                parts = [f"{cat}{level}" for cat, level in sorted(accreditations.items())]
+                notice.required_accreditation = ", ".join(parts)[:500]
+                updated["required_accreditation"] = True
+        # Fallback: pre-computed in raw_data by mapper
+        if not notice.required_accreditation:
+            ra = raw.get("required_accreditation")
+            if ra and str(ra).strip():
+                notice.required_accreditation = str(ra).strip()[:500]
+                updated["required_accreditation"] = True
+
+    # ── Keywords: enrich with natures + procedure type ────────────
+    # Makes WORKS/SERVICES/SUPPLIES and OPEN/RESTRICTED searchable
+    existing_kw = notice.keywords if isinstance(notice.keywords, list) else []
+    existing_set = set(existing_kw)
+    new_kw = list(existing_kw)
+    kw_changed = False
+
+    # Natures from raw_data
+    natures = raw.get("natures") or []
+    if isinstance(natures, list):
+        for n in natures:
+            tag = f"nature:{str(n).strip().upper()}"
+            if tag not in existing_set and str(n).strip():
+                new_kw.append(tag)
+                existing_set.add(tag)
+                kw_changed = True
+
+    # Procedure type from dossier
+    dossier = raw.get("dossier")
+    if isinstance(dossier, dict):
+        pt = dossier.get("procurementProcedureType")
+        if pt:
+            tag = f"procedure:{str(pt).strip()}"
+            if tag not in existing_set:
+                new_kw.append(tag)
+                existing_set.add(tag)
+                kw_changed = True
+        spt = dossier.get("specialPurchasingTechnique")
+        if spt:
+            tag = f"technique:{str(spt).strip()}"
+            if tag not in existing_set:
+                new_kw.append(tag)
+                existing_set.add(tag)
+                kw_changed = True
+        lb = dossier.get("legalBasis")
+        if lb:
+            tag = f"legal:{str(lb).strip()}"
+            if tag not in existing_set:
+                new_kw.append(tag)
+                existing_set.add(tag)
+                kw_changed = True
+
+    # Also check pre-computed values in raw_data (from new mapper)
+    for raw_key, prefix in (
+        ("procurement_procedure_type", "procedure"),
+        ("special_purchasing_technique", "technique"),
+        ("legal_basis", "legal"),
+    ):
+        val = raw.get(raw_key)
+        if val:
+            tag = f"{prefix}:{str(val).strip()}"
+            if tag not in existing_set:
+                new_kw.append(tag)
+                existing_set.add(tag)
+                kw_changed = True
+
+    if kw_changed:
+        notice.keywords = new_kw
+        updated["keywords"] = True
 
     return updated
 

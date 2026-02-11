@@ -304,17 +304,39 @@ def _bosa_enrich_raw_data_and_extras(
     raw["cancelled_at"] = publication.get("cancelledAt") if publication else None
     raw["migrated"] = publication.get("migrated", False) if publication else False
 
-    # Certificates (required_accreditation)
+    # ── Natures (WORKS / SUPPLIES / SERVICES) ─────────────────────
+    natures_raw = (publication or {}).get("natures") or []
+    natures_list = []
+    if isinstance(natures_raw, list):
+        for n in natures_raw:
+            s = str(n).strip().upper() if n else ""
+            if s:
+                natures_list.append(s)
+    raw["natures"] = natures_list
+
+    # ── TED cross-reference ───────────────────────────────────────
+    raw["ted_published"] = (publication or {}).get("tedPublished")
+
+    # ── Dispatch date ─────────────────────────────────────────────
+    raw["dispatch_date"] = (publication or {}).get("dispatchDate")
+
+    # ── Organisation tree (hierarchy) ─────────────────────────────
+    org = (publication or {}).get("organisation") or {}
+    org_tree = org.get("tree")
+    if org_tree:
+        raw["organisation_tree"] = str(org_tree).strip()
+
+    # Certificates (required_accreditation – from certificates list)
     certificates = (publication or {}).get("certificates") or []
-    if certificates:
-        cert_descriptions = []
-        for cert in certificates if isinstance(certificates, list) else []:
+    cert_descriptions = []
+    if isinstance(certificates, list):
+        for cert in certificates:
             if isinstance(cert, dict):
                 d = cert.get("description") or cert.get("type")
                 if d:
                     cert_descriptions.append(str(d))
-        if cert_descriptions:
-            raw["required_accreditation"] = ", ".join(cert_descriptions)
+    if cert_descriptions:
+        raw["required_accreditation"] = ", ".join(cert_descriptions)
 
     # Dossier info
     dossier = (publication or {}).get("dossier") or {}
@@ -332,11 +354,40 @@ def _bosa_enrich_raw_data_and_extras(
         raw["dossier_number"] = dossier.get("number")
         raw["dossier_title"] = dossier_title
 
+        # ── Procurement procedure type (OPEN, RESTRICTED, etc.) ───
+        proc_type = dossier.get("procurementProcedureType")
+        if proc_type:
+            raw["procurement_procedure_type"] = str(proc_type).strip()
+
+        # ── Special purchasing technique (FRAMEWORK_AGREEMENT, etc.)
+        spt = dossier.get("specialPurchasingTechnique")
+        if spt:
+            raw["special_purchasing_technique"] = str(spt).strip()
+
+        # ── Legal basis ───────────────────────────────────────────
+        lb = dossier.get("legalBasis")
+        if lb:
+            raw["legal_basis"] = str(lb).strip()
+
+        # ── Accreditations from dossier (category → level map) ────
+        # e.g. {"B": 2, "C": 1} → "B2, C1"
+        accreditations = dossier.get("accreditations")
+        if isinstance(accreditations, dict) and accreditations:
+            accred_parts = []
+            for cat, level in sorted(accreditations.items()):
+                accred_parts.append(f"{cat}{level}")
+            accred_str = ", ".join(accred_parts)
+            # Merge with certificate-based accreditation
+            existing = raw.get("required_accreditation", "")
+            if existing:
+                raw["required_accreditation"] = f"{existing} | {accred_str}"
+            else:
+                raw["required_accreditation"] = accred_str
+
     # Agreement
     raw["agreement_id"] = (publication or {}).get("agreementId")
 
     # Organisation (FR name)
-    org = (publication or {}).get("organisation") or {}
     org_names = org.get("organisationNames") or org.get("organisation_names") or []
     org_name_fr = None
     for n in org_names if isinstance(org_names, list) else []:
@@ -372,7 +423,8 @@ def _bosa_enrich_raw_data_and_extras(
         if code and code != main_normalized:
             additional_cpv_codes.append(c if isinstance(c, str) else str(c))
 
-    # Keywords (FR)
+    # ── Keywords: merge API keywords + natures + procedure type ───
+    # This makes natures/procedure type full-text searchable immediately
     keywords = (publication or {}).get("keywords") or []
     keywords_fr = []
     for kw in keywords if isinstance(keywords, list) else []:
@@ -380,6 +432,18 @@ def _bosa_enrich_raw_data_and_extras(
             t = kw.get("text") or kw.get("value")
             if t:
                 keywords_fr.append(str(t).strip())
+    # Append structured metadata as searchable keywords
+    for nature in natures_list:
+        keywords_fr.append(f"nature:{nature}")
+    proc_type_val = raw.get("procurement_procedure_type")
+    if proc_type_val:
+        keywords_fr.append(f"procedure:{proc_type_val}")
+    spt_val = raw.get("special_purchasing_technique")
+    if spt_val:
+        keywords_fr.append(f"technique:{spt_val}")
+    lb_val = raw.get("legal_basis")
+    if lb_val:
+        keywords_fr.append(f"legal:{lb_val}")
     raw["keywords"] = keywords_fr
 
     # Lots for notice_lots table

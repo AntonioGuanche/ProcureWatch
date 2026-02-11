@@ -39,10 +39,21 @@ MAX_TOTAL_PAGES = 100
 MAX_PAGE_SIZE = 250
 
 
-def _fetch_page_bosa(term: str, page: int, page_size: int) -> dict[str, Any]:
-    """Fetch one page from BOSA. Returns {items: [...], total_count: int|None}."""
+def _fetch_page_bosa(
+    term: str,
+    page: int,
+    page_size: int,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+) -> dict[str, Any]:
+    """Fetch one page from BOSA. Returns {items: [...], total_count: int|None}.
+    date_from / date_to: YYYY-MM-DD publication date filters.
+    """
     from app.connectors.bosa.client import search_publications
-    result = search_publications(term=term, page=page, page_size=page_size)
+    result = search_publications(
+        term=term, page=page, page_size=page_size,
+        publication_date_from=date_from, publication_date_to=date_to,
+    )
 
     metadata = result.get("metadata") or {}
     total_count = metadata.get("totalCount")
@@ -85,6 +96,8 @@ def bulk_import_source(
     page_size: int = 100,
     max_pages: Optional[int] = None,
     fetch_details: bool = False,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
 ) -> dict[str, Any]:
     """
     Auto-paginating import for a single source.
@@ -95,6 +108,8 @@ def bulk_import_source(
         page_size: Results per page (max 250)
         max_pages: Hard limit on pages (None = auto from totalCount, capped at MAX_TOTAL_PAGES)
         fetch_details: Fetch full workspace details (BOSA only, slower)
+        date_from: YYYY-MM-DD publication date filter (BOSA only)
+        date_to: YYYY-MM-DD publication date filter (BOSA only)
 
     Returns:
         Detailed stats with per-page breakdown.
@@ -105,12 +120,18 @@ def bulk_import_source(
     if source not in ("BOSA", "TED"):
         return {"error": f"Unknown source: {source}"}
 
-    fetch_fn = _fetch_page_bosa if source == "BOSA" else _fetch_page_ted
+    if source == "BOSA":
+        from functools import partial
+        fetch_fn = partial(_fetch_page_bosa, date_from=date_from, date_to=date_to)
+    else:
+        fetch_fn = _fetch_page_ted
     svc = NoticeService(db)
 
     stats = {
         "source": source,
         "term": term,
+        "date_from": date_from,
+        "date_to": date_to,
         "page_size": page_size,
         "started_at": datetime.now(timezone.utc).isoformat(),
         "total_created": 0,
@@ -229,6 +250,8 @@ def bulk_import_all(
     fetch_details: bool = False,
     run_backfill: bool = True,
     run_matcher: bool = True,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
 ) -> dict[str, Any]:
     """
     Full bulk import pipeline: import all sources → backfill → matcher.
@@ -238,6 +261,8 @@ def bulk_import_all(
         term_ted: Search term for TED (default: notice-type = cn*).
                   Automatically gets a rolling PD date filter appended.
         ted_days_back: Rolling date window for TED (default: 3 days)
+        date_from: YYYY-MM-DD publication date filter (BOSA only)
+        date_to: YYYY-MM-DD publication date filter (BOSA only)
 
     Returns comprehensive stats.
     """
@@ -263,6 +288,7 @@ def bulk_import_all(
         source_result = bulk_import_source(
             db, source=source, term=effective_term, page_size=page_size,
             max_pages=max_pages, fetch_details=fetch_details,
+            date_from=date_from, date_to=date_to,
         )
         results["sources"][source.lower()] = source_result
         total_created += source_result.get("total_created", 0)

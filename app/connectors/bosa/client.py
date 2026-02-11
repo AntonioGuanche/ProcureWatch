@@ -85,17 +85,24 @@ def search_publications(
     term: str,
     page: int = 1,
     page_size: int = 25,
+    publication_date_from: Optional[str] = None,
+    publication_date_to: Optional[str] = None,
 ) -> dict[str, Any]:
     """
     Search publications using the configured provider (official or playwright).
     Returns structure: {"metadata": {...}, "json": {...}}
+    publication_date_from / publication_date_to: YYYY-MM-DD filters (official only).
     """
     client, name = _get_client()
 
     if name == "official":
-        return client.search_publications(term=term, page=page, page_size=page_size)
+        return client.search_publications(
+            term=term, page=page, page_size=page_size,
+            publication_date_from=publication_date_from,
+            publication_date_to=publication_date_to,
+        )
 
-    # Playwright
+    # Playwright (no date filter support)
     return client.search_publications(term=term, page=page, page_size=page_size)
 
 
