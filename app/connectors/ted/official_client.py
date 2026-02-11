@@ -239,7 +239,9 @@ class OfficialTEDClient:
         notices = data.get("notices", []) if isinstance(data, dict) else []
         total_count = None
         if isinstance(data, dict):
-            total_count = data.get("totalCount")
+            total_count = data.get("totalNoticeCount")  # TED v3 API
+            if total_count is None:
+                total_count = data.get("totalCount")
             if total_count is None:
                 total_count = data.get("total")
             if total_count is None:

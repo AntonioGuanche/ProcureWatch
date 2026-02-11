@@ -82,7 +82,7 @@ def _fetch_page_ted(term: str, page: int, page_size: int) -> dict[str, Any]:
     payload = result.get("json") or {}
     if isinstance(payload, dict):
         if total_count is None:
-            total_count = payload.get("totalCount") or payload.get("total")
+            total_count = payload.get("totalNoticeCount") or payload.get("totalCount") or payload.get("total")
         notices = payload.get("notices") or payload.get("items") or []
         return {"items": notices, "total_count": total_count}
 
