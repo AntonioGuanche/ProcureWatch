@@ -6,7 +6,7 @@ from app.core.auth import rate_limit_public
 from sqlalchemy.orm import Session
 
 from app.api.routes.auth import get_current_user
-from app.services.subscription import check_watchlist_limit
+from app.services.subscription import check_watchlist_limit, get_plan_limits, effective_plan
 from app.api.schemas.notice import NoticeRead, NoticeListResponse
 from app.api.schemas.watchlist import (
     WatchlistCreate,
@@ -166,6 +166,15 @@ async def get_watchlist_matches(
     if not wl:
         raise HTTPException(status_code=404, detail="Watchlist not found")
     
+    # Enforce plan result limits
+    plan = effective_plan(current_user)
+    limits = get_plan_limits(plan)
+    max_results = limits.max_results_per_watchlist
+    if max_results != -1:
+        page_size = min(page_size, max_results)
+        if (page - 1) * page_size >= max_results:
+            return WatchlistMatchesResponse(total=max_results, page=page, page_size=page_size, items=[])
+
     offset = (page - 1) * page_size
     results, total = list_watchlist_matches(db, watchlist_id, limit=page_size, offset=offset)
     
@@ -178,7 +187,7 @@ async def get_watchlist_matches(
             )
         )
     
-    return WatchlistMatchesResponse(total=total, page=page, page_size=page_size, items=items)
+    return WatchlistMatchesResponse(total=min(total, max_results) if max_results != -1 else total, page=page, page_size=page_size, items=items)
 
 
 @router.get("/{watchlist_id}/preview", response_model=NoticeListResponse)
@@ -197,13 +206,24 @@ async def get_watchlist_preview(
     wl = get_watchlist_by_id(db, watchlist_id, user_id=current_user.id)
     if not wl:
         raise HTTPException(status_code=404, detail="Watchlist not found")
+
+    # Enforce plan result limits
+    plan = effective_plan(current_user)
+    limits = get_plan_limits(plan)
+    max_results = limits.max_results_per_watchlist
+    if max_results != -1:
+        page_size = min(page_size, max_results)
+        if (page - 1) * page_size >= max_results:
+            return NoticeListResponse(total=max_results, page=page, page_size=page_size, items=[])
+
     offset = (page - 1) * page_size
     notices, total = list_notices_for_watchlist(
         db, wl, limit=page_size, offset=offset,
         source=source, q=q, sort=sort, active_only=active_only,
     )
+    capped_total = min(total, max_results) if max_results != -1 else total
     return NoticeListResponse(
-        total=total,
+        total=capped_total,
         page=page,
         page_size=page_size,
         items=[NoticeRead.model_validate(n) for n in notices],
@@ -226,13 +246,24 @@ async def get_watchlist_new(
     wl = get_watchlist_by_id(db, watchlist_id, user_id=current_user.id)
     if not wl:
         raise HTTPException(status_code=404, detail="Watchlist not found")
+
+    # Enforce plan result limits
+    plan = effective_plan(current_user)
+    limits = get_plan_limits(plan)
+    max_results = limits.max_results_per_watchlist
+    if max_results != -1:
+        page_size = min(page_size, max_results)
+        if (page - 1) * page_size >= max_results:
+            return NoticeListResponse(total=max_results, page=page, page_size=page_size, items=[])
+
     offset = (page - 1) * page_size
     notices, total = list_new_since_for_watchlist(
         db, wl, limit=page_size, offset=offset,
         source=source, q=q, sort=sort, active_only=active_only,
     )
+    capped_total = min(total, max_results) if max_results != -1 else total
     return NoticeListResponse(
-        total=total,
+        total=capped_total,
         page=page,
         page_size=page_size,
         items=[NoticeRead.model_validate(n) for n in notices],

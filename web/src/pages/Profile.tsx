@@ -207,8 +207,18 @@ export function Profile() {
                 {sub.current_period_end && (
                   <p className="plan-desc" style={{ fontSize: ".8rem", marginTop: ".25rem" }}>
                     {sub.cancel_at_period_end
-                      ? `Accès jusqu'au ${new Date(sub.current_period_end).toLocaleDateString("fr-FR")}`
+                      ? `⚠️ Annulé — accès maintenu jusqu'au ${new Date(sub.current_period_end).toLocaleDateString("fr-FR")}`
                       : `Prochain renouvellement : ${new Date(sub.current_period_end).toLocaleDateString("fr-FR")}`}
+                  </p>
+                )}
+                {sub.status === "canceled" && !sub.current_period_end && (
+                  <p className="plan-desc" style={{ fontSize: ".8rem", marginTop: ".25rem", color: "#e53e3e" }}>
+                    Abonnement annulé — retour au plan Découverte
+                  </p>
+                )}
+                {sub.status === "past_due" && (
+                  <p className="plan-desc" style={{ fontSize: ".8rem", marginTop: ".25rem", color: "#dd6b20" }}>
+                    ⚠️ Paiement en échec — veuillez mettre à jour votre moyen de paiement
                   </p>
                 )}
               </div>

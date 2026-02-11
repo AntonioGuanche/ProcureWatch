@@ -319,7 +319,17 @@ def run_watchlist_matcher(db: Session) -> dict[str, Any]:
             # 1c. Resolve email (watchlist notify_email → user account email)
             email_addr = _resolve_email(db, wl)
 
-            if email_addr and open_matches:
+            # 1d. Check if user's plan allows email digest
+            can_send_email = True
+            user_id = getattr(wl, "user_id", None)
+            if user_id:
+                from app.services.subscription import effective_plan as _eff_plan, get_plan_limits as _get_limits
+                user_obj = db.query(User).filter(User.id == user_id).first()
+                if user_obj:
+                    plan_limits = _get_limits(_eff_plan(user_obj))
+                    can_send_email = plan_limits.email_digest
+
+            if email_addr and open_matches and can_send_email:
                 email_data = [
                     _notice_to_email_dict(n, is_new=(n.id in new_ids))
                     for n in open_matches
@@ -342,6 +352,9 @@ def run_watchlist_matcher(db: Session) -> dict[str, Any]:
 
             elif not open_matches:
                 detail["skipped_reason"] = "no open matches"
+
+            elif not can_send_email:
+                detail["skipped_reason"] = "plan does not include email digest"
 
             results["watchlists_processed"] += 1
             results["total_new_matches"] += len(new_matches)
