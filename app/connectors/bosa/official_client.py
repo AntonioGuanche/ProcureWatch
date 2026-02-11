@@ -286,10 +286,13 @@ class OfficialEProcurementClient:
         term: str,
         page: int = 1,
         page_size: int = 25,
+        publication_date_from: str | None = None,
+        publication_date_to: str | None = None,
     ) -> dict[str, Any]:
         """
         Search publications. Returns structure compatible with Playwright collector:
         {"metadata": {...}, "json": {...}}
+        publication_date_from / publication_date_to: YYYY-MM-DD date filters.
         """
         self._require_credentials()
         if not self.search_base_url:
@@ -325,6 +328,11 @@ class OfficialEProcurementClient:
         # Only include search term if it's a real keyword (not wildcard or empty)
         if term and term.strip() not in ("*", ""):
             qparams[term_param] = term
+        # Optional date filters for historical/incremental imports
+        if publication_date_from:
+            qparams["publicationDateFrom"] = publication_date_from
+        if publication_date_to:
+            qparams["publicationDateTo"] = publication_date_to
         headers = self._auth_headers()
         try:
             if method == "GET":
