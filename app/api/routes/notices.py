@@ -11,6 +11,7 @@ from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.core.auth import rate_limit_public
+from app.api.routes.auth import get_optional_user
 
 from app.api.schemas.notice import (
     NoticeDetailRead,
@@ -457,3 +458,60 @@ async def get_notice(
     if not notice:
         raise HTTPException(status_code=404, detail="Notice not found")
     return notice
+
+
+# --- AI Summary ---
+
+@router.post("/{notice_id}/summary")
+async def generate_notice_summary(
+    notice_id: str,
+    lang: str = Query("fr", regex="^(fr|nl|en|de)$", description="Target language"),
+    force: bool = Query(False, description="Force regeneration even if cached"),
+    db: Session = Depends(get_db),
+    current_user=Depends(get_optional_user),
+):
+    """Generate AI summary for a notice.
+
+    Requires authentication. Plan-gated: Pro gets 20/month, Business unlimited, Free none.
+    Returns cached summary if available (unless force=True).
+    """
+    from app.services.ai_summary import generate_summary, check_ai_usage, increment_ai_usage
+
+    notice = get_notice_by_id(db, notice_id)
+    if not notice:
+        raise HTTPException(status_code=404, detail="Notice not found")
+
+    # Return cached if available and no force
+    if not force and notice.ai_summary and notice.ai_summary_lang == lang:
+        return {
+            "notice_id": notice_id,
+            "summary": notice.ai_summary,
+            "lang": notice.ai_summary_lang,
+            "generated_at": notice.ai_summary_generated_at.isoformat() if notice.ai_summary_generated_at else None,
+            "cached": True,
+        }
+
+    # Auth required for generation
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Authentification requise pour les résumés IA")
+
+    # Check plan limits
+    usage_error = check_ai_usage(db, current_user)
+    if usage_error:
+        raise HTTPException(status_code=403, detail=usage_error)
+
+    # Generate
+    summary = await generate_summary(db, notice, lang=lang, force=force)
+    if not summary:
+        raise HTTPException(status_code=503, detail="Impossible de générer le résumé IA. Réessayez plus tard.")
+
+    # Increment usage
+    increment_ai_usage(db, current_user)
+
+    return {
+        "notice_id": notice_id,
+        "summary": summary,
+        "lang": lang,
+        "generated_at": notice.ai_summary_generated_at.isoformat() if notice.ai_summary_generated_at else None,
+        "cached": False,
+    }

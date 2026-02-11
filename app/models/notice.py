@@ -62,6 +62,18 @@ class ProcurementNotice(Base):
     deadline: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True, index=True)
     estimated_value: Mapped[Optional[Decimal]] = mapped_column(Numeric(18, 2), nullable=True)
 
+    # --- CAN (Contract Award Notice) fields ---
+    award_winner_name: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    award_value: Mapped[Optional[Decimal]] = mapped_column(Numeric(18, 2), nullable=True)
+    award_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True, index=True)
+    number_tenders_received: Mapped[Optional[int]] = mapped_column(nullable=True)
+    award_criteria_json: Mapped[Optional[dict[str, Any]]] = mapped_column(JSON, nullable=True)
+
+    # --- AI summary ---
+    ai_summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    ai_summary_lang: Mapped[Optional[str]] = mapped_column(String(5), nullable=True)
+    ai_summary_generated_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+
     # --- BOSA enriched (URL, status, dossier, agreement, certificates, keywords) ---
     url: Mapped[Optional[str]] = mapped_column(String(1000), nullable=True)
     status: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)  # PUBLISHED, ARCHIVED

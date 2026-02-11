@@ -52,6 +52,16 @@ DEFAULT_FIELDS = [
     # Links / documents
     "links",
     "document-url-lot",
+    # --- CAN (Contract Award Notice) fields ---
+    "winner-name",
+    "winner-country-code",
+    "contract-value-lot",
+    "total-value",
+    "number-of-tenders",
+    "award-criteria-type",
+    "award-date",
+    "reference-number",
+    "procedure-identifier",
 ]
 
 

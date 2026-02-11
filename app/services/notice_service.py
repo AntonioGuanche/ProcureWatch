@@ -121,6 +121,27 @@ def _safe_json_list(value: Any) -> Optional[list[str]]:
     return None
 
 
+def _safe_int(value: Any) -> Optional[int]:
+    """Safely extract integer from TED value (may be nested dict/list)."""
+    if value is None:
+        return None
+    s = _unwrap_ted_value(value)
+    if not s:
+        return None
+    try:
+        return int(float(s))
+    except (ValueError, TypeError):
+        return None
+
+
+def _extract_award_criteria(item: dict[str, Any]) -> Optional[dict[str, Any]]:
+    """Extract award criteria from TED CAN notice as structured JSON."""
+    criteria_type = _unwrap_ted_value(item.get("award-criteria-type"))
+    if not criteria_type:
+        return None
+    return {"type": criteria_type}
+
+
 def _safe_json_dict(value: Any) -> Optional[dict[str, str]]:
     if value is None or not isinstance(value, dict):
         return None
@@ -683,9 +704,18 @@ def _map_ted_item_to_notice(item: dict[str, Any], source_id: str) -> dict[str, A
         "source_id": source_id,
         "source": TED_SOURCE,
         "publication_workspace_id": source_id,
-        "procedure_id": _safe_str(item.get("procedureId") or item.get("procedure-id"), 255),
+        "procedure_id": _safe_str(
+            item.get("procedure-identifier")
+            or item.get("procedureId")
+            or item.get("procedure-id"),
+            255,
+        ),
         "dossier_id": _safe_str(item.get("dossierId") or item.get("dossier-id"), 255),
-        "reference_number": _safe_str(item.get("referenceNumber") or item.get("reference-number"), 255),
+        "reference_number": _safe_str(
+            item.get("reference-number")
+            or item.get("referenceNumber"),
+            255,
+        ),
         "cpv_main_code": cpv_main_code,
         "cpv_additional_codes": cpv_additional_codes,
         "nuts_codes": _safe_json_list(
@@ -727,6 +757,18 @@ def _map_ted_item_to_notice(item: dict[str, Any], source_id: str) -> dict[str, A
             or item.get("value")
         ),
         "url": _generate_ted_url_from_item(item),
+        # --- CAN (Contract Award Notice) fields ---
+        "award_winner_name": _safe_str(
+            _ted_pick_text(item.get("winner-name")),
+            500,
+        ),
+        "award_value": _safe_decimal(
+            item.get("total-value")
+            or item.get("contract-value-lot")
+        ),
+        "award_date": _safe_date(item.get("award-date")),
+        "number_tenders_received": _safe_int(item.get("number-of-tenders")),
+        "award_criteria_json": _extract_award_criteria(item),
     }
 
 

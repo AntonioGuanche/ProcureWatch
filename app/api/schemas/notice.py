@@ -27,6 +27,16 @@ class NoticeRead(BaseModel):
     url: Optional[str] = None
     status: Optional[str] = None
     reference_number: Optional[str] = None
+    # CAN (Contract Award Notice) fields
+    award_winner_name: Optional[str] = None
+    award_value: Optional[Any] = None
+    award_date: Optional[date] = None
+    number_tenders_received: Optional[int] = None
+    # AI summary
+    ai_summary: Optional[str] = None
+    ai_summary_lang: Optional[str] = None
+    ai_summary_generated_at: Optional[datetime] = None
+    # Timestamps
     created_at: datetime
     updated_at: datetime
 

@@ -127,7 +127,10 @@ class Settings(BaseSettings):
     import_interval_minutes: int = Field(360, validation_alias="IMPORT_INTERVAL_MINUTES")  # 6h default
     import_sources: str = Field("BOSA,TED", validation_alias="IMPORT_SOURCES")
     import_term: str = Field("*", validation_alias="IMPORT_TERM")
-    import_term_ted: str = Field("notice-type = cn*", validation_alias="IMPORT_TERM_TED")
+    import_term_ted: str = Field(
+        "(notice-type = cn) OR (notice-type = can)",
+        validation_alias="IMPORT_TERM_TED",
+    )
     import_ted_days_back: int = Field(3, validation_alias="IMPORT_TED_DAYS_BACK")
     import_page_size: int = Field(100, validation_alias="IMPORT_PAGE_SIZE")
     import_max_pages: int = Field(10, validation_alias="IMPORT_MAX_PAGES")
@@ -155,6 +158,11 @@ class Settings(BaseSettings):
     # --- Rate limiting ---
     rate_limit_per_minute: int = Field(60, validation_alias="RATE_LIMIT_PER_MINUTE")
     rate_limit_burst: int = Field(10, validation_alias="RATE_LIMIT_BURST")
+
+    # --- AI / Anthropic ---
+    anthropic_api_key: str = Field("", validation_alias="ANTHROPIC_API_KEY")
+    ai_model: str = Field("claude-sonnet-4-20250514", validation_alias="AI_MODEL")
+    ai_summary_max_tokens: int = Field(500, validation_alias="AI_SUMMARY_MAX_TOKENS")
 
     @field_validator("database_url")
     @classmethod

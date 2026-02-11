@@ -99,10 +99,11 @@ class WatchlistListResponse(BaseModel):
 
 
 class WatchlistMatchRead(BaseModel):
-    """Schema for a watchlist match with explanation."""
+    """Schema for a watchlist match with explanation and relevance score."""
 
     notice: NoticeRead
     matched_on: str = Field(..., description="Explanation of why this notice matched")
+    relevance_score: Optional[int] = Field(None, description="Relevance score 0-100")
 
 
 class WatchlistMatchesResponse(BaseModel):

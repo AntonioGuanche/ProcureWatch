@@ -83,6 +83,22 @@ async def get_current_user(
     return user
 
 
+async def get_optional_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
+    db: Session = Depends(get_db),
+) -> User | None:
+    """Like get_current_user but returns None instead of 401 if unauthenticated."""
+    if not credentials or credentials.scheme != "Bearer":
+        return None
+    payload = decode_access_token(credentials.credentials)
+    if not payload:
+        return None
+    user_id = payload.get("user_id")
+    if not user_id:
+        return None
+    return db.query(User).filter(User.id == user_id, User.is_active.is_(True)).first()
+
+
 # --- Endpoints ---
 
 

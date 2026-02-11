@@ -20,6 +20,7 @@ def _ted_term_with_date(base_term: str, days_back: int = 3) -> str:
     
     If base_term already contains PD filter, return as-is.
     Otherwise append AND PD >= <date> to restrict to recent notices.
+    Wraps compound terms (containing OR) in parentheses for correct precedence.
     """
     from datetime import date, timedelta
     if "PD " in base_term or "PD>" in base_term or "publication-date" in base_term:
@@ -27,6 +28,9 @@ def _ted_term_with_date(base_term: str, days_back: int = 3) -> str:
     cutoff = (date.today() - timedelta(days=days_back)).strftime("%Y%m%d")
     if base_term.strip() in ("*", ""):
         return f"PD >= {cutoff}"
+    # Wrap in parens if compound (OR) to ensure correct precedence with AND
+    if " OR " in base_term:
+        return f"({base_term}) AND PD >= {cutoff}"
     return f"{base_term} AND PD >= {cutoff}"
 
 

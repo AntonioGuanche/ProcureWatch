@@ -46,6 +46,14 @@ class User(Base):
     subscription_ends_at: Mapped[Optional[datetime]] = mapped_column(
         nullable=True, comment="End of current billing period (UTC)",
     )
+    # --- AI usage tracking ---
+    ai_usage_count: Mapped[int] = mapped_column(
+        default=0, server_default="0", nullable=False,
+        comment="AI summaries used this billing period",
+    )
+    ai_usage_reset_at: Mapped[Optional[datetime]] = mapped_column(
+        nullable=True, comment="Last AI usage counter reset (UTC)",
+    )
     created_at: Mapped[datetime] = mapped_column(
         default=func.now(), server_default=func.now(),
     )

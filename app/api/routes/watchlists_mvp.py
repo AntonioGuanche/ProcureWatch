@@ -179,11 +179,12 @@ async def get_watchlist_matches(
     results, total = list_watchlist_matches(db, watchlist_id, limit=page_size, offset=offset)
     
     items = []
-    for notice, matched_on in results:
+    for notice, matched_on, relevance_score in results:
         items.append(
             WatchlistMatchRead(
                 notice=NoticeRead.model_validate(notice),
                 matched_on=matched_on,
+                relevance_score=relevance_score,
             )
         )
     

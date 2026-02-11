@@ -1,6 +1,7 @@
 """Watchlist match model: stores which notices match which watchlists."""
 import uuid
 from datetime import datetime
+from typing import Optional
 
 from sqlalchemy import ForeignKey, String, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column
@@ -32,6 +33,10 @@ class WatchlistMatch(Base):
         String(500),
         nullable=False,
         comment="Explanation of why this notice matched (e.g., 'keyword: solar, CPV: 45')",
+    )
+    relevance_score: Mapped[Optional[int]] = mapped_column(
+        nullable=True,
+        comment="Relevance score 0-100 based on match quality",
     )
     matched_at: Mapped[datetime] = mapped_column(
         default=func.now(),

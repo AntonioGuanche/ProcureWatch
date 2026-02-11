@@ -361,20 +361,22 @@ def list_watchlist_matches(
     watchlist_id: str,
     limit: int = 50,
     offset: int = 0,
-) -> Tuple[list[Tuple[Notice, str]], int]:
+) -> Tuple[list[Tuple[Notice, str, int | None]], int]:
     """
-    List stored matches for a watchlist with matched_on explanations.
-    Returns ((notice, matched_on), total_count).
+    List stored matches for a watchlist with matched_on explanations and relevance scores.
+    Returns ((notice, matched_on, relevance_score), total_count).
     """
     query = (
-        db.query(Notice, WatchlistMatch.matched_on)
+        db.query(Notice, WatchlistMatch.matched_on, WatchlistMatch.relevance_score)
         .join(WatchlistMatch, Notice.id == WatchlistMatch.notice_id)
         .filter(WatchlistMatch.watchlist_id == watchlist_id)
     )
     total = query.count()
     results = (
         query.order_by(
-            Notice.publication_date.desc().nulls_last(), Notice.updated_at.desc()
+            WatchlistMatch.relevance_score.desc().nulls_last(),
+            Notice.publication_date.desc().nulls_last(),
+            Notice.updated_at.desc(),
         )
         .offset(offset)
         .limit(limit)

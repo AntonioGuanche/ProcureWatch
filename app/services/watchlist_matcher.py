@@ -214,7 +214,9 @@ def match_watchlist(
     watchlist: Watchlist,
     since: Optional[datetime] = None,
 ) -> list[Notice]:
-    """Find new notices matching watchlist, store matches (dedup), update last_refresh_at."""
+    """Find new notices matching watchlist, store matches with relevance score (dedup), update last_refresh_at."""
+    from app.services.relevance_scoring import calculate_relevance_score
+
     cutoff = since or watchlist.last_refresh_at
     query = _build_match_query(db, watchlist, since=cutoff)
     candidates = query.all()
@@ -234,10 +236,13 @@ def match_watchlist(
         if existing:
             continue
 
+        score, score_explanation = calculate_relevance_score(notice, watchlist)
+
         match = WatchlistMatch(
             watchlist_id=watchlist.id,
             notice_id=notice.id,
             matched_on=explanation,
+            relevance_score=score,
         )
         db.add(match)
         new_matches.append(notice)
