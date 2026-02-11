@@ -229,6 +229,54 @@ export function deleteAccount(): Promise<{ status: string }> {
   return request("/api/auth/account", { method: "DELETE" });
 }
 
+// ── Billing ─────────────────────────────────────────────────────────
+
+export interface SubscriptionInfo {
+  plan: string;
+  effective_plan: string;
+  display_name: string;
+  status: string;
+  current_period_end: string | null;
+  cancel_at_period_end: boolean;
+  limits: {
+    max_watchlists: number;
+    max_results_per_watchlist: number;
+    email_digest: boolean;
+    csv_export: boolean;
+    api_access: boolean;
+    ai_summaries_per_month: number;
+    max_seats: number;
+    history_days: number;
+  };
+}
+
+export interface PlanInfo {
+  name: string;
+  display_name: string;
+  price_monthly_eur: number;
+  price_annual_eur: number;
+  features: Record<string, unknown>;
+}
+
+export function getSubscription(): Promise<SubscriptionInfo> {
+  return request("/api/billing/subscription");
+}
+
+export function getPlans(): Promise<PlanInfo[]> {
+  return request("/api/billing/plans");
+}
+
+export function createCheckout(plan: string, interval: string = "month"): Promise<{ checkout_url: string }> {
+  return request("/api/billing/checkout", {
+    method: "POST",
+    body: JSON.stringify({ plan, interval }),
+  });
+}
+
+export function createPortalSession(): Promise<{ portal_url: string }> {
+  return request("/api/billing/portal", { method: "POST" });
+}
+
 // ── Admin ───────────────────────────────────────────────────────────
 
 export function getAdminStats(): Promise<{ users: { total: number; active: number }; watchlists: { total: number; enabled: number }; favorites_total: number }> {

@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "../auth";
-import { updateProfile, changePassword, deleteAccount } from "../api";
+import { updateProfile, changePassword, deleteAccount, getSubscription, createCheckout, createPortalSession } from "../api";
+import type { SubscriptionInfo } from "../api";
 import { useNavigate } from "react-router-dom";
 
 function EyeIcon({ show }: { show: boolean }) {
@@ -38,6 +39,40 @@ export function Profile() {
   // Delete
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [delLoading, setDelLoading] = useState(false);
+
+  // Billing
+  const [sub, setSub] = useState<SubscriptionInfo | null>(null);
+  const [billingLoading, setBillingLoading] = useState(true);
+  const [billingAction, setBillingAction] = useState(false);
+
+  useEffect(() => {
+    getSubscription()
+      .then(setSub)
+      .catch(() => {})
+      .finally(() => setBillingLoading(false));
+  }, []);
+
+  const handleUpgrade = async (plan: string, interval: string) => {
+    setBillingAction(true);
+    try {
+      const { checkout_url } = await createCheckout(plan, interval);
+      window.location.href = checkout_url;
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Erreur");
+      setBillingAction(false);
+    }
+  };
+
+  const handleManage = async () => {
+    setBillingAction(true);
+    try {
+      const { portal_url } = await createPortalSession();
+      window.location.href = portal_url;
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Erreur");
+      setBillingAction(false);
+    }
+  };
 
   const handleProfileSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -150,18 +185,65 @@ export function Profile() {
           <h2>Abonnement</h2>
           <p className="card-subtitle">Votre plan actuel</p>
 
-          <div className="plan-card">
-            <div className="plan-info">
-              <strong>Plan Gratuit</strong>
-              <span className="tag tag-success">ACTIF</span>
-            </div>
-            <p className="plan-desc">1 veille incluse</p>
-          </div>
+          {billingLoading ? (
+            <p style={{ color: "#888" }}>Chargement…</p>
+          ) : sub ? (
+            <>
+              <div className="plan-card">
+                <div className="plan-info">
+                  <strong>{sub.display_name}</strong>
+                  <span className={`tag ${sub.effective_plan !== "free" && sub.status === "active" ? "tag-success" : sub.status === "past_due" ? "tag-warning" : sub.status === "canceled" ? "tag-muted" : "tag-success"}`}>
+                    {sub.status === "active" ? "ACTIF" : sub.status === "past_due" ? "IMPAYÉ" : sub.status === "canceled" ? "ANNULÉ" : sub.status === "none" ? "ACTIF" : sub.status.toUpperCase()}
+                  </span>
+                </div>
+                <p className="plan-desc">
+                  {sub.limits.max_watchlists === -1
+                    ? "Veilles illimitées"
+                    : `${sub.limits.max_watchlists} veille${sub.limits.max_watchlists > 1 ? "s" : ""} incluse${sub.limits.max_watchlists > 1 ? "s" : ""}`}
+                  {sub.limits.email_digest && " · Digest email"}
+                  {sub.limits.csv_export && " · Export CSV"}
+                  {sub.limits.api_access && " · Accès API"}
+                </p>
+                {sub.current_period_end && (
+                  <p className="plan-desc" style={{ fontSize: ".8rem", marginTop: ".25rem" }}>
+                    {sub.cancel_at_period_end
+                      ? `Accès jusqu'au ${new Date(sub.current_period_end).toLocaleDateString("fr-FR")}`
+                      : `Prochain renouvellement : ${new Date(sub.current_period_end).toLocaleDateString("fr-FR")}`}
+                  </p>
+                )}
+              </div>
 
-          <button className="btn-sm btn-outline" disabled style={{ marginTop: ".75rem", opacity: .5 }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
-            Passer à Pro — Bientôt disponible
-          </button>
+              <div style={{ marginTop: ".75rem", display: "flex", gap: ".5rem", flexWrap: "wrap" }}>
+                {sub.effective_plan === "free" && (
+                  <>
+                    <button className="btn-sm btn-primary" onClick={() => handleUpgrade("pro", "month")} disabled={billingAction}>
+                      {billingAction ? "Redirection…" : "Passer à Pro — 49€/mois"}
+                    </button>
+                    <button className="btn-sm btn-outline" onClick={() => handleUpgrade("business", "month")} disabled={billingAction}>
+                      Business — 149€/mois
+                    </button>
+                  </>
+                )}
+                {sub.effective_plan === "pro" && (
+                  <>
+                    <button className="btn-sm btn-outline" onClick={handleManage} disabled={billingAction}>
+                      {billingAction ? "Redirection…" : "Gérer mon abonnement"}
+                    </button>
+                    <button className="btn-sm btn-primary" onClick={() => handleUpgrade("business", "month")} disabled={billingAction}>
+                      Passer à Business
+                    </button>
+                  </>
+                )}
+                {sub.effective_plan === "business" && (
+                  <button className="btn-sm btn-outline" onClick={handleManage} disabled={billingAction}>
+                    {billingAction ? "Redirection…" : "Gérer mon abonnement"}
+                  </button>
+                )}
+              </div>
+            </>
+          ) : (
+            <p style={{ color: "#888" }}>Impossible de charger les informations d'abonnement.</p>
+          )}
         </div>
 
         {/* Danger Zone */}
