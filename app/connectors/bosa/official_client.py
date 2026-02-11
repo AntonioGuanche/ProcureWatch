@@ -326,9 +326,15 @@ class OfficialEProcurementClient:
             page_size_param: page_size,
         }
         # Only include search term if it's a real keyword (not wildcard or empty)
-        if term and term.strip() not in ("*", ""):
+        is_wildcard = not term or term.strip() in ("*", "")
+        if not is_wildcard:
             qparams[term_param] = term
-        # Optional date filters for historical/incremental imports
+
+        # Date filters require POST with JSON body (not supported as GET query params)
+        has_date_filters = bool(publication_date_from or publication_date_to)
+        if has_date_filters or is_wildcard:
+            method = "POST"
+            style = "json_body"
         if publication_date_from:
             qparams["publicationDateFrom"] = publication_date_from
         if publication_date_to:
