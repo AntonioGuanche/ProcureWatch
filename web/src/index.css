@@ -1992,6 +1992,7 @@ label {
   margin-bottom: 1.25rem;
 }
 .ld-price-amount span { font-size: 0.9rem; font-weight: 500; color: var(--ld-gray-400); }
+.ld-price-annual { font-size: 0.82rem; color: var(--ld-teal); font-weight: 500; margin-top: 0.15rem; }
 
 .ld-price-features {
   list-style: none;

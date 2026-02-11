@@ -85,7 +85,7 @@ export default function Landing() {
   const faqs = [
     { q: "Qu'est-ce qu'une watchlist ?", a: "Une watchlist est un ensemble de critères (mots-clés, codes CPV, régions) qui définissent les marchés publics pertinents pour votre activité. ProcureWatch surveille en continu les nouvelles publications et vous alerte dès qu'un marché correspond." },
     { q: "Quelles sources sont couvertes ?", a: "Nous centralisons les avis du portail belge e-Procurement (BOSA) et du Tenders Electronic Daily (TED) de l'Union européenne. Cela couvre la quasi-totalité des marchés publics belges et européens." },
-    { q: "L'outil est-il vraiment gratuit ?", a: "Le plan Explorer est gratuit et permet d'accéder à la base de données, de faire des recherches et de créer une watchlist. Les plans payants ajoutent les alertes email, plus de watchlists et des fonctionnalités avancées." },
+    { q: "L'outil est-il vraiment gratuit ?", a: "Le plan Découverte est gratuit et permet de créer une veille, de faire des recherches et de consulter les résultats. Les plans Pro (49€/mois) et Business (149€/mois) ajoutent les alertes email, plus de veilles, l'export CSV, les résumés IA et l'accès API." },
     { q: "Puis-je annuler à tout moment ?", a: "Oui, aucun engagement. Vous pouvez annuler ou changer de plan à tout moment depuis votre profil." },
   ];
 
@@ -332,38 +332,44 @@ export default function Landing() {
 
           <div className="ld-price-grid">
             <div className="ld-price-card">
-              <div className="ld-price-name">Explorer</div>
+              <div className="ld-price-name">Découverte</div>
               <div className="ld-price-amount">Gratuit</div>
               <ul className="ld-price-features">
-                <li>Accès à la base &amp; recherche</li>
-                <li>1 watchlist</li>
-                <li>Résultats dans l'app (sans email)</li>
-                <li>Historique 7 jours</li>
+                <li>1 veille</li>
+                <li>10 résultats par veille</li>
+                <li>Sources TED + BOSA</li>
+                <li>Historique 30 jours</li>
               </ul>
               <button className="ld-btn-outline ld-btn-full" onClick={() => navigate("/login")}>Démarrer gratuitement</button>
             </div>
             <div className="ld-price-card popular">
               <div className="ld-popular-badge">Le plus populaire</div>
               <div className="ld-price-name">Pro</div>
-              <div className="ld-price-amount">29€<span>/mois</span></div>
+              <div className="ld-price-amount">49€<span>/mois</span></div>
+              <div className="ld-price-annual">ou 39€/mois en annuel</div>
               <ul className="ld-price-features">
-                <li>Jusqu'à 10 watchlists</li>
-                <li>Notifications email (instant + digest)</li>
-                <li>AI summary : résumé + points clés</li>
-                <li>Historique 90 jours</li>
+                <li>5 veilles</li>
+                <li>Résultats illimités</li>
+                <li>Digest email quotidien</li>
+                <li>20 résumés IA / mois</li>
+                <li>Export CSV</li>
+                <li>Historique 1 an</li>
               </ul>
-              <button className="ld-btn-primary ld-btn-full" onClick={() => navigate("/login")}>Passer en Pro</button>
+              <button className="ld-btn-primary ld-btn-full" onClick={() => user ? navigate("/profile") : navigate("/login")}>Passer en Pro</button>
             </div>
             <div className="ld-price-card">
               <div className="ld-price-name">Business</div>
-              <div className="ld-price-amount">Sur devis</div>
+              <div className="ld-price-amount">149€<span>/mois</span></div>
+              <div className="ld-price-annual">ou 119€/mois en annuel</div>
               <ul className="ld-price-features">
-                <li>Watchlists illimitées</li>
-                <li>Multi-utilisateurs + rôles</li>
-                <li>Intégrations (Slack/CRM) + exports</li>
-                <li>Onboarding &amp; support prioritaire</li>
+                <li>Veilles illimitées</li>
+                <li>Alertes temps réel</li>
+                <li>Résumés IA illimités</li>
+                <li>Accès API</li>
+                <li>Jusqu'à 5 utilisateurs</li>
+                <li>Historique 3 ans</li>
               </ul>
-              <button className="ld-btn-outline ld-btn-full" onClick={() => window.location.href = "mailto:hello@procurewatch.eu"}>Nous contacter</button>
+              <button className="ld-btn-outline ld-btn-full" onClick={() => user ? navigate("/profile") : navigate("/login")}>Passer en Business</button>
             </div>
           </div>
         </div>
