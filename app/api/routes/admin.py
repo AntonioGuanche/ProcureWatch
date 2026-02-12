@@ -1027,3 +1027,59 @@ def bosa_can_formats(
         "top_level_keys_frequency": dict(sorted(top_level_keys.items(), key=lambda x: -x[1])[:25]),
         "samples": samples,
     }
+
+
+@router.get("/bosa-can-flat-peek")
+def bosa_can_flat_peek(
+    limit: int = Query(5, ge=1, le=20),
+    db: Session = Depends(get_db),
+):
+    """
+    Peek at flat_enriched CAN notices: show content of lots, noticeIds, dossier fields.
+    Helps decide if award data is already present or needs API fetch.
+    """
+    rows = db.execute(text(
+        "SELECT id, source_id, title, raw_data "
+        "FROM notices "
+        "WHERE source = 'BOSA_EPROC' "
+        "  AND notice_sub_type = '29' "
+        "  AND raw_data IS NOT NULL "
+        "  AND (award_winner_name IS NULL OR award_winner_name = '') "
+        "ORDER BY publication_date DESC "
+        "LIMIT :limit"
+    ), {"limit": limit}).fetchall()
+
+    results = []
+    for row in rows:
+        raw = row[3]
+        if not isinstance(raw, dict):
+            try:
+                raw = json.loads(raw) if raw else {}
+            except (json.JSONDecodeError, TypeError):
+                raw = {}
+
+        # Skip ones with versions (XML format)
+        if "versions" in raw and isinstance(raw.get("versions"), list) and raw["versions"]:
+            continue
+
+        item: dict[str, Any] = {
+            "id": str(row[0]),
+            "source_id": row[1],
+            "title": (row[2] or "")[:100],
+            "all_keys": sorted(raw.keys()),
+            "lots": raw.get("lots"),
+            "noticeIds": raw.get("noticeIds"),
+            "dossier": raw.get("dossier"),
+            "natures": raw.get("natures"),
+            "status": raw.get("status"),
+            "migrated": raw.get("migrated"),
+            "noticeSubType": raw.get("noticeSubType"),
+            "organisation_name": raw.get("organisation_name"),
+            "organisation": raw.get("organisation"),
+        }
+        results.append(item)
+
+    return {
+        "count": len(results),
+        "results": results,
+    }
