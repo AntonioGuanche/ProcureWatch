@@ -58,16 +58,16 @@ export default function Landing() {
       });
       if (resp.ok) {
         const data = await resp.json();
+        console.log("preview-matches:", data.total_matches, "matches");
         setPreview(data);
       } else {
-        const text = await resp.text().catch(() => "");
-        console.warn("preview-matches error", resp.status, text);
-        // Show a fallback so user knows something happened
-        setPreview({ total_matches: -1, sample: [] });
+        const errText = await resp.text();
+        console.error("preview-matches error", resp.status, errText);
+        setPreview(null);
       }
     } catch (err) {
-      console.warn("preview-matches fetch failed", err);
-      setPreview({ total_matches: -1, sample: [] });
+      console.error("preview-matches fetch failed", err);
+      setPreview(null);
     }
     finally { setPreviewLoading(false); }
   };
@@ -106,10 +106,12 @@ export default function Landing() {
     setSelectedKeywords(prev => {
       const next = new Set(prev);
       next.has(kw) ? next.delete(kw) : next.add(kw);
-      // Debounce preview refresh
       clearTimeout((window as any)._pwPreviewTimer);
       (window as any)._pwPreviewTimer = setTimeout(() => {
-        fetchPreview(next, selectedCpv);
+        setSelectedCpv(currentCpv => {
+          fetchPreview(next, currentCpv);
+          return currentCpv;
+        });
       }, 600);
       return next;
     });
@@ -121,7 +123,10 @@ export default function Landing() {
       next.has(code) ? next.delete(code) : next.add(code);
       clearTimeout((window as any)._pwPreviewTimer);
       (window as any)._pwPreviewTimer = setTimeout(() => {
-        fetchPreview(selectedKeywords, next);
+        setSelectedKeywords(currentKws => {
+          fetchPreview(currentKws, next);
+          return currentKws;
+        });
       }, 600);
       return next;
     });
@@ -145,7 +150,18 @@ export default function Landing() {
   const selectCpv = (cpv: CpvSuggestion) => {
     if (!allCpv.some(c => c.code === cpv.code)) {
       setAllCpv(prev => [...prev, cpv]);
-      setSelectedCpv(prev => new Set([...prev, cpv.code]));
+      setSelectedCpv(prev => {
+        const next = new Set([...prev, cpv.code]);
+        // Trigger preview with new CPV
+        clearTimeout((window as any)._pwPreviewTimer);
+        (window as any)._pwPreviewTimer = setTimeout(() => {
+          setSelectedKeywords(currentKws => {
+            fetchPreview(currentKws, next);
+            return currentKws;
+          });
+        }, 400);
+        return next;
+      });
     }
     setCustomCpvInput("");
     setCpvSearchResults([]);
@@ -370,9 +386,8 @@ export default function Landing() {
               {preview && !previewLoading && preview.total_matches > 0 && (
                 <div className="ld-preview-box">
                   <div className="ld-preview-count">
-                    <strong>{preview.total_matches >= 501 ? "500+" : preview.total_matches.toLocaleString("fr-BE")}</strong> marchés publics correspondent à votre activité
+                    <strong>{preview.total_matches.toLocaleString("fr-BE")}</strong> marchés publics correspondent à votre activité
                   </div>
-                  {preview.sample.length > 0 && (
                   <div className="ld-preview-table">
                     <table>
                       <thead>
@@ -398,21 +413,15 @@ export default function Landing() {
                     </table>
                     {preview.total_matches > 5 && (
                       <div className="ld-preview-more">
-                        … et {preview.total_matches >= 501 ? "des centaines d'" : (preview.total_matches - 5).toLocaleString("fr-BE") + " "}autres marchés à découvrir
+                        … et {(preview.total_matches - 5).toLocaleString("fr-BE")} autres marchés à découvrir
                       </div>
                     )}
                   </div>
-                  )}
                 </div>
               )}
               {preview && !previewLoading && preview.total_matches === 0 && (
                 <div style={{ textAlign: "center", padding: ".75rem", color: "var(--gray-500)", fontSize: ".9rem" }}>
                   Aucun marché trouvé avec ces critères. Essayez d'ajuster vos mots-clés.
-                </div>
-              )}
-              {preview && !previewLoading && preview.total_matches === -1 && (
-                <div style={{ textAlign: "center", padding: ".75rem", color: "#e67e22", fontSize: ".9rem" }}>
-                  ⚠ Impossible de charger l'aperçu des marchés. Créez votre veille pour voir les résultats complets.
                 </div>
               )}
 
