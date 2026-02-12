@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import String, Boolean, func
+from sqlalchemy import String, Boolean, Float, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base
@@ -30,6 +30,41 @@ class User(Base):
     is_admin: Mapped[bool] = mapped_column(
         Boolean, default=False, server_default="false", nullable=False,
     )
+
+    # ── Company identity ──
+    company_name: Mapped[Optional[str]] = mapped_column(
+        String(255), nullable=True,
+    )
+    vat_number: Mapped[Optional[str]] = mapped_column(
+        String(20), nullable=True, unique=True, index=True,
+        comment="VAT number, e.g. BE0123456789",
+    )
+    nace_codes: Mapped[Optional[str]] = mapped_column(
+        String(500), nullable=True,
+        comment="Comma-separated NACE codes (auto from BCE)",
+    )
+
+    # ── Location ──
+    address: Mapped[Optional[str]] = mapped_column(
+        String(500), nullable=True,
+    )
+    postal_code: Mapped[Optional[str]] = mapped_column(
+        String(10), nullable=True,
+    )
+    city: Mapped[Optional[str]] = mapped_column(
+        String(100), nullable=True,
+    )
+    country: Mapped[Optional[str]] = mapped_column(
+        String(5), nullable=True, server_default="BE",
+        comment="ISO 3166-1 alpha-2",
+    )
+    latitude: Mapped[Optional[float]] = mapped_column(
+        Float, nullable=True,
+    )
+    longitude: Mapped[Optional[float]] = mapped_column(
+        Float, nullable=True,
+    )
+
     # ── Subscription / billing ──
     plan: Mapped[str] = mapped_column(
         String(20), default="free", server_default="free", nullable=False,

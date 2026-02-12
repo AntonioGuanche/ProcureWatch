@@ -1,9 +1,10 @@
-"""Authentication endpoints: register, login, me, forgot/reset password."""
+"""Authentication endpoints: register, login, me, forgot/reset password, profile."""
 import logging
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, field_validator
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -18,6 +19,7 @@ from app.core.security import (
 from app.db.session import get_db
 from app.models.user import User
 from app.notifications.emailer import send_email_html
+from app.utils.vat import validate_vat
 
 logger = logging.getLogger(__name__)
 
@@ -48,17 +50,60 @@ class ResetPasswordBody(BaseModel):
     password: str
 
 
+class CompanyProfileOut(BaseModel):
+    """Company profile subset — returned in UserOut."""
+    company_name: Optional[str] = None
+    vat_number: Optional[str] = None
+    nace_codes: Optional[str] = None
+    address: Optional[str] = None
+    postal_code: Optional[str] = None
+    city: Optional[str] = None
+    country: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+
+
 class UserOut(BaseModel):
     id: str
     email: str
     name: str
     is_admin: bool = False
     plan: str = "free"
+    # Company profile
+    company_name: Optional[str] = None
+    vat_number: Optional[str] = None
+    nace_codes: Optional[str] = None
+    address: Optional[str] = None
+    postal_code: Optional[str] = None
+    city: Optional[str] = None
+    country: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
 
 
 class LoginResponse(BaseModel):
     access_token: str
     user: UserOut
+
+
+def _user_out(user: User) -> UserOut:
+    """Build UserOut from a User ORM instance — single source of truth."""
+    return UserOut(
+        id=user.id,
+        email=user.email,
+        name=user.name,
+        is_admin=getattr(user, "is_admin", False),
+        plan=getattr(user, "plan", "free"),
+        company_name=user.company_name,
+        vat_number=user.vat_number,
+        nace_codes=user.nace_codes,
+        address=user.address,
+        postal_code=user.postal_code,
+        city=user.city,
+        country=user.country,
+        latitude=user.latitude,
+        longitude=user.longitude,
+    )
 
 
 # --- Dependency: get current user from JWT ---
@@ -124,10 +169,7 @@ async def register(body: RegisterBody, db: Session = Depends(get_db)) -> LoginRe
 
     logger.info(f"New user registered: {user.email} (id={user.id})")
     token = create_access_token(sub=user.email, user_id=user.id, name=user.name)
-    return LoginResponse(
-        access_token=token,
-        user=UserOut(id=user.id, email=user.email, name=user.name, is_admin=getattr(user, 'is_admin', False), plan=getattr(user, 'plan', 'free')),
-    )
+    return LoginResponse(access_token=token, user=_user_out(user))
 
 
 @router.post("/login", response_model=LoginResponse)
@@ -140,16 +182,13 @@ async def login(body: LoginBody, db: Session = Depends(get_db)) -> LoginResponse
         raise HTTPException(status_code=403, detail="Compte désactivé")
 
     token = create_access_token(sub=user.email, user_id=user.id, name=user.name)
-    return LoginResponse(
-        access_token=token,
-        user=UserOut(id=user.id, email=user.email, name=user.name, is_admin=getattr(user, 'is_admin', False), plan=getattr(user, 'plan', 'free')),
-    )
+    return LoginResponse(access_token=token, user=_user_out(user))
 
 
 @router.get("/me", response_model=UserOut)
 async def me(current_user: User = Depends(get_current_user)) -> UserOut:
     """Return current authenticated user."""
-    return UserOut(id=current_user.id, email=current_user.email, name=current_user.name, is_admin=getattr(current_user, 'is_admin', False), plan=getattr(current_user, 'plan', 'free'))
+    return _user_out(current_user)
 
 
 @router.post("/forgot-password")
@@ -206,7 +245,7 @@ async def reset_password(body: ResetPasswordBody, db: Session = Depends(get_db))
         raise HTTPException(status_code=400, detail="Lien invalide ou expiré")
 
     if len(body.password) < 8:
-        raise HTTPException(status_code=422, detail="Le mot de passe doit contenir au moins 8 caractères")
+        raise HTTPException(status_code=422, detail="Le nouveau mot de passe doit contenir au moins 8 caractères")
 
     user.password_hash = hash_password(body.password)
     db.commit()
@@ -219,8 +258,26 @@ async def reset_password(body: ResetPasswordBody, db: Session = Depends(get_db))
 
 
 class UpdateProfileBody(BaseModel):
+    """Update personal info + company profile. All fields optional (PATCH semantics)."""
     name: str | None = None
     email: EmailStr | None = None
+    # Company
+    company_name: str | None = None
+    vat_number: str | None = None
+    # Location
+    address: str | None = None
+    postal_code: str | None = None
+    city: str | None = None
+    country: str | None = None
+
+    @field_validator("country")
+    @classmethod
+    def validate_country(cls, v: str | None) -> str | None:
+        if v is not None:
+            v = v.strip().upper()
+            if len(v) != 2 or not v.isalpha():
+                raise ValueError("Code pays ISO 3166-1 alpha-2 attendu (ex: BE, FR, NL)")
+        return v
 
 
 class ChangePasswordBody(BaseModel):
@@ -234,7 +291,8 @@ async def update_profile(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> UserOut:
-    """Update current user's profile (name, email)."""
+    """Update current user's profile (name, email, company info, address)."""
+    # Personal info
     if body.name is not None:
         current_user.name = body.name.strip()
     if body.email is not None:
@@ -244,9 +302,161 @@ async def update_profile(
             if existing:
                 raise HTTPException(status_code=409, detail="Cet email est déjà utilisé")
             current_user.email = new_email
+
+    # VAT validation + normalization
+    if body.vat_number is not None:
+        is_valid, normalized, error = validate_vat(body.vat_number)
+        if not is_valid:
+            raise HTTPException(status_code=422, detail=error)
+        if normalized:
+            # Check uniqueness (another user might have the same VAT)
+            existing = db.query(User).filter(
+                User.vat_number == normalized,
+                User.id != current_user.id,
+            ).first()
+            if existing:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Ce numéro de TVA est déjà associé à un autre compte",
+                )
+        current_user.vat_number = normalized  # None if cleared
+
+    # Company
+    if body.company_name is not None:
+        current_user.company_name = body.company_name.strip() or None
+
+    # Location
+    if body.address is not None:
+        current_user.address = body.address.strip() or None
+    if body.postal_code is not None:
+        current_user.postal_code = body.postal_code.strip() or None
+    if body.city is not None:
+        current_user.city = body.city.strip() or None
+    if body.country is not None:
+        current_user.country = body.country
+
+    # Geocode if address changed and we have enough info
+    if any(getattr(body, f) is not None for f in ("address", "postal_code", "city", "country")):
+        lat, lng = _geocode_user(current_user)
+        if lat is not None:
+            current_user.latitude = lat
+            current_user.longitude = lng
+
     db.commit()
     db.refresh(current_user)
-    return UserOut(id=current_user.id, email=current_user.email, name=current_user.name, is_admin=getattr(current_user, 'is_admin', False), plan=getattr(current_user, 'plan', 'free'))
+    return _user_out(current_user)
+
+
+def _geocode_user(user: User) -> tuple[float | None, float | None]:
+    """Best-effort geocoding from postal_code + city + country.
+
+    Uses a simple Belgian postal code lookup table for the most common case.
+    Falls back to None (no external API needed for MVP).
+    """
+    # Belgian postal code → approximate lat/lng (major cities + regions)
+    # Full table not needed: postal_code[:2] gives the province
+    _BE_POSTAL_PREFIXES: dict[str, tuple[float, float]] = {
+        "10": (50.8503, 4.3517),    # Bruxelles
+        "11": (50.8503, 4.3517),    # Bruxelles
+        "12": (50.8503, 4.3517),    # Bruxelles / BW
+        "13": (50.8800, 4.7000),    # Brabant wallon
+        "14": (51.0500, 4.4800),    # Mechelen / Antwerpen
+        "15": (51.0259, 4.4777),    # Mechelen
+        "16": (50.8798, 4.7005),    # Brabant wallon
+        "17": (50.7200, 4.4000),    # Nivelles
+        "18": (50.7100, 4.6200),    # Wavre
+        "19": (50.6700, 4.6100),    # Brabant wallon
+        "20": (51.2194, 4.4025),    # Antwerpen
+        "21": (51.2194, 4.4025),    # Antwerpen
+        "22": (51.1200, 4.3400),    # Antwerpen
+        "23": (51.1667, 4.4500),    # Antwerpen
+        "24": (51.1300, 4.5700),    # Lier
+        "25": (51.2600, 4.7700),    # Turnhout
+        "26": (51.3400, 4.8600),    # Turnhout
+        "29": (51.1600, 4.2900),    # Antwerpen
+        "30": (50.8798, 4.7005),    # Leuven
+        "31": (50.8798, 4.7005),    # Leuven
+        "32": (50.9300, 4.8700),    # Tienen
+        "33": (50.8300, 4.8800),    # Tienen
+        "34": (50.9800, 4.7200),    # Aarschot
+        "35": (50.9500, 5.0000),    # Hageland
+        "36": (50.8900, 4.5600),    # Leuven peripherie
+        "37": (50.8800, 4.7000),    # Leuven sud
+        "38": (50.8500, 3.2500),    # Ieper
+        "39": (50.8300, 3.0300),    # Poperinge
+        "40": (51.0543, 3.7174),    # Gent
+        "41": (51.0500, 4.0000),    # Dendermonde
+        "42": (51.0400, 4.0200),    # Sint-Niklaas
+        "43": (50.9300, 3.6400),    # Oudenaarde
+        "44": (51.0300, 3.4200),    # Eeklo
+        "45": (50.9400, 3.8800),    # Aalst
+        "46": (51.0900, 3.8500),    # Lokeren
+        "47": (51.0000, 4.1800),    # Hamme
+        "48": (51.1400, 3.6200),    # Evergem
+        "49": (51.1000, 3.4700),    # Maldegem
+        "50": (50.6292, 5.5797),    # Liège
+        "51": (50.5900, 5.8000),    # Verviers
+        "52": (50.4900, 5.8500),    # Spa
+        "53": (50.6400, 5.5600),    # Liège
+        "54": (50.6100, 5.4800),    # Seraing
+        "55": (50.6600, 5.7400),    # Herve
+        "56": (50.4541, 3.9523),    # Tournai / Hainaut
+        "57": (50.4500, 3.5600),    # Mouscron
+        "58": (50.5200, 3.7400),    # Ath
+        "59": (50.4600, 3.8600),    # Hainaut
+        "60": (50.4108, 4.4446),    # Charleroi
+        "61": (50.2100, 5.5700),    # Marche-en-Famenne
+        "62": (50.4700, 4.8700),    # Namur
+        "63": (50.6100, 5.9600),    # Eupen
+        "64": (50.4500, 4.4200),    # Charleroi
+        "65": (50.4500, 3.8400),    # Mons
+        "66": (50.3700, 3.9800),    # Mons
+        "67": (50.3600, 3.5700),    # Mons / Dour
+        "68": (50.7700, 3.8700),    # Ath
+        "69": (50.2800, 4.0800),    # Hainaut sud
+        "70": (50.4541, 3.9523),    # Mons / Centre
+        "71": (50.9800, 5.4100),    # Hasselt
+        "72": (50.9900, 5.3800),    # Hasselt
+        "73": (50.8900, 5.6700),    # Tongeren
+        "74": (51.0500, 5.5800),    # Genk
+        "75": (50.7200, 5.5800),    # Waremme
+        "76": (51.0000, 5.6400),    # Limburg
+        "77": (50.7500, 5.2000),    # Hesbaye
+        "78": (50.8300, 3.2700),    # Kortrijk
+        "79": (50.7500, 3.6100),    # Waregem
+        "80": (50.8100, 3.3200),    # West-Vlaanderen
+        "81": (49.6700, 5.5500),    # Virton / Gaume
+        "82": (50.0800, 5.0800),    # Rochefort
+        "83": (50.0600, 5.5700),    # Saint-Hubert
+        "84": (49.9300, 5.3500),    # Neufchâteau
+        "85": (50.0900, 6.1300),    # Malmedy
+        "86": (50.1400, 5.0000),    # Dinant
+        "87": (50.7000, 5.8600),    # Verviers
+        "88": (49.6800, 5.8100),    # Arlon
+        "89": (50.9800, 5.5100),    # Hasselt est
+        "90": (50.8000, 3.2700),    # Brugge
+        "91": (51.2093, 3.2247),    # Brugge
+        "92": (51.0300, 2.9000),    # Roeselare
+        "93": (51.1600, 2.5400),    # Veurne
+        "94": (51.1900, 3.0300),    # Torhout
+        "95": (51.1000, 3.1200),    # Tielt
+        "96": (51.0900, 3.1900),    # Tielt/Ruiselede
+        "97": (50.8600, 2.8900),    # Ieper
+        "98": (51.0400, 2.7100),    # Diksmuide
+        "99": (51.3500, 3.2800),    # Knokke / Kust
+    }
+
+    pc = (user.postal_code or "").strip()
+    country = (user.country or "").strip().upper()
+
+    if country == "BE" and len(pc) >= 2:
+        prefix = pc[:2]
+        coords = _BE_POSTAL_PREFIXES.get(prefix)
+        if coords:
+            return coords
+
+    # No match → don't overwrite existing coordinates
+    return None, None
 
 
 @router.put("/password")
