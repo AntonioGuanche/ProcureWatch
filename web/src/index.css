@@ -2062,6 +2062,23 @@ label {
   transition: all 0.2s;
 }
 
+.ld-cpv-search { position: relative; }
+.ld-cpv-dropdown {
+  position: absolute; top: 100%; left: 0; right: 0; z-index: 50;
+  background: #fff; border: 1px solid #e2e8f0; border-radius: 8px;
+  box-shadow: 0 8px 25px rgba(0,0,0,.12); max-height: 260px; overflow-y: auto;
+  margin-top: 4px;
+}
+.ld-cpv-dropdown-item {
+  display: flex; align-items: center; gap: 0.6rem;
+  padding: 0.5rem 0.75rem; cursor: pointer;
+  font-size: 0.85rem; color: var(--ld-gray-600);
+  border-bottom: 1px solid #f1f5f9;
+  transition: background 0.15s;
+}
+.ld-cpv-dropdown-item:last-child { border-bottom: none; }
+.ld-cpv-dropdown-item:hover { background: #f0fdf4; }
+
 .ld-result-cta {
   text-align: center;
   padding-top: 0.25rem;

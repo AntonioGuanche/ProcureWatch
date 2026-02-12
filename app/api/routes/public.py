@@ -304,6 +304,60 @@ def _extract_li(html: str) -> list[str]:
     return items
 
 
+def _extract_internal_links(html: str, base_url: str) -> list[str]:
+    """
+    Extract internal links from HTML for multi-page crawling.
+    Returns up to 8 links, prioritising service/about/activity pages.
+    """
+    from urllib.parse import urljoin, urlparse
+
+    base_parsed = urlparse(base_url)
+    base_domain = base_parsed.netloc.lower()
+
+    # Find all href values
+    hrefs = re.findall(r'href=["\']([^"\'#]+)', html, re.IGNORECASE)
+
+    # Priority keywords in URL paths (services, about, activities pages)
+    _PRIORITY_SLUGS = {
+        "service", "services", "activit", "metier", "competence", "savoir",
+        "realisations", "prestations", "about", "a-propos", "qui-sommes",
+        "nos-", "notre-", "travaux", "projets", "expertise",
+        "diensten", "over-ons", "activiteiten", "werkzaamheden",
+    }
+
+    seen = set()
+    priority_links = []
+    other_links = []
+
+    for href in hrefs:
+        full = urljoin(base_url, href)
+        parsed = urlparse(full)
+
+        # Only same domain
+        if parsed.netloc.lower() != base_domain:
+            continue
+        # Skip assets, anchors, mailto, tel
+        path = parsed.path.lower()
+        if any(path.endswith(ext) for ext in (".jpg", ".png", ".gif", ".svg", ".pdf", ".css", ".js", ".ico")):
+            continue
+        if path in ("/", "", base_parsed.path):
+            continue
+        # Dedupe
+        canonical = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+        if canonical in seen:
+            continue
+        seen.add(canonical)
+
+        # Classify: priority or other
+        if any(slug in path for slug in _PRIORITY_SLUGS):
+            priority_links.append(canonical)
+        else:
+            other_links.append(canonical)
+
+    # Return priority first, then others, capped at 5
+    return (priority_links + other_links)[:5]
+
+
 def _is_relevant_word(w: str) -> bool:
     """Check if a single word is relevant for procurement."""
     if len(w) < 3 or w in STOP_WORDS:
@@ -544,7 +598,49 @@ async def analyze_website(req: AnalyzeRequest) -> AnalyzeResponse:
     if len(html) < 100:
         raise HTTPException(status_code=422, detail="Page trop courte pour être analysée")
 
-    extracted = _extract_keywords_from_html(html)
+    # ── Crawl internal sub-pages for richer content ──
+    internal_links = _extract_internal_links(html, url)
+    extra_html_parts: list[str] = []
+    if internal_links:
+        # Fetch up to 5 sub-pages concurrently (3s timeout each)
+        import asyncio
+        async def _fetch_page(client: httpx.AsyncClient, page_url: str) -> str:
+            try:
+                r = await client.get(page_url, timeout=4.0)
+                if r.status_code == 200 and "html" in r.headers.get("content-type", ""):
+                    return r.text
+            except Exception:
+                pass
+            return ""
+
+        async with httpx.AsyncClient(
+            follow_redirects=True,
+            headers={
+                "User-Agent": "Mozilla/5.0 (compatible; ProcureWatch/1.0; +https://procurewatch.eu)",
+                "Accept": "text/html,application/xhtml+xml",
+                "Accept-Language": "fr,nl,en",
+            },
+        ) as client:
+            pages = await asyncio.gather(*[_fetch_page(client, link) for link in internal_links])
+            extra_html_parts = [p for p in pages if len(p) > 200]
+
+        logger.info("Crawled %d/%d sub-pages for %s", len(extra_html_parts), len(internal_links), url)
+
+    # Merge all HTML: homepage + sub-pages
+    all_html = html
+    for part in extra_html_parts:
+        all_html += "\n" + part
+
+    extracted = _extract_keywords_from_html(all_html)
+    # Company name from homepage only (not sub-pages)
+    homepage_title = _extract_title(html)
+    homepage_og = _extract_meta(html, "og:title")
+    raw_name = homepage_og or homepage_title or ""
+    raw_name = raw_name.replace("&amp;", "&").replace("&#39;", "'").strip()
+    for suffix in [" - Accueil", " | Accueil", " - Home", " | Home", " – Accueil"]:
+        if raw_name.endswith(suffix):
+            raw_name = raw_name[:-len(suffix)]
+    extracted["company_name"] = raw_name or extracted.get("company_name")
     keywords = extracted["keywords"]
 
     if not keywords:
@@ -586,10 +682,11 @@ def preview_matches(
 ) -> PreviewResponse:
     """
     Public teaser: count matching notices for given keywords + CPV codes.
-    Returns total count + 5 sample notices. No auth required.
+    Returns estimated count + 5 sample notices. No auth required.
+    Performance-optimised: caps keywords, uses LIMIT-based count estimate.
     """
     from app.models.notice import ProcurementNotice
-    from sqlalchemy import or_
+    from sqlalchemy import or_, func, text
 
     if not req.keywords and not req.cpv_codes:
         return PreviewResponse(total_matches=0, sample=[])
@@ -597,19 +694,17 @@ def preview_matches(
     N = ProcurementNotice
     filters = []
 
-    # Keyword matching (ILIKE on title + description)
-    for kw in req.keywords[:10]:  # cap at 10
+    # Cap at 5 keywords for query performance (ILIKE is expensive on 180K+ rows)
+    for kw in req.keywords[:5]:
         kw_clean = kw.strip()
         if len(kw_clean) < 2:
             continue
         pat = f"%{kw_clean}%"
-        filters.append(or_(
-            N.title.ilike(pat),
-            N.description.ilike(pat),
-        ))
+        # Search title only (much faster than title+description ILIKE)
+        filters.append(N.title.ilike(pat))
 
-    # CPV prefix matching
-    for cpv in req.cpv_codes[:5]:  # cap at 5
+    # CPV prefix matching (fast — indexed column)
+    for cpv in req.cpv_codes[:5]:
         cpv_clean = cpv.replace("-", "").strip()
         if len(cpv_clean) >= 2:
             filters.append(N.cpv_main_code.ilike(f"{cpv_clean}%"))
@@ -617,13 +712,22 @@ def preview_matches(
     if not filters:
         return PreviewResponse(total_matches=0, sample=[])
 
-    base_q = db.query(N).filter(or_(*filters))
+    combined = or_(*filters)
 
-    total = base_q.count()
+    # ── Estimated count: use LIMIT to avoid full scan ──
+    # Count up to 10001 — if we hit the limit, report "10000+"
+    count_q = (
+        db.query(N.id)
+        .filter(combined)
+        .limit(10001)
+        .subquery()
+    )
+    total = db.query(func.count()).select_from(count_q).scalar() or 0
 
-    # Get 5 most recent samples
+    # Get 5 most recent samples (fast: Postgres can use index + LIMIT)
     samples = (
-        base_q
+        db.query(N)
+        .filter(combined)
         .order_by(N.publication_date.desc().nulls_last())
         .limit(5)
         .all()
@@ -643,3 +747,15 @@ def preview_matches(
             for n in samples
         ],
     )
+
+
+# ── CPV code search (for dropdown) ───────────────────────────────
+
+@router.get("/cpv-search")
+def cpv_search(q: str = Query("", max_length=60), limit: int = Query(15, le=30)):
+    """
+    Search CPV codes by code prefix or label keyword.
+    Public endpoint — used by landing page CPV dropdown.
+    """
+    from app.services.cpv_reference import search_cpv
+    return search_cpv(q, limit)

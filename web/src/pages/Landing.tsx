@@ -41,6 +41,8 @@ export default function Landing() {
   const [selectedCpv, setSelectedCpv] = useState<Set<string>>(new Set());
   const [allCpv, setAllCpv] = useState<CpvSuggestion[]>([]);
   const [customCpvInput, setCustomCpvInput] = useState("");
+  const [cpvSearchResults, setCpvSearchResults] = useState<CpvSuggestion[]>([]);
+  const [cpvDropdownOpen, setCpvDropdownOpen] = useState(false);
 
   // Fetch preview matches whenever keywords/cpv change
   const fetchPreview = async (kws: Set<string>, cpvs: Set<string>) => {
@@ -118,15 +120,29 @@ export default function Landing() {
     });
   };
 
-  const addCustomCpv = () => {
-    const raw = customCpvInput.trim().replace(/[^0-9]/g, "");
-    if (raw.length >= 2 && !allCpv.some(c => c.code === raw)) {
-      const padded = raw.padEnd(8, "0");
-      const newCpv: CpvSuggestion = { code: padded, label: "Code personnalisé" };
-      setAllCpv(prev => [...prev, newCpv]);
-      setSelectedCpv(prev => new Set([...prev, padded]));
-      setCustomCpvInput("");
+  const searchCpv = async (q: string) => {
+    setCustomCpvInput(q);
+    if (q.trim().length < 2) { setCpvSearchResults([]); setCpvDropdownOpen(false); return; }
+    try {
+      const resp = await fetch(`/api/public/cpv-search?q=${encodeURIComponent(q.trim())}&limit=10`);
+      if (resp.ok) {
+        const results = await resp.json();
+        // Filter out already-added CPVs
+        const filtered = results.filter((r: CpvSuggestion) => !allCpv.some(c => c.code === r.code));
+        setCpvSearchResults(filtered);
+        setCpvDropdownOpen(filtered.length > 0);
+      }
+    } catch { /* ignore */ }
+  };
+
+  const selectCpv = (cpv: CpvSuggestion) => {
+    if (!allCpv.some(c => c.code === cpv.code)) {
+      setAllCpv(prev => [...prev, cpv]);
+      setSelectedCpv(prev => new Set([...prev, cpv.code]));
     }
+    setCustomCpvInput("");
+    setCpvSearchResults([]);
+    setCpvDropdownOpen(false);
   };
 
   const addCustomKeyword = () => {
@@ -314,13 +330,24 @@ export default function Landing() {
                       </div>
                     ))}
                   </div>
-                  <div className="ld-add-kw" style={{ marginTop: ".75rem" }}>
+                  <div className="ld-cpv-search" style={{ marginTop: ".75rem", position: "relative" }}>
                     <input type="text" value={customCpvInput}
-                      onChange={e => setCustomCpvInput(e.target.value)}
-                      onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addCustomCpv(); } }}
-                      placeholder="Ajouter un code CPV (ex: 72000000)…" className="ld-add-kw-input" />
-                    <button type="button" onClick={addCustomCpv} className="ld-add-kw-btn"
-                      disabled={!customCpvInput.trim()}>+ Ajouter</button>
+                      onChange={e => searchCpv(e.target.value)}
+                      onFocus={() => { if (cpvSearchResults.length > 0) setCpvDropdownOpen(true); }}
+                      onBlur={() => setTimeout(() => setCpvDropdownOpen(false), 200)}
+                      placeholder="Rechercher un code CPV (ex: plomberie, 45, nettoyage)…"
+                      className="ld-add-kw-input" style={{ width: "100%" }} />
+                    {cpvDropdownOpen && cpvSearchResults.length > 0 && (
+                      <div className="ld-cpv-dropdown">
+                        {cpvSearchResults.map(cpv => (
+                          <div key={cpv.code} className="ld-cpv-dropdown-item"
+                            onMouseDown={() => selectCpv(cpv)}>
+                            <span className="ld-cpv-code" style={{ fontSize: ".7rem", padding: "2px 6px" }}>{cpv.code}</span>
+                            <span>{cpv.label}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
