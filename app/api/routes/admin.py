@@ -720,3 +720,230 @@ def bosa_sample_can(
         "client_available": workspace_client is not None,
         "samples": results,
     }
+
+
+# ── BOSA CAN award parsing (eForms XML) ─────────────────────────────
+
+
+@router.get("/bosa-parse-awards-test")
+def bosa_parse_awards_test(
+    limit: int = Query(5, ge=1, le=20),
+    db: Session = Depends(get_db),
+):
+    """
+    Test the eForms XML parser on a few BOSA CAN notices.
+    Returns parsed award data WITHOUT updating the DB.
+    """
+    from app.services.bosa_award_parser import (
+        extract_xml_from_raw_data,
+        parse_award_data,
+        build_notice_fields,
+    )
+
+    # Find BOSA CANs (type 29) that have raw_data with versions
+    rows = db.execute(text(
+        "SELECT id, source_id, title, raw_data "
+        "FROM notices "
+        "WHERE source = 'BOSA_EPROC' "
+        "  AND notice_sub_type = '29' "
+        "  AND raw_data IS NOT NULL "
+        "ORDER BY publication_date DESC "
+        "LIMIT :limit"
+    ), {"limit": limit}).fetchall()
+
+    results = []
+    for row in rows:
+        item: dict[str, Any] = {
+            "id": str(row[0]),
+            "source_id": row[1],
+            "title": row[2],
+        }
+        raw_data = row[3]
+        if not isinstance(raw_data, dict):
+            try:
+                raw_data = json.loads(raw_data) if raw_data else {}
+            except (json.JSONDecodeError, TypeError):
+                raw_data = {}
+
+        xml_content = extract_xml_from_raw_data(raw_data)
+        if not xml_content:
+            item["status"] = "no_xml_found"
+            item["versions_count"] = len(raw_data.get("versions", []))
+            results.append(item)
+            continue
+
+        item["xml_length"] = len(xml_content)
+        parsed = parse_award_data(xml_content)
+        fields = build_notice_fields(parsed)
+
+        # Convert Decimals to str for JSON serialization
+        serializable_parsed = _serialize_parsed(parsed)
+
+        item["status"] = "parsed"
+        item["parsed"] = serializable_parsed
+        item["db_fields"] = {
+            k: str(v) if hasattr(v, "__class__") and v.__class__.__name__ == "Decimal" else v
+            for k, v in fields.items()
+        }
+        results.append(item)
+
+    return {
+        "test_count": len(results),
+        "parsed_ok": sum(1 for r in results if r.get("status") == "parsed"),
+        "no_xml": sum(1 for r in results if r.get("status") == "no_xml_found"),
+        "results": results,
+    }
+
+
+@router.post("/bosa-enrich-awards")
+def bosa_enrich_awards(
+    limit: int = Query(50000, ge=1, le=200000),
+    batch_size: int = Query(500, ge=10, le=2000),
+    dry_run: bool = Query(True),
+    db: Session = Depends(get_db),
+):
+    """
+    Bulk-enrich BOSA CAN (type 29) notices with award data parsed from eForms XML.
+    Updates: award_winner_name, award_value, award_date, number_tenders_received, award_criteria_json.
+    """
+    from app.services.bosa_award_parser import (
+        extract_xml_from_raw_data,
+        parse_award_data,
+        build_notice_fields,
+    )
+
+    # Count eligible CANs (type 29 with raw_data, award fields empty)
+    count_result = db.execute(text(
+        "SELECT COUNT(*) FROM notices "
+        "WHERE source = 'BOSA_EPROC' "
+        "  AND notice_sub_type = '29' "
+        "  AND raw_data IS NOT NULL "
+        "  AND (award_winner_name IS NULL OR award_winner_name = '')"
+    ))
+    total_eligible = count_result.scalar()
+
+    if dry_run:
+        return {
+            "total_eligible": total_eligible,
+            "dry_run": True,
+            "message": "Set dry_run=false to execute enrichment",
+        }
+
+    # Process in batches — we MUST load raw_data so we use ORM selectively
+    enriched = 0
+    skipped = 0
+    errors = 0
+    batches = 0
+    offset = 0
+
+    while enriched + skipped + errors < limit:
+        rows = db.execute(text(
+            "SELECT id, raw_data FROM notices "
+            "WHERE source = 'BOSA_EPROC' "
+            "  AND notice_sub_type = '29' "
+            "  AND raw_data IS NOT NULL "
+            "  AND (award_winner_name IS NULL OR award_winner_name = '') "
+            "ORDER BY id "
+            "LIMIT :batch_size OFFSET :offset"
+        ), {"batch_size": batch_size, "offset": offset}).fetchall()
+
+        if not rows:
+            break
+
+        batch_updates = []
+        for row in rows:
+            notice_id = row[0]
+            raw_data = row[1]
+
+            try:
+                if not isinstance(raw_data, dict):
+                    raw_data = json.loads(raw_data) if raw_data else {}
+
+                xml_content = extract_xml_from_raw_data(raw_data)
+                if not xml_content:
+                    skipped += 1
+                    continue
+
+                parsed = parse_award_data(xml_content)
+                fields = build_notice_fields(parsed)
+
+                if not fields:
+                    skipped += 1
+                    continue
+
+                batch_updates.append((notice_id, fields))
+
+            except Exception as e:
+                logger.warning("Award parse error for notice %s: %s", notice_id, e)
+                errors += 1
+
+        # Bulk UPDATE via individual statements per notice (fields vary)
+        for notice_id, fields in batch_updates:
+            set_clauses = []
+            params: dict[str, Any] = {"nid": notice_id}
+
+            if "award_winner_name" in fields:
+                set_clauses.append("award_winner_name = :winner")
+                params["winner"] = fields["award_winner_name"]
+            if "award_value" in fields:
+                set_clauses.append("award_value = :value")
+                params["value"] = float(fields["award_value"])
+            if "award_date" in fields:
+                set_clauses.append("award_date = :adate")
+                params["adate"] = str(fields["award_date"])
+            if "number_tenders_received" in fields:
+                set_clauses.append("number_tenders_received = :ntenders")
+                params["ntenders"] = fields["number_tenders_received"]
+            if "award_criteria_json" in fields:
+                set_clauses.append("award_criteria_json = :acjson")
+                # Serialize Decimals for JSON storage
+                params["acjson"] = json.dumps(
+                    fields["award_criteria_json"],
+                    default=str,
+                )
+
+            if set_clauses:
+                set_clauses.append("updated_at = now()")
+                sql = f"UPDATE notices SET {', '.join(set_clauses)} WHERE id = :nid"
+                db.execute(text(sql), params)
+                enriched += 1
+
+        db.commit()
+        batches += 1
+        offset += batch_size
+
+        logger.info(
+            "Award enrichment batch %d: enriched=%d, skipped=%d, errors=%d",
+            batches, enriched, skipped, errors,
+        )
+
+    return {
+        "total_eligible": total_eligible,
+        "enriched": enriched,
+        "skipped": skipped,
+        "errors": errors,
+        "batches": batches,
+        "dry_run": False,
+    }
+
+
+def _serialize_parsed(parsed: dict) -> dict:
+    """Convert Decimal/date values to JSON-safe types."""
+    out = {}
+    for k, v in parsed.items():
+        if v is None:
+            out[k] = None
+        elif isinstance(v, list):
+            out[k] = [
+                {
+                    kk: str(vv) if hasattr(vv, "__class__") and vv.__class__.__name__ in ("Decimal", "date") else vv
+                    for kk, vv in item.items()
+                }
+                if isinstance(item, dict) else item
+                for item in v
+            ]
+        elif hasattr(v, "__class__") and v.__class__.__name__ in ("Decimal", "date"):
+            out[k] = str(v)
+        else:
+            out[k] = v
+    return out
