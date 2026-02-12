@@ -12,8 +12,12 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.create_index("ix_procurement_notices_procedure_id", "procurement_notices", ["procedure_id"])
+    op.create_index(
+        "ix_notices_procedure_id",
+        "notices",  # was "procurement_notices" — WRONG table name
+        ["procedure_id"],
+    )
 
 
 def downgrade() -> None:
-    op.drop_index("ix_procurement_notices_procedure_id", "procurement_notices")
+    op.drop_index("ix_notices_procedure_id", "notices")

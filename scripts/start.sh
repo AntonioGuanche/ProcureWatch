@@ -9,8 +9,8 @@ if python -m alembic upgrade head 2>&1; then
 else
     echo "Migration failed. Attempting recovery..."
 
-    # If alembic_version points to a revision that no longer exists (e.g. '004'),
-    # stamp it back to the last known good revision ('003').
+    # If alembic_version points to a revision that no longer exists,
+    # stamp it back to the last known good revision.
     python -c "
 from sqlalchemy import create_engine, text
 from app.core.config import settings
@@ -19,10 +19,11 @@ with engine.connect() as conn:
     try:
         ver = conn.execute(text('SELECT version_num FROM alembic_version')).scalar()
         print(f'Current alembic version: {ver}')
-        if ver and ver not in ('001', '002', '003', '004', '005', '006', '007', '008'):
-            conn.execute(text(\"UPDATE alembic_version SET version_num = '005'\"))
+        valid = ('001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011')
+        if ver and ver not in valid:
+            conn.execute(text(\"UPDATE alembic_version SET version_num = '008'\"))
             conn.commit()
-            print('Reset alembic_version to 004.')
+            print('Reset alembic_version to 008.')
         else:
             print('Version is valid, no fix needed.')
     except Exception as e:
