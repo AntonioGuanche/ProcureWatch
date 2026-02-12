@@ -734,6 +734,13 @@ def _map_ted_item_to_notice(item: dict[str, Any], source_id: str) -> dict[str, A
     cpv_main_code = None
     if isinstance(cpv_raw, dict):
         cpv_main_code = _safe_str(cpv_raw.get("code") or cpv_raw.get("id") or cpv_raw.get("value"), 20)
+    elif isinstance(cpv_raw, list) and cpv_raw:
+        # TED search API often returns CPV as list: ['44411000'] or [{'code': '44411000'}]
+        first = cpv_raw[0]
+        if isinstance(first, dict):
+            cpv_main_code = _safe_str(first.get("code") or first.get("id") or first.get("value"), 20)
+        elif first is not None and str(first).strip():
+            cpv_main_code = _safe_str(str(first).strip(), 20)
     elif cpv_raw is not None and str(cpv_raw).strip():
         cpv_main_code = _safe_str(str(cpv_raw).strip(), 20)
 

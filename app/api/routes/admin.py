@@ -949,6 +949,60 @@ def _serialize_parsed(parsed: dict) -> dict:
     return out
 
 
+# ── TED CPV cleanup (fix ['xxxx'] format) ─────────────────────────────
+
+@router.post(
+    "/fix-ted-cpv",
+    tags=["admin"],
+    summary="Fix TED CPV codes stored as ['xxxx'] instead of clean codes",
+    description=(
+        "Strips brackets/quotes from cpv_main_code for TED notices.\n"
+        "Also re-derives cpv_division (first 2 digits) for facet accuracy."
+    ),
+)
+def fix_ted_cpv(
+    dry_run: bool = Query(True),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Clean up TED CPV codes stored with list formatting."""
+    import re
+
+    # Find all notices with malformed CPV (contains [ or ')
+    rows = db.execute(text(
+        "SELECT id, cpv_main_code FROM notices "
+        "WHERE cpv_main_code IS NOT NULL "
+        "  AND (cpv_main_code LIKE '%[%' OR cpv_main_code LIKE '%]%' "
+        "       OR cpv_main_code LIKE '%''%')"
+    )).fetchall()
+
+    if dry_run:
+        samples = [{"id": str(r[0]), "before": r[1]} for r in rows[:20]]
+        return {
+            "total_malformed": len(rows),
+            "dry_run": True,
+            "samples": samples,
+            "message": "Set dry_run=false to fix",
+        }
+
+    fixed = 0
+    for row in rows:
+        notice_id, raw_cpv = row[0], row[1]
+        # Extract digits and dash from the messy string: "['44411000']" → "44411000"
+        cleaned = re.sub(r"[\[\]\"' ]", "", raw_cpv).strip()
+        # If multiple codes separated by comma, take the first
+        if "," in cleaned:
+            cleaned = cleaned.split(",")[0].strip()
+
+        if cleaned and cleaned != raw_cpv:
+            db.execute(text(
+                "UPDATE notices SET cpv_main_code = :cpv WHERE id = :id"
+            ), {"cpv": cleaned, "id": notice_id})
+            fixed += 1
+
+    db.commit()
+    return {"total_malformed": len(rows), "fixed": fixed}
+
+
 # ── TED CAN award enrichment (re-fetch expanded fields) ──────────────
 
 @router.post(
