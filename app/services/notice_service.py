@@ -988,15 +988,9 @@ class NoticeService:
     ) -> dict[str, Any]:
         """
         Import notices from TED search results.
-
-        Args:
-            search_results: List of TED notice objects (e.g. from search_ted_notices()["notices"]).
-            fetch_details: Ignored for TED (no detail API in scope); kept for API consistency.
-
-        Returns:
-            {"created": int, "updated": int, "skipped": int, "errors": list}
+        CAN (form-type=result) enriches existing CN via procedure_id.
         """
-        stats = {"created": 0, "updated": 0, "skipped": 0, "errors": []}
+        stats = {"created": 0, "updated": 0, "skipped": 0, "errors": [], "merged": 0}
 
         for item in search_results:
             raw = item if isinstance(item, dict) else None
@@ -1010,6 +1004,61 @@ class NoticeService:
                 continue
 
             try:
+                # Detect CAN (result notice)
+                item_form_type = _safe_str(raw.get("form-type") or raw.get("formType"), 100)
+                is_can = item_form_type and item_form_type.lower() == "result"
+
+                # Extract procedure_id for CAN→CN linking
+                proc_id = _safe_str(
+                    raw.get("procedure-identifier")
+                    or raw.get("procedureId")
+                    or raw.get("procedure-id"),
+                    255,
+                )
+
+                # CAN merge logic: try to enrich existing CN
+                if is_can and proc_id:
+                    target_cn = (
+                        self.db.query(ProcurementNotice)
+                        .filter(
+                            ProcurementNotice.source == TED_SOURCE,
+                            ProcurementNotice.procedure_id == proc_id,
+                            ProcurementNotice.form_type != "result",
+                        )
+                        .first()
+                    )
+                    if target_cn:
+                        # Enrich CN with CAN award fields
+                        attrs = _map_ted_item_to_notice(raw, source_id)
+                        _CAN_FIELDS = (
+                            "award_winner_name", "award_value", "award_date",
+                            "number_tenders_received", "award_criteria_json",
+                        )
+                        for field in _CAN_FIELDS:
+                            new_val = attrs.get(field)
+                            if new_val is not None:
+                                setattr(target_cn, field, new_val)
+
+                        # Store CAN metadata on the CN
+                        target_cn.procedure_id = proc_id  # ensure set
+                        existing_raw = target_cn.raw_data or {}
+                        existing_raw["_can_source_id"] = source_id
+                        existing_raw["_can_publication_date"] = attrs.get("publication_date").isoformat() if attrs.get("publication_date") else None
+                        target_cn.raw_data = existing_raw
+
+                        # Delete orphan CAN if it existed from a previous import
+                        orphan = (
+                            self.db.query(ProcurementNotice)
+                            .filter(ProcurementNotice.source_id == source_id)
+                            .first()
+                        )
+                        if orphan and orphan.id != target_cn.id:
+                            self.db.delete(orphan)
+
+                        stats["merged"] += 1
+                        continue
+
+                # Standard upsert logic (CN, or CAN without matching CN)
                 existing = (
                     self.db.query(ProcurementNotice)
                     .filter(ProcurementNotice.source_id == source_id)

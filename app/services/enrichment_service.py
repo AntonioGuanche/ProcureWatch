@@ -722,3 +722,117 @@ def get_data_quality_report(db: Session) -> dict[str, Any]:
         "fields": global_rates,
         "per_source": per_source,
     }
+
+
+# ── CAN → CN merge (cleanup orphan result notices) ──────────────────
+
+def merge_orphan_cans(db: Session, limit: int = 5000, dry_run: bool = False) -> dict[str, Any]:
+    """
+    Merge orphan CAN (form_type='result') records into their matching CN
+    via procedure_id. Transfers award fields to CN and deletes the CAN.
+
+    Args:
+        db: Database session
+        limit: Max records to process per call (avoids timeout)
+        dry_run: If True, don't commit changes
+
+    Returns:
+        Stats dict with merged, orphaned (no matching CN), skipped, errors
+    """
+    TED_SOURCE = NoticeSource.TED_EU.value
+    stats = {"merged": 0, "no_match": 0, "no_proc_id": 0, "deleted": 0, "errors": 0, "total_scanned": 0}
+
+    # Find all CAN notices (form_type = 'result') from TED
+    cans = (
+        db.query(Notice)
+        .filter(
+            Notice.source == TED_SOURCE,
+            Notice.form_type == "result",
+        )
+        .limit(limit)
+        .all()
+    )
+    stats["total_scanned"] = len(cans)
+
+    for can in cans:
+        try:
+            proc_id = can.procedure_id
+            if not proc_id:
+                # Try to extract from raw_data
+                raw = can.raw_data or {}
+                proc_id = (
+                    raw.get("procedure-identifier")
+                    or raw.get("procedureId")
+                    or raw.get("procedure-id")
+                )
+                if proc_id:
+                    proc_id = str(proc_id).strip()[:255]
+
+            if not proc_id:
+                stats["no_proc_id"] += 1
+                continue
+
+            # Find matching CN (non-result notice) with same procedure_id
+            target_cn = (
+                db.query(Notice)
+                .filter(
+                    Notice.source == TED_SOURCE,
+                    Notice.procedure_id == proc_id,
+                    Notice.form_type != "result",
+                    Notice.id != can.id,
+                )
+                .first()
+            )
+
+            if not target_cn:
+                stats["no_match"] += 1
+                continue
+
+            # Transfer award fields from CAN to CN (only if CN field is empty)
+            changed = False
+            if can.award_winner_name and not target_cn.award_winner_name:
+                target_cn.award_winner_name = can.award_winner_name
+                changed = True
+            if can.award_value and not target_cn.award_value:
+                target_cn.award_value = can.award_value
+                changed = True
+            if can.award_date and not target_cn.award_date:
+                target_cn.award_date = can.award_date
+                changed = True
+            if can.number_tenders_received and not target_cn.number_tenders_received:
+                target_cn.number_tenders_received = can.number_tenders_received
+                changed = True
+            if can.award_criteria_json and not target_cn.award_criteria_json:
+                target_cn.award_criteria_json = can.award_criteria_json
+                changed = True
+
+            # Store CAN reference in CN's raw_data
+            cn_raw = target_cn.raw_data or {}
+            cn_raw["_can_source_id"] = can.source_id
+            if can.publication_date:
+                cn_raw["_can_publication_date"] = can.publication_date.isoformat()
+            target_cn.raw_data = cn_raw
+
+            # Ensure procedure_id is set on CN
+            if not target_cn.procedure_id:
+                target_cn.procedure_id = proc_id
+
+            # Delete the orphan CAN record
+            db.delete(can)
+            stats["merged"] += 1
+            stats["deleted"] += 1
+
+        except Exception as e:
+            logger.warning("merge_orphan_cans error for %s: %s", can.source_id, e)
+            stats["errors"] += 1
+            continue
+
+    if not dry_run:
+        try:
+            db.commit()
+        except Exception as e:
+            db.rollback()
+            stats["commit_error"] = str(e)
+            logger.exception("merge_orphan_cans commit failed")
+
+    return stats

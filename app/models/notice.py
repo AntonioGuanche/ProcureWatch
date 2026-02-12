@@ -40,7 +40,7 @@ class ProcurementNotice(Base):
 
     # --- Critical fields ---
     publication_workspace_id: Mapped[str] = mapped_column(String(255), nullable=False, unique=True, index=True)
-    procedure_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    procedure_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, index=True)
     dossier_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     reference_number: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     cpv_main_code: Mapped[Optional[str]] = mapped_column(String(20), nullable=True, index=True)

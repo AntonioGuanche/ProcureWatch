@@ -444,3 +444,20 @@ def _get_email_mode() -> str:
     from app.core.config import settings as _s
     raw = getattr(_s, "email_mode", None) or "file"
     return str(raw).split("#")[0].strip().lower() or "file"
+
+
+# ── Merge CAN → CN ────────────────────────────────────────────────────
+
+@router.post("/merge-cans", tags=["admin"])
+def merge_cans(
+    limit: int = Query(5000, ge=1, le=50000, description="Max CAN records to process"),
+    dry_run: bool = Query(False, description="Preview without committing"),
+    db: Session = Depends(get_db),
+) -> dict:
+    """
+    Merge orphan CAN (form_type='result') records into matching CN notices
+    via procedure_id. Transfers award fields and deletes the CAN.
+    Run multiple times if total_scanned == limit (more to process).
+    """
+    from app.services.enrichment_service import merge_orphan_cans
+    return merge_orphan_cans(db, limit=limit, dry_run=dry_run)

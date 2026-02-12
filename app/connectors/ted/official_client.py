@@ -25,6 +25,7 @@ DEFAULT_FIELDS = [
     "publication-date",
     "notice-title",
     "ojs-number",
+    "procedure-identifier",  # Links CN ↔ CAN (same procedure)
     # Buyer / organisation
     "buyer-name",
     "buyer-country",
