@@ -541,72 +541,64 @@ def bosa_diagnostics(db: Session = Depends(get_db)) -> dict:
 
 @router.post("/bosa-backfill-urls", tags=["admin"])
 def bosa_backfill_urls(
-    limit: int = Query(50000, ge=1, le=200000),
+    limit: int = Query(200000, ge=1, le=500000),
     dry_run: bool = Query(True),
-    batch_size: int = Query(5000, ge=500, le=10000),
+    batch_size: int = Query(5000, ge=100, le=10000),
     db: Session = Depends(get_db),
 ) -> dict:
     """
-    Backfill URLs for BOSA notices using source_id (= publicationWorkspaceId).
+    Backfill URLs for BOSA notices using raw SQL batched updates.
     URL pattern: https://publicprocurement.be/publication-workspaces/{source_id}/general
-    Batched commits to avoid SSL timeout on large updates.
+    Each batch = single UPDATE ... WHERE id IN (SELECT ... LIMIT N) → no ORM overhead.
     """
-    from app.models.notice import ProcurementNotice as Notice
-    from sqlalchemy import or_
-
-    total_missing = (
-        db.query(Notice.id)
-        .filter(
-            Notice.source == "BOSA_EPROC",
-            or_(Notice.url.is_(None), Notice.url == ""),
-            Notice.source_id.isnot(None),
-            Notice.source_id != "",
-        )
-        .count()
-    )
+    count_result = db.execute(text(
+        "SELECT COUNT(*) FROM notices "
+        "WHERE source = 'BOSA_EPROC' "
+        "AND (url IS NULL OR url = '') "
+        "AND source_id IS NOT NULL AND source_id != ''"
+    ))
+    total_missing = count_result.scalar()
 
     if dry_run:
         return {"updated": min(total_missing, limit), "total_missing": total_missing, "dry_run": True}
 
     updated = 0
+    batches = 0
     errors = []
-    offset = 0
 
     while updated < limit:
-        chunk = (
-            db.query(Notice)
-            .filter(
-                Notice.source == "BOSA_EPROC",
-                or_(Notice.url.is_(None), Notice.url == ""),
-                Notice.source_id.isnot(None),
-                Notice.source_id != "",
-            )
-            .limit(batch_size)
-            .all()
-        )
-
-        if not chunk:
-            break
-
-        for n in chunk:
-            n.url = f"https://publicprocurement.be/publication-workspaces/{n.source_id}/general"
-
         try:
+            result = db.execute(text(
+                "UPDATE notices SET "
+                "  url = 'https://publicprocurement.be/publication-workspaces/' "
+                "        || source_id || '/general', "
+                "  updated_at = now() "
+                "WHERE id IN ("
+                "  SELECT id FROM notices "
+                "  WHERE source = 'BOSA_EPROC' "
+                "  AND (url IS NULL OR url = '') "
+                "  AND source_id IS NOT NULL AND source_id != '' "
+                "  LIMIT :batch_size"
+                ")"
+            ), {"batch_size": batch_size})
             db.commit()
-            updated += len(chunk)
-            logger.info("bosa-backfill-urls: committed batch %d (+%d = %d total)", offset, len(chunk), updated)
+            rows = result.rowcount
+            if rows == 0:
+                break
+            updated += rows
+            batches += 1
+            logger.info("bosa-backfill-urls: batch %d → %d rows (total %d)",
+                        batches, rows, updated)
         except Exception as e:
             db.rollback()
-            errors.append(f"batch at offset {offset}: {str(e)[:200]}")
-            logger.error("bosa-backfill-urls batch error at offset %d: %s", offset, e)
+            errors.append(f"batch {batches}: {str(e)[:200]}")
+            logger.error("bosa-backfill-urls error at batch %d: %s", batches, e)
             break
-
-        offset += 1
 
     return {
         "updated": updated,
         "total_missing": total_missing,
-        "batches": offset,
+        "batches": batches,
         "batch_size": batch_size,
         "errors": errors if errors else None,
         "dry_run": False,
@@ -639,7 +631,7 @@ def bosa_sample_can(
             Notice.source == "BOSA_EPROC",
             Notice.notice_sub_type == notice_sub_type,
         )
-        .order_by(Notice.published_at.desc().nullslast())
+        .order_by(Notice.publication_date.desc().nullslast())
         .limit(limit)
         .all()
     )
@@ -670,7 +662,7 @@ def bosa_sample_can(
             "notice_sub_type": n.notice_sub_type,
             "form_type": n.form_type,
             "procedure_id": n.procedure_id,
-            "published_at": str(n.published_at) if n.published_at else None,
+            "publication_date": str(n.publication_date) if n.publication_date else None,
             "award_winner_name": n.award_winner_name,
             "award_value": str(n.award_value) if n.award_value else None,
         }
