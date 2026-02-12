@@ -264,7 +264,7 @@ def search_notices(
     value_min: Optional[float] = Query(None, ge=0, description="Minimum estimated value (EUR)"),
     value_max: Optional[float] = Query(None, ge=0, description="Maximum estimated value (EUR)"),
     active_only: bool = Query(False, description="If true, only notices with deadline in the future"),
-    sort: str = Query("date_desc", description="Sort: date_desc, date_asc, relevance, deadline, deadline_desc, value_desc, value_asc"),
+    sort: str = Query("date_desc", description="Sort: date_desc, date_asc, relevance, deadline, deadline_desc, value_desc, value_asc, award_desc, award_asc, award_date_desc, award_date_asc, cpv_asc, cpv_desc, source_asc, source_desc"),
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(25, ge=1, le=100, description="Items per page"),
     db: Session = Depends(get_db),

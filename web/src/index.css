@@ -254,6 +254,13 @@ label {
 .data-table tr:hover td { background: var(--gray-50); }
 .data-table tr:last-child td { border-bottom: none; }
 
+/* Sortable column headers */
+.th-sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+.th-sortable:hover { color: var(--navy); background: var(--gray-100); }
+.sort-arrow { margin-left: .25rem; font-size: .7rem; }
+.sort-arrow.inactive { opacity: .3; }
+.sort-arrow.active { opacity: 1; color: var(--navy); }
+
 .notice-link {
   color: var(--navy);
   font-weight: 500;

@@ -215,6 +215,22 @@ def build_search_query(
         query = query.order_by(ProcurementNotice.estimated_value.desc().nulls_last())
     elif sort == "value_asc":
         query = query.order_by(ProcurementNotice.estimated_value.asc().nulls_last())
+    elif sort == "award_desc":
+        query = query.order_by(ProcurementNotice.award_value.desc().nulls_last())
+    elif sort == "award_asc":
+        query = query.order_by(ProcurementNotice.award_value.asc().nulls_last())
+    elif sort == "award_date_desc":
+        query = query.order_by(ProcurementNotice.award_date.desc().nulls_last())
+    elif sort == "award_date_asc":
+        query = query.order_by(ProcurementNotice.award_date.asc().nulls_last())
+    elif sort == "cpv_asc":
+        query = query.order_by(ProcurementNotice.cpv_main_code.asc().nulls_last())
+    elif sort == "cpv_desc":
+        query = query.order_by(ProcurementNotice.cpv_main_code.desc().nulls_last())
+    elif sort == "source_asc":
+        query = query.order_by(ProcurementNotice.source.asc())
+    elif sort == "source_desc":
+        query = query.order_by(ProcurementNotice.source.desc())
     else:
         # Default: date_desc
         query = query.order_by(ProcurementNotice.publication_date.desc().nulls_last())

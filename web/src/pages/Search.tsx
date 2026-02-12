@@ -23,14 +23,35 @@ function deadlineTag(deadline: string | null) {
   return <span className="tag tag-default">{days}j</span>;
 }
 
-const SORT_OPTIONS = [
-  { value: "date_desc", label: "Plus récent" },
-  { value: "date_asc", label: "Plus ancien" },
-  { value: "relevance", label: "Pertinence" },
-  { value: "deadline", label: "Deadline ↑" },
-  { value: "deadline_desc", label: "Deadline ↓" },
-  { value: "value_desc", label: "Valeur ↓" },
-];
+/**
+ * Column sort configuration.
+ * Each sortable column maps to its desc and asc backend sort keys.
+ */
+const COLUMN_SORTS: Record<string, { desc: string; asc: string }> = {
+  publication: { desc: "date_desc", asc: "date_asc" },
+  deadline:    { desc: "deadline_desc", asc: "deadline" },
+  value:       { desc: "value_desc", asc: "value_asc" },
+  award:       { desc: "award_desc", asc: "award_asc" },
+  cpv:         { desc: "cpv_desc", asc: "cpv_asc" },
+  source:      { desc: "source_desc", asc: "source_asc" },
+};
+
+/** Determine which column + direction is currently active */
+function parseSort(sort: string): { col: string | null; dir: "asc" | "desc" } {
+  for (const [col, keys] of Object.entries(COLUMN_SORTS)) {
+    if (sort === keys.desc) return { col, dir: "desc" };
+    if (sort === keys.asc)  return { col, dir: "asc" };
+  }
+  if (sort === "relevance") return { col: null, dir: "desc" };
+  return { col: "publication", dir: "desc" }; // default
+}
+
+/** Sort arrow indicator */
+function SortArrow({ col, currentSort }: { col: string; currentSort: string }) {
+  const { col: activeCol, dir } = parseSort(currentSort);
+  if (activeCol !== col) return <span className="sort-arrow inactive">⇅</span>;
+  return <span className="sort-arrow active">{dir === "desc" ? "↓" : "↑"}</span>;
+}
 
 export function Search() {
   const [q, setQ] = useState("");
@@ -56,12 +77,13 @@ export function Search() {
     getFavoriteIds().then((r) => setFavIds(new Set(r.notice_ids))).catch(() => {});
   }, []);
 
-  const doSearch = useCallback(async (p: number) => {
+  const doSearch = useCallback(async (p: number, sortOverride?: string) => {
+    const effectiveSort = sortOverride ?? sort;
     setLoading(true);
     setError(null);
     setPage(p);
     try {
-      const params: SearchParams = { page: p, page_size: pageSize, sort };
+      const params: SearchParams = { page: p, page_size: pageSize, sort: effectiveSort };
       if (q.trim()) params.q = q.trim();
       if (cpv) params.cpv = cpv;
       if (nuts) params.nuts = nuts;
@@ -79,6 +101,23 @@ export function Search() {
   useEffect(() => { doSearch(1); }, []);
 
   const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); doSearch(1); };
+
+  /** Handle column header click: toggle direction or switch column */
+  const handleColumnSort = (col: string) => {
+    const keys = COLUMN_SORTS[col];
+    if (!keys) return;
+    const { col: activeCol, dir } = parseSort(sort);
+    let newSort: string;
+    if (activeCol === col) {
+      // Toggle direction
+      newSort = dir === "desc" ? keys.asc : keys.desc;
+    } else {
+      // New column — default to desc (most useful first)
+      newSort = keys.desc;
+    }
+    setSort(newSort);
+    doSearch(1, newSort);
+  };
 
   const handleToggleFav = async (noticeId: string, e?: React.MouseEvent) => {
     if (e) { e.stopPropagation(); }
@@ -136,12 +175,6 @@ export function Search() {
             <input type="checkbox" checked={activeOnly} onChange={(e) => setActiveOnly(e.target.checked)} />
             Opportunités ouvertes uniquement
           </label>
-          <div className="sort-control">
-            <span>Trier par</span>
-            <select value={sort} onChange={(e) => setSort(e.target.value)}>
-              {SORT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
-          </div>
           {results && <span className="results-count">{results.total.toLocaleString("fr-BE")} résultat{results.total !== 1 ? "s" : ""}</span>}
         </div>
       </form>
@@ -156,12 +189,24 @@ export function Search() {
               <tr>
                 <th style={{ width: "3%" }}></th>
                 <th style={{ width: "30%" }}>Titre</th>
-                <th style={{ width: "8%" }}>CPV</th>
-                <th style={{ width: "7%" }}>Source</th>
-                <th style={{ width: "10%" }}>Publication</th>
-                <th style={{ width: "12%" }}>Deadline</th>
-                <th style={{ width: "10%" }}>Valeur est.</th>
-                <th style={{ width: "10%" }}>Attribution</th>
+                <th className="th-sortable" style={{ width: "8%" }} onClick={() => handleColumnSort("cpv")}>
+                  CPV <SortArrow col="cpv" currentSort={sort} />
+                </th>
+                <th className="th-sortable" style={{ width: "7%" }} onClick={() => handleColumnSort("source")}>
+                  Source <SortArrow col="source" currentSort={sort} />
+                </th>
+                <th className="th-sortable" style={{ width: "10%" }} onClick={() => handleColumnSort("publication")}>
+                  Publication <SortArrow col="publication" currentSort={sort} />
+                </th>
+                <th className="th-sortable" style={{ width: "12%" }} onClick={() => handleColumnSort("deadline")}>
+                  Deadline <SortArrow col="deadline" currentSort={sort} />
+                </th>
+                <th className="th-sortable" style={{ width: "10%" }} onClick={() => handleColumnSort("value")}>
+                  Valeur est. <SortArrow col="value" currentSort={sort} />
+                </th>
+                <th className="th-sortable" style={{ width: "10%" }} onClick={() => handleColumnSort("award")}>
+                  Attribution <SortArrow col="award" currentSort={sort} />
+                </th>
               </tr>
             </thead>
             <tbody>
