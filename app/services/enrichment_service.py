@@ -13,6 +13,8 @@ from sqlalchemy import text, func, case, cast, String
 from sqlalchemy.orm import Session
 
 from app.models.notice import ProcurementNotice as Notice, NoticeSource
+from app.models.notice_lot import NoticeLot
+from app.models.notice_cpv_additional import NoticeCpvAdditional
 
 logger = logging.getLogger(__name__)
 
@@ -834,5 +836,91 @@ def merge_orphan_cans(db: Session, limit: int = 5000, dry_run: bool = False) -> 
             db.rollback()
             stats["commit_error"] = str(e)
             logger.exception("merge_orphan_cans commit failed")
+
+    return stats
+
+
+def cleanup_orphan_cans(db: Session, limit: int = 50000, dry_run: bool = False) -> dict[str, Any]:
+    """
+    Delete orphan CAN (form_type='result') records that cannot be linked to any CN.
+    
+    Targets CANs that:
+    - Have no procedure_id (neither in column nor raw_data)
+    - OR have procedure_id but no matching CN exists
+    
+    Preserves CANs that have useful standalone award data (winner + value).
+    
+    Returns:
+        Stats dict with deleted, preserved, total_scanned
+    """
+    TED_SOURCE = NoticeSource.TED_EU.value
+    stats = {
+        "deleted": 0,
+        "preserved_has_award": 0,
+        "preserved_has_cn": 0,
+        "total_scanned": 0,
+        "dry_run": dry_run,
+    }
+
+    cans = (
+        db.query(Notice)
+        .filter(
+            Notice.source == TED_SOURCE,
+            Notice.form_type == "result",
+        )
+        .limit(limit)
+        .all()
+    )
+    stats["total_scanned"] = len(cans)
+
+    to_delete = []
+    for can in cans:
+        # Check if this CAN has a matching CN via procedure_id
+        proc_id = can.procedure_id
+        if not proc_id:
+            raw = can.raw_data or {}
+            proc_id = (
+                raw.get("procedure-identifier")
+                or raw.get("procedureId")
+                or raw.get("procedure-id")
+            )
+
+        if proc_id:
+            has_cn = (
+                db.query(Notice.id)
+                .filter(
+                    Notice.source == TED_SOURCE,
+                    Notice.procedure_id == str(proc_id).strip(),
+                    Notice.form_type != "result",
+                    Notice.id != can.id,
+                )
+                .first()
+            )
+            if has_cn:
+                stats["preserved_has_cn"] += 1
+                continue
+
+        # Preserve if CAN has useful standalone award data (winner AND value)
+        if can.award_winner_name and can.award_value:
+            stats["preserved_has_award"] += 1
+            continue
+
+        to_delete.append(can)
+
+    stats["deleted"] = len(to_delete)
+
+    if not dry_run and to_delete:
+        # Batch delete via IDs for performance
+        ids = [c.id for c in to_delete]
+        # Delete related lots and CPVs first
+        db.query(NoticeLot).filter(NoticeLot.notice_id.in_(ids)).delete(synchronize_session=False)
+        db.query(NoticeCpvAdditional).filter(NoticeCpvAdditional.notice_id.in_(ids)).delete(synchronize_session=False)
+        db.query(Notice).filter(Notice.id.in_(ids)).delete(synchronize_session=False)
+        try:
+            db.commit()
+        except Exception as e:
+            db.rollback()
+            stats["commit_error"] = str(e)
+            logger.exception("cleanup_orphan_cans commit failed")
 
     return stats

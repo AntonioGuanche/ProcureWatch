@@ -461,3 +461,18 @@ def merge_cans(
     """
     from app.services.enrichment_service import merge_orphan_cans
     return merge_orphan_cans(db, limit=limit, dry_run=dry_run)
+
+
+@router.post("/cleanup-orphan-cans", tags=["admin"])
+def cleanup_orphan_cans(
+    limit: int = Query(50000, ge=1, le=100000, description="Max CAN records to scan"),
+    dry_run: bool = Query(True, description="Preview without deleting"),
+    db: Session = Depends(get_db),
+) -> dict:
+    """
+    Delete orphan CAN records (form_type='result') that have no matching CN.
+    Preserves CANs with useful standalone award data (winner + value).
+    Run with dry_run=true first to preview.
+    """
+    from app.services.enrichment_service import cleanup_orphan_cans
+    return cleanup_orphan_cans(db, limit=limit, dry_run=dry_run)
