@@ -57,11 +57,18 @@ export default function Landing() {
         body: JSON.stringify({ keywords: kwArr, cpv_codes: cpvArr }),
       });
       if (resp.ok) {
-        setPreview(await resp.json());
+        const data = await resp.json();
+        setPreview(data);
       } else {
-        console.warn("preview-matches error", resp.status, await resp.text());
+        const text = await resp.text().catch(() => "");
+        console.warn("preview-matches error", resp.status, text);
+        // Show a fallback so user knows something happened
+        setPreview({ total_matches: -1, sample: [] });
       }
-    } catch (err) { console.warn("preview-matches fetch failed", err); }
+    } catch (err) {
+      console.warn("preview-matches fetch failed", err);
+      setPreview({ total_matches: -1, sample: [] });
+    }
     finally { setPreviewLoading(false); }
   };
 
@@ -363,8 +370,9 @@ export default function Landing() {
               {preview && !previewLoading && preview.total_matches > 0 && (
                 <div className="ld-preview-box">
                   <div className="ld-preview-count">
-                    <strong>{preview.total_matches.toLocaleString("fr-BE")}</strong> marchés publics correspondent à votre activité
+                    <strong>{preview.total_matches >= 501 ? "500+" : preview.total_matches.toLocaleString("fr-BE")}</strong> marchés publics correspondent à votre activité
                   </div>
+                  {preview.sample.length > 0 && (
                   <div className="ld-preview-table">
                     <table>
                       <thead>
@@ -390,15 +398,21 @@ export default function Landing() {
                     </table>
                     {preview.total_matches > 5 && (
                       <div className="ld-preview-more">
-                        … et {(preview.total_matches - 5).toLocaleString("fr-BE")} autres marchés à découvrir
+                        … et {preview.total_matches >= 501 ? "des centaines d'" : (preview.total_matches - 5).toLocaleString("fr-BE") + " "}autres marchés à découvrir
                       </div>
                     )}
                   </div>
+                  )}
                 </div>
               )}
               {preview && !previewLoading && preview.total_matches === 0 && (
                 <div style={{ textAlign: "center", padding: ".75rem", color: "var(--gray-500)", fontSize: ".9rem" }}>
                   Aucun marché trouvé avec ces critères. Essayez d'ajuster vos mots-clés.
+                </div>
+              )}
+              {preview && !previewLoading && preview.total_matches === -1 && (
+                <div style={{ textAlign: "center", padding: ".75rem", color: "#e67e22", fontSize: ".9rem" }}>
+                  ⚠ Impossible de charger l'aperçu des marchés. Créez votre veille pour voir les résultats complets.
                 </div>
               )}
 

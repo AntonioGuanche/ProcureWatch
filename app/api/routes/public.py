@@ -681,72 +681,68 @@ def preview_matches(
     db: Session = Depends(_get_db),
 ) -> PreviewResponse:
     """
-    Public teaser: count matching notices for given keywords + CPV codes.
+    Public teaser: matching notices for given keywords + CPV codes.
     Returns estimated count + 5 sample notices. No auth required.
-    Performance-optimised: caps keywords, uses LIMIT-based count estimate.
     """
     from app.models.notice import ProcurementNotice
-    from sqlalchemy import or_, func, text
+    from sqlalchemy import or_
 
     if not req.keywords and not req.cpv_codes:
         return PreviewResponse(total_matches=0, sample=[])
 
-    N = ProcurementNotice
-    filters = []
+    try:
+        N = ProcurementNotice
+        filters = []
 
-    # Cap at 5 keywords for query performance (ILIKE is expensive on 180K+ rows)
-    for kw in req.keywords[:5]:
-        kw_clean = kw.strip()
-        if len(kw_clean) < 2:
-            continue
-        pat = f"%{kw_clean}%"
-        # Search title only (much faster than title+description ILIKE)
-        filters.append(N.title.ilike(pat))
+        # Keywords: title ILIKE (cap at 5 for perf)
+        for kw in (req.keywords or [])[:5]:
+            kw_clean = kw.strip()
+            if len(kw_clean) < 2:
+                continue
+            filters.append(N.title.ilike(f"%{kw_clean}%"))
 
-    # CPV prefix matching (fast — indexed column)
-    for cpv in req.cpv_codes[:5]:
-        cpv_clean = cpv.replace("-", "").strip()
-        if len(cpv_clean) >= 2:
-            filters.append(N.cpv_main_code.ilike(f"{cpv_clean}%"))
+        # CPV prefix matching (fast — indexed column)
+        for cpv in (req.cpv_codes or [])[:5]:
+            cpv_clean = cpv.replace("-", "").strip()
+            if len(cpv_clean) >= 2:
+                filters.append(N.cpv_main_code.ilike(f"{cpv_clean}%"))
 
-    if not filters:
+        if not filters:
+            return PreviewResponse(total_matches=0, sample=[])
+
+        combined = or_(*filters)
+
+        # Simple count: fetch up to 501 IDs (cheap)
+        id_rows = db.query(N.id).filter(combined).limit(501).all()
+        total = len(id_rows)
+
+        # Get 5 most recent samples
+        samples = (
+            db.query(N)
+            .filter(combined)
+            .order_by(N.publication_date.desc().nulls_last())
+            .limit(5)
+            .all()
+        )
+
+        return PreviewResponse(
+            total_matches=total,
+            sample=[
+                PreviewNotice(
+                    title=n.title or "—",
+                    authority=n.authority_name,
+                    cpv=n.cpv_main_code,
+                    source="BOSA" if n.source and "BOSA" in n.source else "TED",
+                    publication_date=n.publication_date.isoformat() if n.publication_date else None,
+                    deadline=n.deadline.isoformat() if n.deadline else None,
+                )
+                for n in samples
+            ],
+        )
+    except Exception as e:
+        logger.exception("preview-matches crashed: %s", e)
+        # Return empty rather than 500 so frontend doesn't break
         return PreviewResponse(total_matches=0, sample=[])
-
-    combined = or_(*filters)
-
-    # ── Estimated count: use LIMIT to avoid full scan ──
-    # Count up to 10001 — if we hit the limit, report "10000+"
-    count_q = (
-        db.query(N.id)
-        .filter(combined)
-        .limit(10001)
-        .subquery()
-    )
-    total = db.query(func.count()).select_from(count_q).scalar() or 0
-
-    # Get 5 most recent samples (fast: Postgres can use index + LIMIT)
-    samples = (
-        db.query(N)
-        .filter(combined)
-        .order_by(N.publication_date.desc().nulls_last())
-        .limit(5)
-        .all()
-    )
-
-    return PreviewResponse(
-        total_matches=total,
-        sample=[
-            PreviewNotice(
-                title=n.title or "—",
-                authority=n.authority_name,
-                cpv=n.cpv_main_code,
-                source="BOSA" if n.source and "BOSA" in n.source else "TED",
-                publication_date=n.publication_date.isoformat() if n.publication_date else None,
-                deadline=n.deadline.isoformat() if n.deadline else None,
-            )
-            for n in samples
-        ],
-    )
 
 
 # ── CPV code search (for dropdown) ───────────────────────────────
