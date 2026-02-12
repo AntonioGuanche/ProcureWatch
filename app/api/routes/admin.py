@@ -1088,7 +1088,18 @@ def bosa_can_flat_peek(
 # ── Bulk fetch + enrich via BOSA workspace API ──────────────────────
 
 
-@router.post("/bosa-enrich-awards-via-api")
+@router.post(
+    "/bosa-enrich-awards-via-api",
+    summary="Bulk-enrich flat BOSA CANs via workspace API",
+    description=(
+        "For each CAN (type 29) without award data and without XML in raw_data:\n"
+        "1. GET /publication-workspaces/{source_id} → workspace detail with eForms XML\n"
+        "2. Parse XML for award data (winner, value, date, nb tenders)\n"
+        "3. Update notice fields + replace raw_data with full workspace response\n\n"
+        "Rate-limited with configurable delay between API calls.\n"
+        "Use dry_run=true first to see count + estimated time."
+    ),
+)
 def bosa_enrich_awards_via_api(
     limit: int = Query(100, ge=1, le=50000),
     batch_size: int = Query(50, ge=5, le=500),
@@ -1205,7 +1216,7 @@ def bosa_enrich_awards_via_api(
                     continue
 
                 time.sleep(delay_sec)
-                workspace_data = client.get_workspace(source_id)
+                workspace_data = client.get_publication_workspace(source_id)
 
                 if not workspace_data:
                     api_errors += 1
@@ -1299,7 +1310,15 @@ def _update_notice_fields(db: Session, notice_id: str, fields: dict[str, Any]):
         db.execute(text(sql), params)
 
 
-@router.get("/bosa-enrich-debug")
+@router.get(
+    "/bosa-enrich-debug",
+    summary="Debug: step-by-step workspace fetch + parse for a few CANs",
+    description=(
+        "Fetches workspace detail + parses XML for up to 20 flat CANs.\n"
+        "Shows each step: existing XML check → API fetch → XML extract → parse → fields.\n"
+        "Use this to diagnose enrichment failures before running bulk."
+    ),
+)
 def bosa_enrich_debug(
     limit: int = Query(5, ge=1, le=20),
     db: Session = Depends(get_db),
@@ -1369,7 +1388,7 @@ def bosa_enrich_debug(
 
             # Step 2: Fetch workspace
             time.sleep(0.3)
-            workspace = client.get_workspace(source_id)
+            workspace = client.get_publication_workspace(source_id)
             if not workspace:
                 item["steps"]["2_api_fetch"] = "FAILED (None returned)"
                 results.append(item)
