@@ -543,42 +543,74 @@ def bosa_diagnostics(db: Session = Depends(get_db)) -> dict:
 def bosa_backfill_urls(
     limit: int = Query(50000, ge=1, le=200000),
     dry_run: bool = Query(True),
+    batch_size: int = Query(5000, ge=500, le=10000),
     db: Session = Depends(get_db),
 ) -> dict:
     """
     Backfill URLs for BOSA notices using source_id (= publicationWorkspaceId).
     URL pattern: https://publicprocurement.be/publication-workspaces/{source_id}/general
+    Batched commits to avoid SSL timeout on large updates.
     """
     from app.models.notice import ProcurementNotice as Notice
     from sqlalchemy import or_
 
-    notices = (
-        db.query(Notice)
+    total_missing = (
+        db.query(Notice.id)
         .filter(
             Notice.source == "BOSA_EPROC",
             or_(Notice.url.is_(None), Notice.url == ""),
             Notice.source_id.isnot(None),
             Notice.source_id != "",
         )
-        .limit(limit)
-        .all()
+        .count()
     )
 
-    updated = 0
-    for n in notices:
-        url = f"https://publicprocurement.be/publication-workspaces/{n.source_id}/general"
-        if not dry_run:
-            n.url = url
-        updated += 1
+    if dry_run:
+        return {"updated": min(total_missing, limit), "total_missing": total_missing, "dry_run": True}
 
-    if not dry_run and updated:
+    updated = 0
+    errors = []
+    offset = 0
+
+    while updated < limit:
+        chunk = (
+            db.query(Notice)
+            .filter(
+                Notice.source == "BOSA_EPROC",
+                or_(Notice.url.is_(None), Notice.url == ""),
+                Notice.source_id.isnot(None),
+                Notice.source_id != "",
+            )
+            .limit(batch_size)
+            .all()
+        )
+
+        if not chunk:
+            break
+
+        for n in chunk:
+            n.url = f"https://publicprocurement.be/publication-workspaces/{n.source_id}/general"
+
         try:
             db.commit()
+            updated += len(chunk)
+            logger.info("bosa-backfill-urls: committed batch %d (+%d = %d total)", offset, len(chunk), updated)
         except Exception as e:
             db.rollback()
-            return {"error": str(e), "updated": 0}
+            errors.append(f"batch at offset {offset}: {str(e)[:200]}")
+            logger.error("bosa-backfill-urls batch error at offset %d: %s", offset, e)
+            break
 
-    return {"updated": updated, "total_missing": len(notices), "dry_run": dry_run}
+        offset += 1
+
+    return {
+        "updated": updated,
+        "total_missing": total_missing,
+        "batches": offset,
+        "batch_size": batch_size,
+        "errors": errors if errors else None,
+        "dry_run": False,
+    }
 
 
 # ── BOSA deep sample: explore what's really inside type 29 (CAN) ──────
