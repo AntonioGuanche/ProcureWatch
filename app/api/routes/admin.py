@@ -1083,3 +1083,217 @@ def bosa_can_flat_peek(
         "count": len(results),
         "results": results,
     }
+
+
+# ── Bulk fetch + enrich via BOSA workspace API ──────────────────────
+
+
+@router.post("/bosa-enrich-awards-via-api")
+def bosa_enrich_awards_via_api(
+    limit: int = Query(100, ge=1, le=50000),
+    batch_size: int = Query(50, ge=5, le=500),
+    api_delay_ms: int = Query(300, ge=50, le=5000),
+    dry_run: bool = Query(True),
+    db: Session = Depends(get_db),
+):
+    """
+    Bulk-enrich flat BOSA CANs by fetching workspace detail via API.
+
+    For each CAN (type 29) without award data and without XML in raw_data:
+    1. GET /publication-workspaces/{source_id} → workspace detail with XML
+    2. Parse eForms XML for award data
+    3. Update notice fields + replace raw_data with full workspace response
+
+    Rate-limited with configurable delay between API calls.
+    """
+    import time
+
+    from app.services.bosa_award_parser import (
+        extract_xml_from_raw_data,
+        parse_award_data,
+        build_notice_fields,
+    )
+
+    # Count eligible: CAN type 29, no award data
+    count_result = db.execute(text(
+        "SELECT COUNT(*) FROM notices "
+        "WHERE source = 'BOSA_EPROC' "
+        "  AND notice_sub_type = '29' "
+        "  AND raw_data IS NOT NULL "
+        "  AND (award_winner_name IS NULL OR award_winner_name = '')"
+    ))
+    total_eligible = count_result.scalar()
+
+    if dry_run:
+        return {
+            "total_eligible": total_eligible,
+            "limit": limit,
+            "batch_size": batch_size,
+            "api_delay_ms": api_delay_ms,
+            "dry_run": True,
+            "message": "Set dry_run=false to execute. This will make API calls to BOSA.",
+            "estimated_time_minutes": round(
+                min(total_eligible, limit) * api_delay_ms / 60000, 1
+            ),
+        }
+
+    # Initialize BOSA API client
+    try:
+        from app.connectors.bosa.client import _get_client
+        from app.connectors.bosa.official_client import OfficialEProcurementClient
+        client, provider = _get_client()
+        if not isinstance(client, OfficialEProcurementClient):
+            return {"error": f"BOSA client is not official ({provider}), cannot fetch workspace details"}
+    except Exception as e:
+        return {"error": f"Failed to initialize BOSA client: {e}"}
+
+    enriched = 0
+    skipped_no_xml = 0
+    skipped_no_fields = 0
+    api_errors = 0
+    parse_errors = 0
+    already_has_xml = 0
+    batches_done = 0
+    offset = 0
+    delay_sec = api_delay_ms / 1000.0
+
+    while (enriched + skipped_no_xml + skipped_no_fields + api_errors + parse_errors + already_has_xml) < limit:
+        # Fetch batch of flat CANs
+        rows = db.execute(text(
+            "SELECT id, source_id, raw_data FROM notices "
+            "WHERE source = 'BOSA_EPROC' "
+            "  AND notice_sub_type = '29' "
+            "  AND raw_data IS NOT NULL "
+            "  AND (award_winner_name IS NULL OR award_winner_name = '') "
+            "ORDER BY publication_date DESC, id "
+            "LIMIT :batch_size OFFSET :offset"
+        ), {"batch_size": batch_size, "offset": offset}).fetchall()
+
+        if not rows:
+            break
+
+        for row in rows:
+            if (enriched + skipped_no_xml + skipped_no_fields + api_errors + parse_errors + already_has_xml) >= limit:
+                break
+
+            notice_id = row[0]
+            source_id = row[1]
+            raw_data = row[2]
+
+            try:
+                if not isinstance(raw_data, dict):
+                    raw_data = json.loads(raw_data) if raw_data else {}
+
+                # Check if raw_data already has XML (skip API call)
+                existing_xml = extract_xml_from_raw_data(raw_data)
+                if existing_xml:
+                    # Already has XML — parse directly (shouldn't happen often since
+                    # bosa_enrich_awards already handled these, but just in case)
+                    parsed = parse_award_data(existing_xml)
+                    fields = build_notice_fields(parsed)
+                    if fields:
+                        _update_notice_fields(db, notice_id, fields)
+                        enriched += 1
+                    else:
+                        skipped_no_fields += 1
+                    already_has_xml += 1
+                    continue
+
+                # Fetch workspace detail via API
+                if not source_id:
+                    skipped_no_xml += 1
+                    continue
+
+                time.sleep(delay_sec)
+                workspace_data = client.get_workspace(source_id)
+
+                if not workspace_data:
+                    api_errors += 1
+                    continue
+
+                # Extract XML from workspace response
+                xml_content = extract_xml_from_raw_data(workspace_data)
+                if not xml_content:
+                    skipped_no_xml += 1
+                    continue
+
+                # Parse award data
+                parsed = parse_award_data(xml_content)
+                fields = build_notice_fields(parsed)
+
+                if not fields:
+                    skipped_no_fields += 1
+                    continue
+
+                # Update notice: award fields + replace raw_data with full workspace
+                _update_notice_fields(db, notice_id, fields)
+
+                # Also update raw_data with the workspace response (has XML for future use)
+                db.execute(
+                    text("UPDATE notices SET raw_data = :rd WHERE id = :nid"),
+                    {
+                        "rd": json.dumps(workspace_data, default=str),
+                        "nid": notice_id,
+                    },
+                )
+                enriched += 1
+
+            except Exception as e:
+                logger.warning(
+                    "Award API enrichment error for notice %s (source=%s): %s",
+                    notice_id, source_id, e,
+                )
+                parse_errors += 1
+
+        db.commit()
+        batches_done += 1
+        offset += batch_size
+
+        processed = enriched + skipped_no_xml + skipped_no_fields + api_errors + parse_errors + already_has_xml
+        logger.info(
+            "Award API enrichment batch %d: enriched=%d, api_errors=%d, "
+            "skipped_no_xml=%d, skipped_no_fields=%d, parse_errors=%d, "
+            "already_has_xml=%d (total processed=%d/%d)",
+            batches_done, enriched, api_errors,
+            skipped_no_xml, skipped_no_fields, parse_errors,
+            already_has_xml, processed, total_eligible,
+        )
+
+    return {
+        "total_eligible": total_eligible,
+        "enriched": enriched,
+        "skipped_no_xml": skipped_no_xml,
+        "skipped_no_fields": skipped_no_fields,
+        "api_errors": api_errors,
+        "parse_errors": parse_errors,
+        "already_has_xml": already_has_xml,
+        "batches": batches_done,
+        "dry_run": False,
+    }
+
+
+def _update_notice_fields(db: Session, notice_id: str, fields: dict[str, Any]):
+    """Update a single notice with parsed award fields."""
+    set_clauses = []
+    params: dict[str, Any] = {"nid": notice_id}
+
+    if "award_winner_name" in fields:
+        set_clauses.append("award_winner_name = :winner")
+        params["winner"] = fields["award_winner_name"]
+    if "award_value" in fields:
+        set_clauses.append("award_value = :value")
+        params["value"] = float(fields["award_value"])
+    if "award_date" in fields:
+        set_clauses.append("award_date = :adate")
+        params["adate"] = str(fields["award_date"])
+    if "number_tenders_received" in fields:
+        set_clauses.append("number_tenders_received = :ntenders")
+        params["ntenders"] = fields["number_tenders_received"]
+    if "award_criteria_json" in fields:
+        set_clauses.append("award_criteria_json = :acjson")
+        params["acjson"] = json.dumps(fields["award_criteria_json"], default=str)
+
+    if set_clauses:
+        set_clauses.append("updated_at = now()")
+        sql = f"UPDATE notices SET {', '.join(set_clauses)} WHERE id = :nid"
+        db.execute(text(sql), params)
