@@ -13,6 +13,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, field_validator
 from sqlalchemy.orm import Session
 
+from app.db.session import get_db as _get_db
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/public", tags=["public"])
@@ -64,12 +66,41 @@ _BIZ_STOPS = frozenset(
     # Location generics (keep specific cities but remove vague ones)
     "région belgique belgium bruxelles france luxembourg "
     "wallonie flandre europe situé située adresse siège bureau "
+    "province ville commune pays quartier secteur zone local locale "
     # Calendar
     "lundi mardi mercredi jeudi vendredi samedi dimanche "
-    "janvier février mars avril mai juin juillet août septembre octobre novembre décembre".split()
+    "janvier février mars avril mai juin juillet août septembre octobre novembre décembre "
+    # HTML entity fragments (artifacts from bad decoding)
+    "eacute egrave agrave ccedil ocirc ucirc iuml euml acirc nbsp "
+    "rsquo lsquo rdquo ldquo ndash mdash hellip "
+    # Generic adjectives/nouns useless for procurement
+    "grand grande grands petit petite petits beau belle bon bonne "
+    "meilleur meilleure premier première dernier dernière "
+    "réalisation réalisations projet projets travail travaux "
+    "disponible disponibles possible possibles "
+    "différent différents différente type types "
+    "besoin besoins offre offres prix tarif tarifs "
+    "création réalisation photo photos image images galerie portfolio "
+    "société sociétés groupe entreprises "
+    "vente achat commande magasin boutique "
+    "culture culturel culturelle nature naturel naturelle "
+    "famille familial familiale particulier particuliers "
+    "conseil conseils accompagnement aide suivi gestion "
+    "mise place point jour oeuvre ".split()
 )
 
-STOP_WORDS = _LANG_STOPS | _BIZ_STOPS
+# Common first names and proper nouns that appear on company sites
+_NAME_STOPS = frozenset(
+    "jean pierre paul jacques michel philippe andré bernard louis "
+    "marc daniel françois patrick claude robert christian alain "
+    "thierry laurent nicolas dominique vincent olivier didier "
+    "marie anne catherine isabelle christine nathalie sophie "
+    "jacky jackie serge eric henri yves pascal gérard stéphane "
+    "david thomas martin dupont dumont lambert leroy janssen "
+    "pirot peeters maes claes willems mertens".split()
+)
+
+STOP_WORDS = _LANG_STOPS | _BIZ_STOPS | _NAME_STOPS
 
 # ── Procurement-relevant keyword boosters ─────────────────────────
 # Words that signal real procurement relevance get extra weight
@@ -94,6 +125,9 @@ PROCUREMENT_BOOSTERS = frozenset(
     "fauchage tonte pelouse gazon haie taille abattage débroussaillage "
     "broyage gyrobroyage rognage souche arbre "
     "aménagement paysager parc jardin arrosage "
+    "pépinière clôture terrassement pavage engazonnement "
+    "espaces verts parcs jardins aménagements extérieur extérieurs "
+    "abords végétalisation semis gazon engrais phytosanitaire "
     # Cleaning & maintenance
     "nettoyage propreté ménage hygiène désinfection "
     "entretien maintenance dépannage réparation "
@@ -352,9 +386,11 @@ def _extract_keywords_from_html(html: str) -> dict[str, Any]:
                 # Skip if all words are stops
                 if all(w in STOP_WORDS for w in phrase_words):
                     continue
-                # Skip if phrase contains only stop + 1 short word
-                non_stop = [w for w in phrase_words if w not in STOP_WORDS]
-                if len(non_stop) < 1:
+                # Require meaningful non-stop words: 2+ for any phrase length
+                non_stop = [w for w in phrase_words if w not in STOP_WORDS and len(w) > 2]
+                if n == 2 and len(non_stop) < 2:
+                    continue
+                if len(non_stop) < 2:
                     continue
                 # At least one word must be > 3 chars and relevant
                 if not any(len(w) > 3 and _is_relevant_word(w) for w in phrase_words):
@@ -398,11 +434,16 @@ def _extract_keywords_from_html(html: str) -> dict[str, Any]:
                 keywords.append(phrase)
                 seen.add(phrase)
 
-    # 3) Remaining single words with decent scores
+    # 3) Remaining single words — ONLY if procurement-adjacent or very high score
     for w, s in top_words:
         if w not in seen and not any(w in p for p in keywords):
-            keywords.append(w)
-            seen.add(w)
+            # Must be either: known procurement term, OR score >= 8 AND word >= 5 chars
+            if _is_procurement_relevant(w):
+                keywords.append(w)
+                seen.add(w)
+            elif s >= 8 and len(w) >= 5:
+                keywords.append(w)
+                seen.add(w)
 
     result["keywords"] = keywords[:20]
     result["raw_word_count"] = len(body_words)
@@ -505,73 +546,66 @@ class PreviewResponse(BaseModel):
 
 
 @router.post("/preview-matches", response_model=PreviewResponse)
-def preview_matches(req: PreviewRequest) -> PreviewResponse:
+def preview_matches(
+    req: PreviewRequest,
+    db: Session = Depends(_get_db),
+) -> PreviewResponse:
     """
     Public teaser: count matching notices for given keywords + CPV codes.
     Returns total count + 5 sample notices. No auth required.
     """
-    from app.db.session import get_db as _get_db_gen
     from app.models.notice import ProcurementNotice
-    from sqlalchemy import or_, func
+    from sqlalchemy import or_
 
-    # Get a DB session
-    db_gen = _get_db_gen()
-    db: Session = next(db_gen)
-    try:
-        if not req.keywords and not req.cpv_codes:
-            return PreviewResponse(total_matches=0, sample=[])
+    if not req.keywords and not req.cpv_codes:
+        return PreviewResponse(total_matches=0, sample=[])
 
-        N = ProcurementNotice
-        filters = []
+    N = ProcurementNotice
+    filters = []
 
-        # Keyword matching (ILIKE on title + description)
-        for kw in req.keywords[:10]:  # cap at 10
-            kw_clean = kw.strip()
-            if len(kw_clean) < 2:
-                continue
-            pat = f"%{kw_clean}%"
-            filters.append(or_(
-                N.title.ilike(pat),
-                N.description.ilike(pat),
-            ))
+    # Keyword matching (ILIKE on title + description)
+    for kw in req.keywords[:10]:  # cap at 10
+        kw_clean = kw.strip()
+        if len(kw_clean) < 2:
+            continue
+        pat = f"%{kw_clean}%"
+        filters.append(or_(
+            N.title.ilike(pat),
+            N.description.ilike(pat),
+        ))
 
-        # CPV prefix matching
-        for cpv in req.cpv_codes[:5]:  # cap at 5
-            cpv_clean = cpv.replace("-", "").strip()
-            if len(cpv_clean) >= 2:
-                filters.append(N.cpv_main_code.ilike(f"{cpv_clean}%"))
+    # CPV prefix matching
+    for cpv in req.cpv_codes[:5]:  # cap at 5
+        cpv_clean = cpv.replace("-", "").strip()
+        if len(cpv_clean) >= 2:
+            filters.append(N.cpv_main_code.ilike(f"{cpv_clean}%"))
 
-        if not filters:
-            return PreviewResponse(total_matches=0, sample=[])
+    if not filters:
+        return PreviewResponse(total_matches=0, sample=[])
 
-        base_q = db.query(N).filter(or_(*filters))
+    base_q = db.query(N).filter(or_(*filters))
 
-        total = base_q.count()
+    total = base_q.count()
 
-        # Get 5 most recent samples
-        samples = (
-            base_q
-            .order_by(N.publication_date.desc().nullslast())
-            .limit(5)
-            .all()
-        )
+    # Get 5 most recent samples
+    samples = (
+        base_q
+        .order_by(N.publication_date.desc().nullslast())
+        .limit(5)
+        .all()
+    )
 
-        return PreviewResponse(
-            total_matches=total,
-            sample=[
-                PreviewNotice(
-                    title=n.title or "—",
-                    authority=n.authority_name,
-                    cpv=n.cpv_main_code,
-                    source="BOSA" if n.source and "BOSA" in n.source else "TED",
-                    publication_date=n.publication_date.isoformat() if n.publication_date else None,
-                    deadline=n.deadline.isoformat() if n.deadline else None,
-                )
-                for n in samples
-            ],
-        )
-    finally:
-        try:
-            next(db_gen, None)
-        except Exception:
-            pass
+    return PreviewResponse(
+        total_matches=total,
+        sample=[
+            PreviewNotice(
+                title=n.title or "—",
+                authority=n.authority_name,
+                cpv=n.cpv_main_code,
+                source="BOSA" if n.source and "BOSA" in n.source else "TED",
+                publication_date=n.publication_date.isoformat() if n.publication_date else None,
+                deadline=n.deadline.isoformat() if n.deadline else None,
+            )
+            for n in samples
+        ],
+    )
