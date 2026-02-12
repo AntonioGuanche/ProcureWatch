@@ -58,10 +58,48 @@ async def admin_users(
             "name": u.name,
             "is_admin": getattr(u, "is_admin", False),
             "is_active": u.is_active,
+            "plan": getattr(u, "plan", "free"),
+            "subscription_status": getattr(u, "subscription_status", "none"),
             "created_at": u.created_at.isoformat() if u.created_at else None,
         }
         for u in users
     ]
+
+
+@router.put("/users/{user_id}/plan")
+async def admin_set_plan(
+    user_id: str,
+    plan: str,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Admin override: set a user's plan without Stripe (free upgrade/downgrade)."""
+    valid_plans = ("free", "pro", "business")
+    if plan not in valid_plans:
+        raise HTTPException(status_code=400, detail=f"Plan invalide. Choix: {', '.join(valid_plans)}")
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Utilisateur introuvable")
+
+    old_plan = user.plan
+    user.plan = plan
+    # Set subscription_status to active for paid plans (admin override)
+    if plan != "free":
+        user.subscription_status = "active"
+        user.subscription_ends_at = None  # No expiry for admin grants
+    else:
+        user.subscription_status = "none"
+        user.subscription_ends_at = None
+
+    db.commit()
+    return {
+        "status": "ok",
+        "user_id": user_id,
+        "email": user.email,
+        "old_plan": old_plan,
+        "new_plan": plan,
+    }
 
 
 # ── One-time bootstrap: promote user to admin via secret ──────────

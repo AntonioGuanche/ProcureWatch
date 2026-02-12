@@ -14,6 +14,7 @@ from sqlalchemy import case, cast, func, literal_column, or_, text, Float, Strin
 from sqlalchemy.orm import Session, Query
 
 from app.models.notice import ProcurementNotice, NoticeSource
+from app.services.dashboard_service import CPV_DIVISIONS as _CPV_DIVISIONS
 
 
 # ── Helpers ──────────────────────────────────────────────────────────
@@ -286,7 +287,7 @@ def get_facets(db: Session) -> dict[str, Any]:
             ORDER BY cnt DESC
             LIMIT 20
         """)).all()
-    cpv_list = [{"code": row[0], "count": row[1]} for row in cpv_rows if row[0]]
+    cpv_list = [{"code": row[0], "label": _CPV_DIVISIONS.get(row[0], ""), "count": row[1]} for row in cpv_rows if row[0]]
 
     # Top NUTS regions (2-char country codes from JSONB array)
     nuts_list = []

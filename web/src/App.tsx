@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { BrowserRouter, Routes, Route, NavLink, Navigate, useNavigate, Link } from "react-router-dom";
 import { AuthProvider, useAuth } from "./auth";
+import { createWatchlist } from "./api";
 import { Dashboard } from "./pages/Dashboard";
 import { Search } from "./pages/Search";
 import { WatchlistList } from "./pages/WatchlistList";
@@ -30,6 +31,37 @@ function ResetPasswordPage() {
 
 function AppRoutes() {
   const { user, loading, logout } = useAuth();
+  const navigate = useNavigate();
+  const onboardingDone = useRef(false);
+
+  // Auto-create watchlist from landing page onboarding data
+  useEffect(() => {
+    if (!user || onboardingDone.current) return;
+    const raw = sessionStorage.getItem("pw_onboarding");
+    if (!raw) return;
+    onboardingDone.current = true;
+    try {
+      const data = JSON.parse(raw);
+      sessionStorage.removeItem("pw_onboarding");
+      const payload = {
+        name: data.company_name ? `Veille ${data.company_name}` : "Ma première veille",
+        keywords: data.keywords || [],
+        cpv_prefixes: data.cpv_codes || [],
+        nuts_codes: [],
+        country_codes: [],
+        enabled: true,
+      };
+      createWatchlist(payload as any).then((w) => {
+        navigate(`/watchlists/${w.id}`, { replace: true });
+      }).catch(() => {
+        // Fallback: redirect to manual creation
+        navigate("/watchlists/new", { replace: true });
+      });
+    } catch {
+      sessionStorage.removeItem("pw_onboarding");
+    }
+  }, [user, navigate]);
+
   if (loading) return <div className="loading">Chargement…</div>;
 
   return (

@@ -153,7 +153,7 @@ export function Search() {
           <select value={cpv} onChange={(e) => setCpv(e.target.value)} className="filter-select">
             <option value="">Tous les CPV</option>
             {facets?.top_cpv_divisions.map((f) => (
-              <option key={f.code} value={f.code}>{f.code} ({f.count})</option>
+              <option key={f.code} value={f.code}>{f.code} — {f.label || "?"} ({f.count})</option>
             ))}
           </select>
           <select value={nuts} onChange={(e) => setNuts(e.target.value)} className="filter-select">

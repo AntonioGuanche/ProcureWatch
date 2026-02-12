@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { getDashboardOverview, getDashboardTopCpv, getDashboardHealth, getAdminStats, getAdminUsers } from "../api";
+import { getDashboardOverview, getDashboardTopCpv, getDashboardHealth, getAdminStats, getAdminUsers, adminSetPlan } from "../api";
 import type { DashboardOverview, DashboardTopCpv, DashboardHealth } from "../types";
 
 interface AdminStats { users: { total: number; active: number }; watchlists: { total: number; enabled: number }; favorites_total: number; }
-interface AdminUser { id: string; email: string; name: string; is_admin: boolean; is_active: boolean; created_at: string | null; }
+interface AdminUser { id: string; email: string; name: string; is_admin: boolean; is_active: boolean; plan: string; subscription_status: string; created_at: string | null; }
 
 function fmtDate(s: string | null): string {
   if (!s) return "—";
@@ -157,7 +157,9 @@ export function Admin() {
                   <th>Nom</th>
                   <th>Email</th>
                   <th>Inscrit le</th>
+                  <th>Plan</th>
                   <th>Statut</th>
+                  <th>Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -166,7 +168,38 @@ export function Admin() {
                     <td>{u.name} {u.is_admin && <span className="tag tag-primary">Admin</span>}</td>
                     <td>{u.email}</td>
                     <td>{fmtDate(u.created_at)}</td>
+                    <td>
+                      <span className={`tag ${u.plan === "business" ? "tag-primary" : u.plan === "pro" ? "tag-success" : "tag-muted"}`}>
+                        {u.plan === "business" ? "Business" : u.plan === "pro" ? "Pro" : "Découverte"}
+                      </span>
+                      {u.subscription_status === "active" && u.plan !== "free" && (
+                        <span style={{ fontSize: ".7rem", color: "var(--gray-400)", marginLeft: 4 }}>Stripe</span>
+                      )}
+                    </td>
                     <td><span className={`tag ${u.is_active ? "tag-success" : "tag-muted"}`}>{u.is_active ? "Actif" : "Inactif"}</span></td>
+                    <td>
+                      <select
+                        value=""
+                        onChange={async (e) => {
+                          const plan = e.target.value;
+                          if (!plan) return;
+                          if (!confirm(`Passer ${u.email} au plan ${plan} (gratuit) ?`)) return;
+                          try {
+                            await adminSetPlan(u.id, plan);
+                            const refreshed = await getAdminUsers();
+                            setUsers(refreshed);
+                          } catch (err: any) {
+                            alert(err.message || "Erreur");
+                          }
+                        }}
+                        style={{ fontSize: ".8rem", padding: "2px 6px" }}
+                      >
+                        <option value="">Changer plan…</option>
+                        {u.plan !== "free" && <option value="free">→ Découverte</option>}
+                        {u.plan !== "pro" && <option value="pro">→ Pro</option>}
+                        {u.plan !== "business" && <option value="business">→ Business</option>}
+                      </select>
+                    </td>
                   </tr>
                 ))}
               </tbody>

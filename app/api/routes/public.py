@@ -9,8 +9,9 @@ from typing import Any
 from urllib.parse import urlparse
 
 import httpx
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, field_validator
+from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
 
@@ -482,3 +483,95 @@ async def analyze_website(req: AnalyzeRequest) -> AnalyzeResponse:
         suggested_cpv=_suggest_cpv(keywords),
         raw_word_count=extracted.get("raw_word_count", 0),
     )
+
+
+# ── Preview matches (teaser) ─────────────────────────────────────
+
+class PreviewRequest(BaseModel):
+    keywords: list[str]
+    cpv_codes: list[str] = []
+
+class PreviewNotice(BaseModel):
+    title: str
+    authority: str | None = None
+    cpv: str | None = None
+    source: str | None = None
+    publication_date: str | None = None
+    deadline: str | None = None
+
+class PreviewResponse(BaseModel):
+    total_matches: int
+    sample: list[PreviewNotice]
+
+
+@router.post("/preview-matches", response_model=PreviewResponse)
+def preview_matches(req: PreviewRequest) -> PreviewResponse:
+    """
+    Public teaser: count matching notices for given keywords + CPV codes.
+    Returns total count + 5 sample notices. No auth required.
+    """
+    from app.db.session import get_db as _get_db_gen
+    from app.models.notice import ProcurementNotice
+    from sqlalchemy import or_, func
+
+    # Get a DB session
+    db_gen = _get_db_gen()
+    db: Session = next(db_gen)
+    try:
+        if not req.keywords and not req.cpv_codes:
+            return PreviewResponse(total_matches=0, sample=[])
+
+        N = ProcurementNotice
+        filters = []
+
+        # Keyword matching (ILIKE on title + description)
+        for kw in req.keywords[:10]:  # cap at 10
+            kw_clean = kw.strip()
+            if len(kw_clean) < 2:
+                continue
+            pat = f"%{kw_clean}%"
+            filters.append(or_(
+                N.title.ilike(pat),
+                N.description.ilike(pat),
+            ))
+
+        # CPV prefix matching
+        for cpv in req.cpv_codes[:5]:  # cap at 5
+            cpv_clean = cpv.replace("-", "").strip()
+            if len(cpv_clean) >= 2:
+                filters.append(N.cpv_main_code.ilike(f"{cpv_clean}%"))
+
+        if not filters:
+            return PreviewResponse(total_matches=0, sample=[])
+
+        base_q = db.query(N).filter(or_(*filters))
+
+        total = base_q.count()
+
+        # Get 5 most recent samples
+        samples = (
+            base_q
+            .order_by(N.publication_date.desc().nullslast())
+            .limit(5)
+            .all()
+        )
+
+        return PreviewResponse(
+            total_matches=total,
+            sample=[
+                PreviewNotice(
+                    title=n.title or "—",
+                    authority=n.authority_name,
+                    cpv=n.cpv_main_code,
+                    source="BOSA" if n.source and "BOSA" in n.source else "TED",
+                    publication_date=n.publication_date.isoformat() if n.publication_date else None,
+                    deadline=n.deadline.isoformat() if n.deadline else None,
+                )
+                for n in samples
+            ],
+        )
+    finally:
+        try:
+            next(db_gen, None)
+        except Exception:
+            pass

@@ -1502,36 +1502,6 @@ label {
   gap: 1.25rem;
   max-width: 850px;
 }
-.profile-card-wide {
-  grid-column: 1 / -1;
-}
-.form-row {
-  display: flex;
-  gap: .75rem;
-  margin-bottom: .75rem;
-}
-.form-group-flex {
-  flex: 1;
-  margin-bottom: 0;
-}
-.form-group-wide {
-  flex: 1;
-  margin-bottom: 0;
-}
-.form-group-sm {
-  flex: 0 0 80px;
-  margin-bottom: 0;
-}
-.form-group-flex input,
-.form-group-wide input,
-.form-group-sm input {
-  width: 100%;
-}
-.geo-info {
-  font-size: .8rem;
-  color: var(--gray-500);
-  margin: .25rem 0 0 0;
-}
 .profile-card {
   padding: 1.5rem;
   background: white;
@@ -1563,9 +1533,6 @@ label {
 
 @media (max-width: 700px) {
   .profile-grid { grid-template-columns: 1fr; }
-  .form-row { flex-direction: column; gap: 0; }
-  .form-group-flex, .form-group-wide, .form-group-sm { margin-bottom: .75rem; }
-  .form-group-sm { flex: 1; }
 }
 
 /* ══ Admin page ════════════════════════════════════════════════════════ */
@@ -2081,6 +2048,56 @@ label {
 }
 .ld-result-cta p { font-size: 0.95rem; color: var(--ld-gray-600); margin-bottom: 1rem; }
 .ld-sub-text { display: block; font-size: 0.8rem; color: var(--ld-gray-400); margin-top: 0.75rem; }
+
+/* ── Preview teaser ─── */
+.ld-preview-box {
+  margin-bottom: 1.5rem;
+  border: 1.5px solid var(--ld-teal);
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(16,185,129,0.03), rgba(16,185,129,0.08));
+  overflow: hidden;
+}
+.ld-preview-count {
+  padding: 1rem 1.25rem;
+  font-size: 1.1rem;
+  color: var(--ld-gray-800);
+  border-bottom: 1px solid rgba(16,185,129,0.15);
+  background: rgba(16,185,129,0.06);
+}
+.ld-preview-count strong {
+  font-size: 1.4rem;
+  color: #059669;
+}
+.ld-preview-table {
+  padding: 0.5rem;
+}
+.ld-preview-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+.ld-preview-table th {
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ld-gray-500);
+  border-bottom: 1px solid var(--ld-gray-200);
+}
+.ld-preview-table td {
+  padding: 0.5rem 0.75rem;
+  color: var(--ld-gray-700);
+  border-bottom: 1px solid var(--ld-gray-100);
+}
+.ld-preview-table tr:last-child td { border-bottom: none; }
+.ld-preview-more {
+  text-align: center;
+  padding: 0.75rem;
+  font-size: 0.85rem;
+  color: #059669;
+  font-weight: 500;
+}
 
 /* ── Features ─── */
 .ld-features {

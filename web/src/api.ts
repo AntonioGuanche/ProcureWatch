@@ -240,44 +240,7 @@ export function removeFavorite(noticeId: string): Promise<{ status: string }> {
 
 // ── Profile ─────────────────────────────────────────────────────────
 
-// --- Company profile types ---
-
-export interface CompanyProfile {
-  company_name?: string | null;
-  vat_number?: string | null;
-  nace_codes?: string | null;
-  address?: string | null;
-  postal_code?: string | null;
-  city?: string | null;
-  country?: string | null;
-  latitude?: number | null;
-  longitude?: number | null;
-}
-
-export interface FullProfile extends CompanyProfile {
-  id: string;
-  email: string;
-  name: string;
-  is_admin: boolean;
-  plan: string;
-}
-
-export function getProfile(): Promise<FullProfile> {
-  return request("/api/auth/me", { method: "GET" });
-}
-
-export interface UpdateProfileData {
-  name?: string;
-  email?: string;
-  company_name?: string;
-  vat_number?: string;
-  address?: string;
-  postal_code?: string;
-  city?: string;
-  country?: string;
-}
-
-export function updateProfile(data: UpdateProfileData): Promise<FullProfile> {
+export function updateProfile(data: { name?: string; email?: string }): Promise<{ id: string; email: string; name: string; is_admin: boolean }> {
   return request("/api/auth/profile", { method: "PUT", body: JSON.stringify(data) });
 }
 
@@ -343,6 +306,10 @@ export function getAdminStats(): Promise<{ users: { total: number; active: numbe
   return request("/api/admin/stats");
 }
 
-export function getAdminUsers(): Promise<Array<{ id: string; email: string; name: string; is_admin: boolean; is_active: boolean; created_at: string | null }>> {
+export function getAdminUsers(): Promise<Array<{ id: string; email: string; name: string; is_admin: boolean; is_active: boolean; plan: string; subscription_status: string; created_at: string | null }>> {
   return request("/api/admin/users");
+}
+
+export function adminSetPlan(userId: string, plan: string): Promise<{ status: string; email: string; old_plan: string; new_plan: string }> {
+  return request(`/api/admin/users/${userId}/plan?plan=${plan}`, { method: "PUT" });
 }

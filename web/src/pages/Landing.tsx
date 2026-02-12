@@ -11,6 +11,18 @@ interface AnalysisResult {
   suggested_cpv: CpvSuggestion[];
   raw_word_count: number;
 }
+interface PreviewNotice {
+  title: string;
+  authority: string | null;
+  cpv: string | null;
+  source: string | null;
+  publication_date: string | null;
+  deadline: string | null;
+}
+interface PreviewResult {
+  total_matches: number;
+  sample: PreviewNotice[];
+}
 
 export default function Landing() {
   const navigate = useNavigate();
@@ -24,6 +36,24 @@ export default function Landing() {
   const [allKeywords, setAllKeywords] = useState<string[]>([]);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const resultRef = useRef<HTMLDivElement>(null);
+  const [preview, setPreview] = useState<PreviewResult | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+
+  // Fetch preview matches whenever keywords/cpv change
+  const fetchPreview = async (kws: Set<string>, cpvs: string[]) => {
+    const kwArr = Array.from(kws);
+    if (kwArr.length === 0) { setPreview(null); return; }
+    setPreviewLoading(true);
+    try {
+      const resp = await fetch("/api/public/preview-matches", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ keywords: kwArr, cpv_codes: cpvs }),
+      });
+      if (resp.ok) setPreview(await resp.json());
+    } catch { /* ignore */ }
+    finally { setPreviewLoading(false); }
+  };
 
   const handleAnalyze = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,7 +70,10 @@ export default function Landing() {
       setResult(data);
       setAllKeywords(data.keywords);
       // Auto-select all detected keywords (they're already filtered for relevance)
-      setSelectedKeywords(new Set(data.keywords));
+      const kws = new Set<string>(data.keywords);
+      setSelectedKeywords(kws);
+      // Fetch preview matches
+      fetchPreview(kws, data.suggested_cpv?.map((c: CpvSuggestion) => c.code) || []);
       setTimeout(() => resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 200);
     } catch (err: any) {
       setError(err.message || "Impossible d'analyser ce site");
@@ -51,6 +84,11 @@ export default function Landing() {
     setSelectedKeywords(prev => {
       const next = new Set(prev);
       next.has(kw) ? next.delete(kw) : next.add(kw);
+      // Debounce preview refresh
+      clearTimeout((window as any)._pwPreviewTimer);
+      (window as any)._pwPreviewTimer = setTimeout(() => {
+        fetchPreview(next, result?.suggested_cpv?.map(c => c.code) || []);
+      }, 600);
       return next;
     });
   };
@@ -242,6 +280,54 @@ export default function Landing() {
             </div>
 
             <div className="ld-result-cta">
+              {/* ── Preview teaser ── */}
+              {previewLoading && (
+                <div style={{ textAlign: "center", padding: "1rem", color: "var(--gray-500)" }}>
+                  <span className="ld-spinner" /> Recherche des marchés correspondants…
+                </div>
+              )}
+              {preview && !previewLoading && preview.total_matches > 0 && (
+                <div className="ld-preview-box">
+                  <div className="ld-preview-count">
+                    <strong>{preview.total_matches.toLocaleString("fr-BE")}</strong> marchés publics correspondent à votre activité
+                  </div>
+                  <div className="ld-preview-table">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Titre</th>
+                          <th>Acheteur</th>
+                          <th>Source</th>
+                          <th>Publication</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {preview.sample.map((n, i) => (
+                          <tr key={i}>
+                            <td style={{ maxWidth: 300, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{n.title}</td>
+                            <td style={{ maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{n.authority || "—"}</td>
+                            <td><span className={`ld-tag ${n.source === "BOSA" ? "bosa" : "ted"}`}>{n.source}</span></td>
+                            <td style={{ whiteSpace: "nowrap", fontSize: ".85rem" }}>
+                              {n.publication_date ? new Date(n.publication_date).toLocaleDateString("fr-BE", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {preview.total_matches > 5 && (
+                      <div className="ld-preview-more">
+                        … et {(preview.total_matches - 5).toLocaleString("fr-BE")} autres marchés à découvrir
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+              {preview && !previewLoading && preview.total_matches === 0 && (
+                <div style={{ textAlign: "center", padding: ".75rem", color: "var(--gray-500)", fontSize: ".9rem" }}>
+                  Aucun marché trouvé avec ces critères. Essayez d'ajuster vos mots-clés.
+                </div>
+              )}
+
               <p><strong>{selectedKeywords.size}</strong> mot(s)-clé(s) sélectionné(s)
                 {result.suggested_cpv.length > 0 && <> + <strong>{result.suggested_cpv.length}</strong> code(s) CPV</>}
               </p>
