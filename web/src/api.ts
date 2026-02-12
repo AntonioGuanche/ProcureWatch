@@ -53,10 +53,12 @@ async function request<T>(
 
 import type {
   WatchlistListResponse,
+  WatchlistMatchesResponse,
   WatchlistCreate,
   WatchlistUpdate,
   NoticeListResponse,
   NoticeSearchResponse,
+  AISummaryResponse,
   FacetsResponse,
   DashboardOverview,
   DashboardTrends,
@@ -183,6 +185,15 @@ export function newSinceWatchlist(
   return request(`/api/watchlists/${id}/new?${params}`);
 }
 
+export function getWatchlistMatches(
+  id: string,
+  page = 1,
+  pageSize = 25,
+): Promise<WatchlistMatchesResponse> {
+  const params = new URLSearchParams({ page: String(page), page_size: String(pageSize) });
+  return request(`/api/watchlists/${id}/matches?${params}`);
+}
+
 // ── Notice Detail ───────────────────────────────────────────────────
 
 export function getNotice(id: string): Promise<import("./types").Notice> {
@@ -195,6 +206,18 @@ export function getNoticeLots(noticeId: string): Promise<{ items: import("./type
 
 export function getNoticeDocuments(noticeId: string): Promise<{ items: import("./types").NoticeDocument[]; total: number }> {
   return request(`/api/notices/${noticeId}/documents?page_size=50`);
+}
+
+// ── AI Summary ──────────────────────────────────────────────────────
+
+export function generateSummary(
+  noticeId: string,
+  lang = "fr",
+  force = false,
+): Promise<AISummaryResponse> {
+  const params = new URLSearchParams({ lang });
+  if (force) params.set("force", "true");
+  return request(`/api/notices/${noticeId}/summary?${params}`, { method: "POST" });
 }
 
 // ── Favorites ───────────────────────────────────────────────────────

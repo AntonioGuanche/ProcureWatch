@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { getNotice, getNoticeLots, getNoticeDocuments, addFavorite, removeFavorite } from "../api";
-import type { Notice, NoticeLot, NoticeDocument } from "../types";
+import { getNotice, getNoticeLots, getNoticeDocuments, addFavorite, removeFavorite, generateSummary } from "../api";
+import type { Notice, NoticeLot, NoticeDocument, AISummaryResponse } from "../types";
 
 function fmtDate(s: string | null): string {
   if (!s) return "—";
@@ -18,6 +18,13 @@ function orgName(names: Record<string, string> | null): string {
   return names.fr || names.nl || names.en || names.de || Object.values(names)[0] || "—";
 }
 
+const LANG_OPTIONS = [
+  { value: "fr", label: "Français" },
+  { value: "nl", label: "Nederlands" },
+  { value: "en", label: "English" },
+  { value: "de", label: "Deutsch" },
+];
+
 interface Props {
   noticeId: string;
   isFavorited: boolean;
@@ -32,8 +39,16 @@ export function NoticeModal({ noticeId, isFavorited, onToggleFavorite, onClose }
   const [loading, setLoading] = useState(true);
   const [favLoading, setFavLoading] = useState(false);
 
+  // AI Summary state
+  const [summaryData, setSummaryData] = useState<AISummaryResponse | null>(null);
+  const [summaryLang, setSummaryLang] = useState("fr");
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
+
   useEffect(() => {
     setLoading(true);
+    setSummaryData(null);
+    setSummaryError(null);
     Promise.all([
       getNotice(noticeId),
       getNoticeLots(noticeId).catch(() => ({ items: [], total: 0 })),
@@ -42,6 +57,17 @@ export function NoticeModal({ noticeId, isFavorited, onToggleFavorite, onClose }
       setNotice(n);
       setLots(l.items);
       setDocs(d.items);
+      // If notice already has a cached summary, show it
+      if (n.ai_summary) {
+        setSummaryData({
+          notice_id: n.id,
+          summary: n.ai_summary,
+          lang: n.ai_summary_lang || "fr",
+          generated_at: n.ai_summary_generated_at,
+          cached: true,
+        });
+        if (n.ai_summary_lang) setSummaryLang(n.ai_summary_lang);
+      }
     }).finally(() => setLoading(false));
   }, [noticeId]);
 
@@ -65,7 +91,26 @@ export function NoticeModal({ noticeId, isFavorited, onToggleFavorite, onClose }
     finally { setFavLoading(false); }
   };
 
-  const hasAward = notice && (notice.award_winner_name || notice.award_value || notice.award_date);
+  const handleGenerateSummary = async (force = false) => {
+    setSummaryLoading(true);
+    setSummaryError(null);
+    try {
+      const data = await generateSummary(noticeId, summaryLang, force);
+      setSummaryData(data);
+    } catch (e) {
+      setSummaryError(e instanceof Error ? e.message : "Erreur lors de la génération du résumé");
+    } finally {
+      setSummaryLoading(false);
+    }
+  };
+
+  const handleLangChange = (lang: string) => {
+    setSummaryLang(lang);
+    // If we already have a summary in a different language, regenerate
+    if (summaryData && summaryData.lang !== lang) {
+      setSummaryData(null);
+    }
+  };
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -155,11 +200,11 @@ export function NoticeModal({ noticeId, isFavorited, onToggleFavorite, onClose }
               )}
             </div>
 
-            {/* Award / Attribution section */}
-            {hasAward && (
-              <div className="notice-section award-section">
+            {/* Award info (CAN) */}
+            {(notice.award_winner_name || notice.award_value || notice.award_date) && (
+              <div className="notice-section notice-award-section">
                 <h3>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ verticalAlign: "text-bottom", marginRight: 6 }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/>
                   </svg>
                   Attribution
@@ -167,7 +212,7 @@ export function NoticeModal({ noticeId, isFavorited, onToggleFavorite, onClose }
                 <div className="award-grid">
                   {notice.award_winner_name && (
                     <div className="award-item">
-                      <span className="award-label">Attributaire</span>
+                      <span className="award-label">Adjudicataire</span>
                       <span className="award-value award-winner">{notice.award_winner_name}</span>
                     </div>
                   )}
@@ -200,6 +245,72 @@ export function NoticeModal({ noticeId, isFavorited, onToggleFavorite, onClose }
                 <p className="notice-description">{notice.description}</p>
               </div>
             )}
+
+            {/* AI Summary */}
+            <div className="notice-section notice-ai-section">
+              <div className="ai-section-header">
+                <h3>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M12 2a4 4 0 014 4c0 1.95-1.4 3.58-3.25 3.93L12 22"/>
+                    <path d="M8 6a4 4 0 018 0"/>
+                    <path d="M17 12.5c1.65.46 3 1.93 3 3.5a4 4 0 01-4 4H8a4 4 0 01-4-4c0-1.57 1.35-3.04 3-3.5"/>
+                  </svg>
+                  Résumé IA
+                </h3>
+                <div className="ai-controls">
+                  <select
+                    className="ai-lang-select"
+                    value={summaryLang}
+                    onChange={(e) => handleLangChange(e.target.value)}
+                    disabled={summaryLoading}
+                  >
+                    {LANG_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
+                  {!summaryData ? (
+                    <button
+                      className="btn-sm btn-ai"
+                      onClick={() => handleGenerateSummary(false)}
+                      disabled={summaryLoading}
+                    >
+                      {summaryLoading ? (
+                        <><svg className="spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg> Génération…</>
+                      ) : (
+                        "Générer le résumé"
+                      )}
+                    </button>
+                  ) : (
+                    <button
+                      className="btn-sm btn-outline"
+                      onClick={() => handleGenerateSummary(true)}
+                      disabled={summaryLoading}
+                      title="Regénérer dans la langue sélectionnée"
+                    >
+                      {summaryLoading ? (
+                        <><svg className="spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg></>
+                      ) : (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
+                      )}
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {summaryError && (
+                <div className="ai-error">{summaryError}</div>
+              )}
+
+              {summaryData && (
+                <div className="ai-summary-content">
+                  <p>{summaryData.summary}</p>
+                  <div className="ai-summary-meta">
+                    {summaryData.cached && <span className="ai-cached-badge">en cache</span>}
+                    <span className="ai-lang-badge">{LANG_OPTIONS.find((o) => o.value === summaryData.lang)?.label || summaryData.lang}</span>
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Lots */}
             {lots.length > 0 && (

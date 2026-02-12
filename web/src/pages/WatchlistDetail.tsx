@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useSearchParams, Link, useNavigate } from "react-router-dom";
-import { getWatchlist, previewWatchlist, newSinceWatchlist, refreshWatchlist, getFavoriteIds, addFavorite, removeFavorite } from "../api";
-import type { Watchlist, Notice } from "../types";
+import { getWatchlist, previewWatchlist, newSinceWatchlist, getWatchlistMatches, refreshWatchlist, getFavoriteIds, addFavorite, removeFavorite } from "../api";
+import type { Watchlist, Notice, WatchlistMatchRead } from "../types";
 import { Toast } from "../components/Toast";
 import { NoticeModal } from "../components/NoticeModal";
 
@@ -30,6 +30,14 @@ function deadlineTag(deadline: string | null) {
   return <span className="tag tag-default">{days}j</span>;
 }
 
+function ScoreBadge({ score }: { score: number | null }) {
+  if (score === null || score === undefined) return <span className="score-badge score-na">—</span>;
+  let cls = "score-low";
+  if (score >= 70) cls = "score-high";
+  else if (score >= 40) cls = "score-mid";
+  return <span className={`score-badge ${cls}`}>{score}</span>;
+}
+
 const SORT_OPTIONS = [
   { value: "date_desc", label: "Plus récent" },
   { value: "date_asc", label: "Plus ancien" },
@@ -38,16 +46,17 @@ const SORT_OPTIONS = [
   { value: "value_desc", label: "Valeur ↓" },
 ];
 
-type Tab = "preview" | "new";
+type Tab = "preview" | "new" | "scored";
 
 export function WatchlistDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const tabParam = (searchParams.get("tab") ?? "preview") as Tab;
-  const tab: Tab = tabParam === "new" ? "new" : "preview";
+  const tab: Tab = ["preview", "new", "scored"].includes(tabParam) ? tabParam : "preview";
   const [watchlist, setWatchlist] = useState<Watchlist | null>(null);
   const [notices, setNotices] = useState<Notice[]>([]);
+  const [matches, setMatches] = useState<WatchlistMatchRead[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [pageSize] = useState(25);
@@ -57,7 +66,7 @@ export function WatchlistDetail() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [favIds, setFavIds] = useState<Set<string>>(new Set());
 
-  // Filters
+  // Filters (for preview/new tabs)
   const [filterQ, setFilterQ] = useState("");
   const [filterSource, setFilterSource] = useState("");
   const [filterSort, setFilterSort] = useState("date_desc");
@@ -80,10 +89,18 @@ export function WatchlistDetail() {
     if (!id) return;
     setLoading(true);
     try {
-      const fn = tab === "new" ? newSinceWatchlist : previewWatchlist;
-      const res = await fn(id, p, pageSize, filters);
-      setNotices(res.items);
-      setTotal(res.total);
+      if (tab === "scored") {
+        const res = await getWatchlistMatches(id, p, pageSize);
+        setMatches(res.items);
+        setNotices(res.items.map((m) => m.notice));
+        setTotal(res.total);
+      } else {
+        const fn = tab === "new" ? newSinceWatchlist : previewWatchlist;
+        const res = await fn(id, p, pageSize, filters);
+        setNotices(res.items);
+        setMatches([]);
+        setTotal(res.total);
+      }
     } catch { setToast("Impossible de charger les résultats"); }
     finally { setLoading(false); }
   }, [id, tab, pageSize, filterSource, filterQ, filterSort, filterActiveOnly]);
@@ -121,6 +138,9 @@ export function WatchlistDetail() {
     setFavIds((p) => { const s = new Set(p); if (favorited) s.add(noticeId); else s.delete(noticeId); return s; });
   };
 
+  // Build a map from notice id to match data for the scored tab
+  const matchMap = new Map(matches.map((m) => [m.notice.id, m]));
+
   if (!watchlist) return <div className="page"><div className="loading">Chargement…</div></div>;
 
   const criteriaLabels = [
@@ -131,6 +151,7 @@ export function WatchlistDetail() {
   ].filter(Boolean);
 
   const totalPages = Math.ceil(total / pageSize);
+  const isScored = tab === "scored";
 
   return (
     <div className="page">
@@ -182,48 +203,69 @@ export function WatchlistDetail() {
         <button className={`wl-tab ${tab === "new" ? "active" : ""}`} onClick={() => setTab("new")}>
           Nouveaux
         </button>
+        <button className={`wl-tab ${tab === "scored" ? "active" : ""}`} onClick={() => setTab("scored")}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ verticalAlign: "-2px", marginRight: "4px" }}>
+            <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+          </svg>
+          Pertinence
+        </button>
       </div>
 
-      {/* Filter bar */}
-      <form onSubmit={handleFilterSubmit} className="search-form" style={{ marginBottom: "1rem" }}>
-        <div className="filter-row">
-          <input type="text" value={filterQ} onChange={(e) => setFilterQ(e.target.value)}
-            placeholder="Filtrer par mot-clé…" className="filter-input" />
-          <div className="source-toggles">
-            <button type="button" className={`source-btn ${filterSource === "" ? "active" : ""}`} onClick={() => { setFilterSource(""); setPage(1); }}>Tous</button>
-            <button type="button" className={`source-btn bosa ${filterSource === "BOSA_EPROC" ? "active" : ""}`} onClick={() => { setFilterSource(filterSource === "BOSA_EPROC" ? "" : "BOSA_EPROC"); setPage(1); }}>BOSA</button>
-            <button type="button" className={`source-btn ted ${filterSource === "TED_EU" ? "active" : ""}`} onClick={() => { setFilterSource(filterSource === "TED_EU" ? "" : "TED_EU"); setPage(1); }}>TED</button>
+      {/* Filter bar (hidden on scored tab — sorted by score server-side) */}
+      {!isScored && (
+        <form onSubmit={handleFilterSubmit} className="search-form" style={{ marginBottom: "1rem" }}>
+          <div className="filter-row">
+            <input type="text" value={filterQ} onChange={(e) => setFilterQ(e.target.value)}
+              placeholder="Filtrer par mot-clé…" className="filter-input" />
+            <div className="source-toggles">
+              <button type="button" className={`source-btn ${filterSource === "" ? "active" : ""}`} onClick={() => { setFilterSource(""); setPage(1); }}>Tous</button>
+              <button type="button" className={`source-btn bosa ${filterSource === "BOSA_EPROC" ? "active" : ""}`} onClick={() => { setFilterSource(filterSource === "BOSA_EPROC" ? "" : "BOSA_EPROC"); setPage(1); }}>BOSA</button>
+              <button type="button" className={`source-btn ted ${filterSource === "TED_EU" ? "active" : ""}`} onClick={() => { setFilterSource(filterSource === "TED_EU" ? "" : "TED_EU"); setPage(1); }}>TED</button>
+            </div>
+            <button type="submit" className="btn-primary" disabled={loading}>Filtrer</button>
           </div>
-          <button type="submit" className="btn-primary" disabled={loading}>Filtrer</button>
-        </div>
-        <div className="filter-row-secondary">
-          <label className="checkbox-label">
-            <input type="checkbox" checked={filterActiveOnly} onChange={(e) => { setFilterActiveOnly(e.target.checked); setPage(1); }} />
-            Ouvertes uniquement
-          </label>
-          <div className="sort-control">
-            <span>Trier par</span>
-            <select value={filterSort} onChange={(e) => { setFilterSort(e.target.value); setPage(1); }}>
-              {SORT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
+          <div className="filter-row-secondary">
+            <label className="checkbox-label">
+              <input type="checkbox" checked={filterActiveOnly} onChange={(e) => { setFilterActiveOnly(e.target.checked); setPage(1); }} />
+              Ouvertes uniquement
+            </label>
+            <div className="sort-control">
+              <span>Trier par</span>
+              <select value={filterSort} onChange={(e) => { setFilterSort(e.target.value); setPage(1); }}>
+                {SORT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </div>
+            <span className="results-count">{total.toLocaleString("fr-BE")} résultat{total !== 1 ? "s" : ""}</span>
           </div>
-          <span className="results-count">{total.toLocaleString("fr-BE")} résultat{total !== 1 ? "s" : ""}</span>
+        </form>
+      )}
+
+      {isScored && (
+        <div className="filter-row-secondary" style={{ marginBottom: "1rem" }}>
+          <span className="results-count">
+            {total.toLocaleString("fr-BE")} match{total !== 1 ? "es" : ""} — triés par pertinence
+          </span>
         </div>
-      </form>
+      )}
 
       {loading ? (
         <div className="loading">Chargement…</div>
       ) : notices.length === 0 ? (
         <div className="empty-state">
-          {tab === "new" ? "Aucun nouveau résultat depuis la dernière notification." : "Aucun résultat. Essayez de modifier les filtres ou de faire un Refresh."}
+          {tab === "new"
+            ? "Aucun nouveau résultat depuis la dernière notification."
+            : tab === "scored"
+            ? "Aucun match scoré. Lancez un Refresh pour calculer les scores de pertinence."
+            : "Aucun résultat. Essayez de modifier les filtres ou de faire un Refresh."}
         </div>
       ) : (
         <div className="table-wrapper">
           <table className="data-table">
             <thead>
               <tr>
+                {isScored && <th style={{ width: "5%" }}>Score</th>}
                 <th style={{ width: "3%" }}></th>
-                <th style={{ width: "30%" }}>Titre</th>
+                <th style={{ width: isScored ? "27%" : "30%" }}>Titre</th>
                 <th style={{ width: "13%" }}>Acheteur</th>
                 <th style={{ width: "8%" }}>CPV</th>
                 <th style={{ width: "7%" }}>Source</th>
@@ -233,33 +275,44 @@ export function WatchlistDetail() {
               </tr>
             </thead>
             <tbody>
-              {notices.map((n) => (
-                <tr key={n.id} className="clickable-row" onClick={() => setSelectedId(n.id)}>
-                  <td onClick={(e) => e.stopPropagation()}>
-                    <button className={`btn-star ${favIds.has(n.id) ? "active" : ""}`}
-                      onClick={(e) => handleToggleFav(n.id, e)}
-                      title={favIds.has(n.id) ? "Retirer des favoris" : "Ajouter aux favoris"}>
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill={favIds.has(n.id) ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2">
-                        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-                      </svg>
-                    </button>
-                  </td>
-                  <td>
-                    <span className="notice-link">{n.title || "Sans titre"}</span>
-                    {n.description && <p className="notice-desc">{n.description}</p>}
-                  </td>
-                  <td className="truncate" title={orgName(n.organisation_names)}>{orgName(n.organisation_names)}</td>
-                  <td><code className="cpv-code">{n.cpv_main_code || "—"}</code></td>
-                  <td>
-                    <span className={`source-badge ${n.source.includes("BOSA") ? "bosa" : "ted"}`}>
-                      {n.source.includes("BOSA") ? "BOSA" : "TED"}
-                    </span>
-                  </td>
-                  <td className="nowrap">{fmtDate(n.publication_date)}</td>
-                  <td className="nowrap">{fmtDate(n.deadline)} {n.deadline && deadlineTag(n.deadline)}</td>
-                  <td className="nowrap">{fmtValue(n.estimated_value)}</td>
-                </tr>
-              ))}
+              {notices.map((n) => {
+                const match = matchMap.get(n.id);
+                return (
+                  <tr key={n.id} className="clickable-row" onClick={() => setSelectedId(n.id)}>
+                    {isScored && (
+                      <td className="score-cell" title={match?.matched_on || ""}>
+                        <ScoreBadge score={match?.relevance_score ?? null} />
+                      </td>
+                    )}
+                    <td onClick={(e) => e.stopPropagation()}>
+                      <button className={`btn-star ${favIds.has(n.id) ? "active" : ""}`}
+                        onClick={(e) => handleToggleFav(n.id, e)}
+                        title={favIds.has(n.id) ? "Retirer des favoris" : "Ajouter aux favoris"}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill={favIds.has(n.id) ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2">
+                          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                        </svg>
+                      </button>
+                    </td>
+                    <td>
+                      <span className="notice-link">{n.title || "Sans titre"}</span>
+                      {isScored && match?.matched_on && (
+                        <p className="match-reason">{match.matched_on}</p>
+                      )}
+                      {!isScored && n.description && <p className="notice-desc">{n.description}</p>}
+                    </td>
+                    <td className="truncate" title={orgName(n.organisation_names)}>{orgName(n.organisation_names)}</td>
+                    <td><code className="cpv-code">{n.cpv_main_code || "—"}</code></td>
+                    <td>
+                      <span className={`source-badge ${n.source.includes("BOSA") ? "bosa" : "ted"}`}>
+                        {n.source.includes("BOSA") ? "BOSA" : "TED"}
+                      </span>
+                    </td>
+                    <td className="nowrap">{fmtDate(n.publication_date)}</td>
+                    <td className="nowrap">{fmtDate(n.deadline)} {n.deadline && deadlineTag(n.deadline)}</td>
+                    <td className="nowrap">{fmtValue(n.estimated_value)}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

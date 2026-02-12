@@ -18,11 +18,6 @@ export interface NoticeSearchItem {
   estimated_value: number | null;
   url: string | null;
   status: string | null;
-  // CAN (Contract Award Notice) fields
-  award_winner_name: string | null;
-  award_value: number | null;
-  award_date: string | null;
-  number_tenders_received: number | null;
 }
 
 export interface NoticeSearchResponse {
@@ -58,6 +53,7 @@ export interface Notice {
   // AI summary
   ai_summary: string | null;
   ai_summary_lang: string | null;
+  ai_summary_generated_at: string | null;
   // Timestamps
   created_at: string;
   updated_at: string;
@@ -68,6 +64,16 @@ export interface NoticeListResponse {
   page: number;
   page_size: number;
   items: Notice[];
+}
+
+// ── AI Summary ──────────────────────────────────────────────────────
+
+export interface AISummaryResponse {
+  notice_id: string;
+  summary: string;
+  lang: string;
+  generated_at: string | null;
+  cached: boolean;
 }
 
 // ── Facets ──────────────────────────────────────────────────────────
@@ -207,16 +213,17 @@ export interface WatchlistUpdate {
   notify_email?: string | null;
 }
 
+export interface WatchlistMatchRead {
+  notice: Notice;
+  matched_on: string;
+  relevance_score: number | null;
+}
+
 export interface WatchlistMatchesResponse {
   total: number;
   page: number;
   page_size: number;
   items: WatchlistMatchRead[];
-}
-
-export interface WatchlistMatchRead {
-  notice: Notice;
-  matched_on: string;
 }
 
 export interface RefreshSummary {
