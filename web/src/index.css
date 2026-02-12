@@ -219,6 +219,7 @@ label {
 .tag-warning { background: var(--amber-light); color: var(--amber); }
 .tag-default { background: var(--gray-100); color: var(--gray-600); }
 .tag-muted { background: var(--gray-100); color: var(--gray-500); text-decoration: line-through; }
+.tag-awarded { background: #e8f5e9; color: #2e7d32; font-size: .65rem; padding: .1rem .4rem; border-radius: 3px; margin-left: .5rem; vertical-align: middle; font-weight: 600; letter-spacing: .02em; }
 
 /* ── Tables ─────────────────────────────────────────────────────────── */
 
@@ -893,6 +894,28 @@ label {
   margin: 0 0 .5rem;
   color: var(--navy);
 }
+
+/* Award / Attribution section */
+.award-section {
+  background: #f1f8e9;
+  border: 1px solid #c5e1a5;
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+}
+.award-section h3 { color: #33691e; }
+.award-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: .75rem;
+}
+.award-item { display: flex; flex-direction: column; gap: .15rem; }
+.award-label { font-size: .75rem; color: #558b2f; text-transform: uppercase; letter-spacing: .03em; font-weight: 500; }
+.award-value { font-size: .9rem; color: var(--gray-800); font-weight: 500; }
+.award-value.award-winner { font-weight: 600; color: #2e7d32; }
+
+/* Award cell in search table */
+.award-cell { color: #2e7d32; font-weight: 500; font-size: .85rem; }
+.award-cell.award-winner-only { color: var(--gray-600); font-size: .8rem; font-style: italic; }
 .notice-description {
   font-size: .88rem;
   line-height: 1.5;

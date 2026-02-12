@@ -65,6 +65,8 @@ export function NoticeModal({ noticeId, isFavorited, onToggleFavorite, onClose }
     finally { setFavLoading(false); }
   };
 
+  const hasAward = notice && (notice.award_winner_name || notice.award_value || notice.award_date);
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
@@ -152,6 +154,44 @@ export function NoticeModal({ noticeId, isFavorited, onToggleFavorite, onClose }
                 </div>
               )}
             </div>
+
+            {/* Award / Attribution section */}
+            {hasAward && (
+              <div className="notice-section award-section">
+                <h3>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ verticalAlign: "text-bottom", marginRight: 6 }}>
+                    <circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/>
+                  </svg>
+                  Attribution
+                </h3>
+                <div className="award-grid">
+                  {notice.award_winner_name && (
+                    <div className="award-item">
+                      <span className="award-label">Attributaire</span>
+                      <span className="award-value award-winner">{notice.award_winner_name}</span>
+                    </div>
+                  )}
+                  {notice.award_value != null && (
+                    <div className="award-item">
+                      <span className="award-label">Montant attribué</span>
+                      <span className="award-value">{fmtValue(notice.award_value)}</span>
+                    </div>
+                  )}
+                  {notice.award_date && (
+                    <div className="award-item">
+                      <span className="award-label">Date d'attribution</span>
+                      <span className="award-value">{fmtDate(notice.award_date)}</span>
+                    </div>
+                  )}
+                  {notice.number_tenders_received != null && (
+                    <div className="award-item">
+                      <span className="award-label">Offres reçues</span>
+                      <span className="award-value">{notice.number_tenders_received}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Description */}
             {notice.description && (

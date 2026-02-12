@@ -312,6 +312,26 @@ def bulk_import_all(
             results["backfill_error"] = str(e)
             logger.exception("[Bulk] Backfill failed")
 
+    # BOSA CAN award enrichment via workspace API
+    # Runs for newly imported CANs (limit=500 for daily runs, enough for new notices)
+    # Also handles re-import scenarios since it targets all CANs without award data
+    if run_backfill and "BOSA" in source_list:
+        try:
+            from app.services.bosa_award_enrichment import enrich_bosa_can_batch
+            # For daily runs: limit to 500 (new CANs). For full re-import: bulk admin endpoint.
+            bosa_enrich = enrich_bosa_can_batch(
+                db, limit=500, batch_size=50, api_delay_ms=300,
+            )
+            results["bosa_can_enrichment"] = bosa_enrich
+            logger.info(
+                "[Bulk] BOSA CAN enrichment: %d enriched, %d errors",
+                bosa_enrich.get("enriched", 0),
+                bosa_enrich.get("parse_errors", 0) + bosa_enrich.get("api_errors", 0),
+            )
+        except Exception as e:
+            results["bosa_can_enrichment_error"] = str(e)
+            logger.exception("[Bulk] BOSA CAN enrichment failed")
+
     # Watchlist matcher
     if run_matcher and (total_created > 0 or backfill_only_mode):
         try:

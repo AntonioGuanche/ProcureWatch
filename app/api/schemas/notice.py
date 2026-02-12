@@ -80,6 +80,11 @@ class NoticeSearchItem(BaseModel):
     estimated_value: Optional[float] = None
     url: Optional[str] = None
     status: Optional[str] = None
+    # CAN (Contract Award Notice) fields
+    award_winner_name: Optional[str] = None
+    award_value: Optional[float] = None
+    award_date: Optional[str] = None
+    number_tenders_received: Optional[int] = None
 
     model_config = {"from_attributes": True}
 

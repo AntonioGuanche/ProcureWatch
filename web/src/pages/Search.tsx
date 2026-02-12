@@ -155,43 +155,61 @@ export function Search() {
             <thead>
               <tr>
                 <th style={{ width: "3%" }}></th>
-                <th style={{ width: "32%" }}>Titre</th>
-                <th style={{ width: "10%" }}>CPV</th>
-                <th style={{ width: "8%" }}>Source</th>
-                <th style={{ width: "12%" }}>Publication</th>
-                <th style={{ width: "15%" }}>Deadline</th>
-                <th style={{ width: "10%" }}>Valeur</th>
+                <th style={{ width: "30%" }}>Titre</th>
+                <th style={{ width: "8%" }}>CPV</th>
+                <th style={{ width: "7%" }}>Source</th>
+                <th style={{ width: "10%" }}>Publication</th>
+                <th style={{ width: "12%" }}>Deadline</th>
+                <th style={{ width: "10%" }}>Valeur est.</th>
+                <th style={{ width: "10%" }}>Attribution</th>
               </tr>
             </thead>
             <tbody>
-              {results.items.map((n) => (
-                <tr key={n.id} className="clickable-row" onClick={() => setSelectedId(n.id)}>
-                  <td onClick={(e) => e.stopPropagation()}>
-                    <button
-                      className={`btn-star ${favIds.has(n.id) ? "active" : ""}`}
-                      onClick={(e) => handleToggleFav(n.id, e)}
-                      title={favIds.has(n.id) ? "Retirer des favoris" : "Ajouter aux favoris"}
-                    >
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill={favIds.has(n.id) ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2">
-                        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-                      </svg>
-                    </button>
-                  </td>
-                  <td>
-                    <span className="notice-link">{n.title || "Sans titre"}</span>
-                    {n.description && <p className="notice-desc">{n.description}</p>}
-                  </td>
-                  <td><code className="cpv-code">{n.cpv_main_code || "—"}</code></td>
-                  <td>
-                    <span className={`source-badge ${n.source.includes("BOSA") ? "bosa" : "ted"}`}>
-                      {n.source.includes("BOSA") ? "BOSA" : "TED"}
-                    </span>
-                  </td>
-                  <td className="nowrap">{fmtDate(n.publication_date)}</td>
-                  <td className="nowrap">{fmtDate(n.deadline)} {n.deadline && deadlineTag(n.deadline)}</td>
-                  <td className="nowrap">{fmtValue(n.estimated_value)}</td>
-                </tr>
-              ))}
+              {results.items.map((n) => {
+                const isAwarded = !!(n.award_winner_name || n.award_value);
+                return (
+                  <tr key={n.id} className="clickable-row" onClick={() => setSelectedId(n.id)}>
+                    <td onClick={(e) => e.stopPropagation()}>
+                      <button
+                        className={`btn-star ${favIds.has(n.id) ? "active" : ""}`}
+                        onClick={(e) => handleToggleFav(n.id, e)}
+                        title={favIds.has(n.id) ? "Retirer des favoris" : "Ajouter aux favoris"}
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill={favIds.has(n.id) ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2">
+                          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                        </svg>
+                      </button>
+                    </td>
+                    <td>
+                      <span className="notice-link">{n.title || "Sans titre"}</span>
+                      {isAwarded && (
+                        <span className="tag tag-awarded" title={n.award_winner_name || "Attribué"}>Attribué</span>
+                      )}
+                      {n.description && <p className="notice-desc">{n.description}</p>}
+                    </td>
+                    <td><code className="cpv-code">{n.cpv_main_code || "—"}</code></td>
+                    <td>
+                      <span className={`source-badge ${n.source.includes("BOSA") ? "bosa" : "ted"}`}>
+                        {n.source.includes("BOSA") ? "BOSA" : "TED"}
+                      </span>
+                    </td>
+                    <td className="nowrap">{fmtDate(n.publication_date)}</td>
+                    <td className="nowrap">{fmtDate(n.deadline)} {n.deadline && deadlineTag(n.deadline)}</td>
+                    <td className="nowrap">{fmtValue(n.estimated_value)}</td>
+                    <td className="nowrap">
+                      {n.award_value ? (
+                        <span className="award-cell" title={n.award_winner_name || undefined}>
+                          {fmtValue(n.award_value)}
+                        </span>
+                      ) : n.award_winner_name ? (
+                        <span className="award-cell award-winner-only" title={n.award_winner_name}>
+                          {n.award_winner_name.length > 20 ? n.award_winner_name.slice(0, 20) + "…" : n.award_winner_name}
+                        </span>
+                      ) : "—"}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

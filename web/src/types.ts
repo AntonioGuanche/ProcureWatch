@@ -18,6 +18,11 @@ export interface NoticeSearchItem {
   estimated_value: number | null;
   url: string | null;
   status: string | null;
+  // CAN (Contract Award Notice) fields
+  award_winner_name: string | null;
+  award_value: number | null;
+  award_date: string | null;
+  number_tenders_received: number | null;
 }
 
 export interface NoticeSearchResponse {
@@ -45,6 +50,15 @@ export interface Notice {
   url: string | null;
   status: string | null;
   reference_number: string | null;
+  // CAN (Contract Award Notice) fields
+  award_winner_name: string | null;
+  award_value: number | null;
+  award_date: string | null;
+  number_tenders_received: number | null;
+  // AI summary
+  ai_summary: string | null;
+  ai_summary_lang: string | null;
+  // Timestamps
   created_at: string;
   updated_at: string;
 }

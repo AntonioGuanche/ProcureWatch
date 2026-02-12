@@ -349,6 +349,10 @@ def search_notices(
             estimated_value=float(n.estimated_value) if n.estimated_value else None,
             url=n.url,
             status=n.status,
+            award_winner_name=n.award_winner_name,
+            award_value=float(n.award_value) if n.award_value else None,
+            award_date=n.award_date.isoformat() if n.award_date else None,
+            number_tenders_received=n.number_tenders_received,
         )
         for n in rows
     ]
