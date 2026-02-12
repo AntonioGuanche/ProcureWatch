@@ -487,7 +487,7 @@ def bosa_diagnostics(db: Session = Depends(get_db)) -> dict:
     procedure_id coverage for BOSA notices.
     """
     from app.models.notice import ProcurementNotice as Notice
-    from sqlalchemy import func, case
+    from sqlalchemy import func
 
     base = db.query(func.count(Notice.id)).filter(Notice.source == "BOSA_EPROC")
     total = base.scalar()

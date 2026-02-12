@@ -128,7 +128,7 @@ class Settings(BaseSettings):
     import_sources: str = Field("BOSA,TED", validation_alias="IMPORT_SOURCES")
     import_term: str = Field("*", validation_alias="IMPORT_TERM")
     import_term_ted: str = Field(
-        "(notice-type = cn) OR (notice-type = can)",
+        "(form-type = competition OR form-type = result) AND buyer-country = BEL",
         validation_alias="IMPORT_TERM_TED",
     )
     import_ted_days_back: int = Field(3, validation_alias="IMPORT_TED_DAYS_BACK")
