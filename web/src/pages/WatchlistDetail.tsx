@@ -83,6 +83,22 @@ export function WatchlistDetail() {
     getFavoriteIds().then((r) => setFavIds(new Set(r.notice_ids))).catch(() => {});
   }, [id]);
 
+  // Always load match scores in background (for score column on all tabs)
+  const [bgMatches, setBgMatches] = useState<Map<string, WatchlistMatchRead>>(new Map());
+  useEffect(() => {
+    if (!id) return;
+    // Fetch first page of scored matches to populate score lookup
+    getWatchlistMatches(id, 1, 100)
+      .then((res) => {
+        const m = new Map<string, WatchlistMatchRead>();
+        for (const item of res.items) {
+          m.set(item.notice.id, item);
+        }
+        setBgMatches(m);
+      })
+      .catch(() => {});
+  }, [id, watchlist?.last_refresh_at]); // reload after refresh
+
   const filters = { source: filterSource || undefined, q: filterQ || undefined, sort: filterSort, active_only: filterActiveOnly || undefined };
 
   const loadNotices = useCallback(async (p: number) => {
@@ -120,7 +136,8 @@ export function WatchlistDetail() {
       const r = await refreshWatchlist(id);
       setToast(`Refresh terminé : ${r.matched} résultats, ${r.added} ajoutés`);
       getWatchlist(id).then(setWatchlist);
-      loadNotices(page);
+      // Switch to Pertinence tab to show scored results
+      setTab("scored");
     } catch (e) { setToast(e instanceof Error ? e.message : "Erreur refresh"); }
     finally { setRefreshing(false); }
   };
@@ -138,8 +155,11 @@ export function WatchlistDetail() {
     setFavIds((p) => { const s = new Set(p); if (favorited) s.add(noticeId); else s.delete(noticeId); return s; });
   };
 
-  // Build a map from notice id to match data for the scored tab
-  const matchMap = new Map(matches.map((m) => [m.notice.id, m]));
+  // Build a map from notice id to match data — merge bg matches with tab matches
+  const matchMap = new Map(bgMatches);
+  for (const m of matches) {
+    matchMap.set(m.notice.id, m); // tab-specific overrides bg
+  }
 
   if (!watchlist) return <div className="page"><div className="loading">Chargement…</div></div>;
 
@@ -263,9 +283,9 @@ export function WatchlistDetail() {
           <table className="data-table">
             <thead>
               <tr>
-                {isScored && <th style={{ width: "5%" }}>Score</th>}
+                <th style={{ width: "5%" }}>Score</th>
                 <th style={{ width: "3%" }}></th>
-                <th style={{ width: isScored ? "27%" : "30%" }}>Titre</th>
+                <th style={{ width: "27%" }}>Titre</th>
                 <th style={{ width: "13%" }}>Acheteur</th>
                 <th style={{ width: "8%" }}>CPV</th>
                 <th style={{ width: "7%" }}>Source</th>
@@ -279,11 +299,9 @@ export function WatchlistDetail() {
                 const match = matchMap.get(n.id);
                 return (
                   <tr key={n.id} className="clickable-row" onClick={() => setSelectedId(n.id)}>
-                    {isScored && (
-                      <td className="score-cell" title={match?.matched_on || ""}>
-                        <ScoreBadge score={match?.relevance_score ?? null} />
-                      </td>
-                    )}
+                    <td className="score-cell" title={match?.matched_on || ""}>
+                      <ScoreBadge score={match?.relevance_score ?? null} />
+                    </td>
                     <td onClick={(e) => e.stopPropagation()}>
                       <button className={`btn-star ${favIds.has(n.id) ? "active" : ""}`}
                         onClick={(e) => handleToggleFav(n.id, e)}
@@ -295,10 +313,10 @@ export function WatchlistDetail() {
                     </td>
                     <td>
                       <span className="notice-link">{n.title || "Sans titre"}</span>
-                      {isScored && match?.matched_on && (
+                      {match?.matched_on && (
                         <p className="match-reason">{match.matched_on}</p>
                       )}
-                      {!isScored && n.description && <p className="notice-desc">{n.description}</p>}
+                      {!match?.matched_on && !isScored && n.description && <p className="notice-desc">{n.description}</p>}
                     </td>
                     <td className="truncate" title={orgName(n.organisation_names)}>{orgName(n.organisation_names)}</td>
                     <td><code className="cpv-code">{n.cpv_main_code || "—"}</code></td>

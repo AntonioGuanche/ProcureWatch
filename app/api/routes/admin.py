@@ -291,6 +291,95 @@ def trigger_watchlist_matcher(
     return run_watchlist_matcher(db)
 
 
+@router.post("/rescore-all-matches", tags=["admin"])
+def rescore_all_matches(
+    watchlist_id: Optional[str] = Query(None, description="Single watchlist ID (omit = all)"),
+    dry_run: bool = Query(True, description="Preview only — set false to execute"),
+    db: Session = Depends(get_db),
+) -> dict:
+    """
+    Recalculate relevance_score for all existing watchlist matches.
+    Does NOT delete/recreate matches — only updates the score column.
+    Use after deploying scoring changes or company profile updates.
+    """
+    from app.models.watchlist_match import WatchlistMatch
+    from app.models.watchlist import Watchlist
+    from app.models.notice import ProcurementNotice as Notice
+    from app.models.user import User
+    from app.services.relevance_scoring import calculate_relevance_score
+
+    # Build match query
+    match_query = db.query(WatchlistMatch)
+    if watchlist_id:
+        match_query = match_query.filter(WatchlistMatch.watchlist_id == watchlist_id)
+
+    total_matches = match_query.count()
+
+    if dry_run:
+        null_scores = match_query.filter(WatchlistMatch.relevance_score.is_(None)).count()
+        return {
+            "total_matches": total_matches,
+            "null_scores": null_scores,
+            "dry_run": True,
+            "message": "Set dry_run=false to recalculate all scores",
+        }
+
+    # Preload watchlists + users
+    wl_ids = [r[0] for r in match_query.with_entities(WatchlistMatch.watchlist_id).distinct().all()]
+    watchlists = {wl.id: wl for wl in db.query(Watchlist).filter(Watchlist.id.in_(wl_ids)).all()}
+    user_ids = {wl.user_id for wl in watchlists.values() if wl.user_id}
+    users = {u.id: u for u in db.query(User).filter(User.id.in_(user_ids)).all()} if user_ids else {}
+
+    # Process in batches
+    BATCH = 500
+    updated = 0
+    errors = 0
+    offset = 0
+
+    while offset < total_matches:
+        matches = (
+            match_query
+            .order_by(WatchlistMatch.id)
+            .offset(offset)
+            .limit(BATCH)
+            .all()
+        )
+        if not matches:
+            break
+
+        # Batch-load notices
+        notice_ids = [m.notice_id for m in matches]
+        notice_map = {n.id: n for n in db.query(Notice).filter(Notice.id.in_(notice_ids)).all()}
+
+        for match in matches:
+            try:
+                wl = watchlists.get(match.watchlist_id)
+                notice = notice_map.get(match.notice_id)
+                if not wl or not notice:
+                    continue
+
+                user = users.get(wl.user_id) if wl.user_id else None
+                score, explanation = calculate_relevance_score(notice, wl, user=user)
+
+                match.relevance_score = score
+                match.matched_on = explanation
+                updated += 1
+            except Exception as e:
+                logger.warning("Rescore error match %s: %s", match.id, e)
+                errors += 1
+
+        db.commit()
+        offset += BATCH
+        logger.info("Rescore progress: %d/%d updated, %d errors", updated, total_matches, errors)
+
+    return {
+        "total_matches": total_matches,
+        "updated": updated,
+        "errors": errors,
+        "dry_run": False,
+    }
+
+
 @router.get("/data-quality", tags=["admin"])
 def data_quality_report(
     db: Session = Depends(get_db),
