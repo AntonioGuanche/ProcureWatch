@@ -947,3 +947,83 @@ def _serialize_parsed(parsed: dict) -> dict:
         else:
             out[k] = v
     return out
+
+
+@router.get("/bosa-can-formats")
+def bosa_can_formats(
+    limit: int = Query(500, ge=10, le=5000),
+    db: Session = Depends(get_db),
+):
+    """
+    Diagnose raw_data formats across BOSA CAN (type 29) notices.
+    Helps understand why most notices were skipped during award enrichment.
+    """
+    rows = db.execute(text(
+        "SELECT id, raw_data "
+        "FROM notices "
+        "WHERE source = 'BOSA_EPROC' "
+        "  AND notice_sub_type = '29' "
+        "  AND raw_data IS NOT NULL "
+        "  AND (award_winner_name IS NULL OR award_winner_name = '') "
+        "ORDER BY publication_date DESC "
+        "LIMIT :limit"
+    ), {"limit": limit}).fetchall()
+
+    formats: dict[str, int] = {}
+    top_level_keys: dict[str, int] = {}
+    samples: dict[str, list] = {}
+
+    for row in rows:
+        raw = row[1]
+        if not isinstance(raw, dict):
+            try:
+                raw = json.loads(raw) if raw else {}
+            except (json.JSONDecodeError, TypeError):
+                raw = {}
+
+        # Classify format
+        has_versions = "versions" in raw and isinstance(raw.get("versions"), list) and len(raw.get("versions", [])) > 0
+        has_xml = False
+        if has_versions:
+            for v in raw["versions"]:
+                if isinstance(v, dict) and isinstance(v.get("notice"), dict):
+                    xml = v["notice"].get("xmlContent", "")
+                    if isinstance(xml, str) and xml.startswith("<?xml"):
+                        has_xml = True
+                        break
+
+        has_flat_fields = any(
+            k in raw for k in ["publicationType", "publicationWorkspaceId", "dossierStatus", "natures"]
+        )
+
+        if has_xml:
+            fmt = "versions_with_xml"
+        elif has_versions:
+            fmt = "versions_no_xml"
+        elif has_flat_fields:
+            fmt = "flat_enriched"
+        elif raw:
+            fmt = "other"
+        else:
+            fmt = "empty"
+
+        formats[fmt] = formats.get(fmt, 0) + 1
+
+        # Track top-level keys
+        for k in raw.keys():
+            top_level_keys[k] = top_level_keys.get(k, 0) + 1
+
+        # Keep 1 sample per format
+        if fmt not in samples:
+            samples[fmt] = [{
+                "id": str(row[0]),
+                "top_keys": sorted(raw.keys())[:20],
+                "versions_count": len(raw.get("versions", [])) if has_versions else 0,
+            }]
+
+    return {
+        "analyzed": len(rows),
+        "formats": formats,
+        "top_level_keys_frequency": dict(sorted(top_level_keys.items(), key=lambda x: -x[1])[:25]),
+        "samples": samples,
+    }
