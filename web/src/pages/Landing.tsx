@@ -43,6 +43,7 @@ export default function Landing() {
   const [customCpvInput, setCustomCpvInput] = useState("");
   const [cpvSearchResults, setCpvSearchResults] = useState<CpvSuggestion[]>([]);
   const [cpvDropdownOpen, setCpvDropdownOpen] = useState(false);
+  const [cpvSearching, setCpvSearching] = useState(false);
 
   // Fetch preview matches whenever keywords/cpv change
   const fetchPreview = async (kws: Set<string>, cpvs: Set<string>) => {
@@ -134,17 +135,35 @@ export default function Landing() {
 
   const searchCpv = async (q: string) => {
     setCustomCpvInput(q);
-    if (q.trim().length < 2) { setCpvSearchResults([]); setCpvDropdownOpen(false); return; }
+    if (q.trim().length < 2) {
+      setCpvSearchResults([]);
+      setCpvDropdownOpen(false);
+      setCpvSearching(false);
+      return;
+    }
+    setCpvSearching(true);
+    setCpvDropdownOpen(true);
     try {
-      const resp = await fetch(`/api/public/cpv-search?q=${encodeURIComponent(q.trim())}&limit=10`);
+      const url = `/api/public/cpv-search?q=${encodeURIComponent(q.trim())}&limit=10`;
+      console.log("[cpv-search] fetching", url);
+      const resp = await fetch(url);
       if (resp.ok) {
-        const results = await resp.json();
-        // Filter out already-added CPVs
-        const filtered = results.filter((r: CpvSuggestion) => !allCpv.some(c => c.code === r.code));
+        const results: CpvSuggestion[] = await resp.json();
+        console.log("[cpv-search]", results.length, "results");
+        const filtered = results.filter((r) => !allCpv.some(c => c.code === r.code));
         setCpvSearchResults(filtered);
-        setCpvDropdownOpen(filtered.length > 0);
+        setCpvDropdownOpen(true);
+      } else {
+        const errText = await resp.text();
+        console.error("[cpv-search] error", resp.status, errText);
+        setCpvSearchResults([]);
       }
-    } catch { /* ignore */ }
+    } catch (err) {
+      console.error("[cpv-search] fetch failed:", err);
+      setCpvSearchResults([]);
+    } finally {
+      setCpvSearching(false);
+    }
   };
 
   const selectCpv = (cpv: CpvSuggestion) => {
@@ -356,19 +375,30 @@ export default function Landing() {
                   <div className="ld-cpv-search" style={{ marginTop: ".75rem", position: "relative" }}>
                     <input type="text" value={customCpvInput}
                       onChange={e => searchCpv(e.target.value)}
-                      onFocus={() => { if (cpvSearchResults.length > 0) setCpvDropdownOpen(true); }}
-                      onBlur={() => setTimeout(() => setCpvDropdownOpen(false), 200)}
+                      onFocus={() => { if (cpvSearchResults.length > 0 || cpvSearching) setCpvDropdownOpen(true); }}
+                      onBlur={() => setTimeout(() => setCpvDropdownOpen(false), 300)}
                       placeholder="Rechercher un code CPV (ex: plomberie, 45, nettoyage)…"
-                      className="ld-add-kw-input" style={{ width: "100%" }} />
-                    {cpvDropdownOpen && cpvSearchResults.length > 0 && (
+                      className="ld-add-kw-input" style={{ width: "100%" }}
+                      autoComplete="off" />
+                    {cpvDropdownOpen && (
                       <div className="ld-cpv-dropdown">
-                        {cpvSearchResults.map(cpv => (
-                          <div key={cpv.code} className="ld-cpv-dropdown-item"
-                            onMouseDown={() => selectCpv(cpv)}>
-                            <span className="ld-cpv-code" style={{ fontSize: ".7rem", padding: "2px 6px" }}>{cpv.code}</span>
-                            <span>{cpv.label}</span>
+                        {cpvSearching ? (
+                          <div className="ld-cpv-dropdown-item" style={{ color: "#94a3b8", justifyContent: "center" }}>
+                            Recherche…
                           </div>
-                        ))}
+                        ) : cpvSearchResults.length > 0 ? (
+                          cpvSearchResults.map(cpv => (
+                            <div key={cpv.code} className="ld-cpv-dropdown-item"
+                              onMouseDown={(e) => { e.preventDefault(); selectCpv(cpv); }}>
+                              <span className="ld-cpv-code" style={{ fontSize: ".7rem", padding: "2px 6px" }}>{cpv.code}</span>
+                              <span>{cpv.label}</span>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="ld-cpv-dropdown-item" style={{ color: "#94a3b8", justifyContent: "center" }}>
+                            Aucun résultat
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

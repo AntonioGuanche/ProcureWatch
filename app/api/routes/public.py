@@ -756,4 +756,6 @@ def cpv_search(q: str = Query("", max_length=60), limit: int = Query(15, le=30))
     Public endpoint — used by landing page CPV dropdown.
     """
     from app.services.cpv_reference import search_cpv
-    return search_cpv(q, limit)
+    results = search_cpv(q, limit)
+    logger.info("cpv-search q=%r → %d results", q, len(results))
+    return results
