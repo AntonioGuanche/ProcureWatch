@@ -36,7 +36,7 @@ class ProcurementNotice(Base):
 
     # --- Unique constraint: source_id (publicationWorkspaceId from BOSA) ---
     source_id: Mapped[str] = mapped_column(String(255), nullable=False, unique=True, index=True)
-    source: Mapped[str] = mapped_column(String(20), nullable=False)  # NoticeSource enum value
+    source: Mapped[str] = mapped_column(String(20), nullable=False, index=True)  # NoticeSource enum value
 
     # --- Critical fields ---
     publication_workspace_id: Mapped[str] = mapped_column(String(255), nullable=False, unique=True, index=True)
@@ -93,6 +93,7 @@ class ProcurementNotice(Base):
         default=func.now(),
         server_default=func.now(),
         nullable=False,
+        index=True,
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime,

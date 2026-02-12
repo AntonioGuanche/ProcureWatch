@@ -285,7 +285,7 @@ def _check_keyword_in_searchable_text(
 def refresh_watchlist_matches(db: Session, watchlist: Watchlist) -> dict[str, int]:
     """
     Recompute and store matches for a watchlist idempotently.
-    Deletes existing matches, then recomputes and stores new ones.
+    Optimized: batch-loads NoticeDetail + NoticeCpvAdditional to avoid N+1.
     Returns dict with counts: matched, added.
     """
     keywords = _parse_array(watchlist.keywords)
@@ -307,47 +307,68 @@ def refresh_watchlist_matches(db: Session, watchlist: Watchlist) -> dict[str, in
     )
 
     candidate_notices = query.all()
-    matched_count = 0
+    if not candidate_notices:
+        watchlist.last_refresh_at = datetime.now(timezone.utc)
+        db.commit()
+        return {"matched": 0, "added": 0}
 
+    candidate_ids = [n.id for n in candidate_notices]
+
+    # Batch-load NoticeDetail for keyword deep-check (1 query instead of N)
+    detail_map: dict[str, NoticeDetail] = {}
+    if keywords:
+        details = db.query(NoticeDetail).filter(
+            NoticeDetail.notice_id.in_(candidate_ids)
+        ).all()
+        detail_map = {d.notice_id: d for d in details}
+
+    # Batch-load additional CPVs (1 query instead of N)
+    additional_cpv_map: dict[str, list[str]] = {}
+    if cpv_prefixes:
+        additional_rows = db.query(NoticeCpvAdditional).filter(
+            NoticeCpvAdditional.notice_id.in_(candidate_ids)
+        ).all()
+        for row in additional_rows:
+            additional_cpv_map.setdefault(row.notice_id, []).append(
+                (row.cpv_code or "").replace("-", "").strip()
+            )
+
+    matched_count = 0
     for notice in candidate_notices:
-        matched_keywords = []
+        # Keyword deep-check using pre-loaded details
+        matched_kw = []
         if keywords:
-            matched_keywords = _check_keyword_in_searchable_text(notice, keywords, db)
-            if len(matched_keywords) == 0:
+            detail = detail_map.get(notice.id)
+            searchable_text = build_searchable_text(notice, detail).lower()
+            matched_kw = [kw for kw in keywords if kw.lower() in searchable_text]
+            if not matched_kw:
                 continue  # At least one keyword must match (OR logic)
 
+        # CPV prefix check using pre-loaded additional CPVs
         matched_cpv = []
         if cpv_prefixes:
             main_cpv = (notice.cpv_main_code or "").replace("-", "").strip()
+            add_cpvs = additional_cpv_map.get(notice.id, [])
             for prefix in cpv_prefixes:
                 prefix_clean = prefix.replace("-", "").strip()
-                if prefix_clean and main_cpv.startswith(prefix_clean):
-                    matched_cpv.append(prefix)
+                if not prefix_clean:
                     continue
-                additional = (
-                    db.query(NoticeCpvAdditional)
-                    .filter(NoticeCpvAdditional.notice_id == notice.id)
-                    .all()
-                )
-                for add_cpv in additional:
-                    if add_cpv.cpv_code and add_cpv.cpv_code.replace(
-                        "-", ""
-                    ).startswith(prefix_clean):
-                        matched_cpv.append(prefix)
-                        break
+                if main_cpv.startswith(prefix_clean):
+                    matched_cpv.append(prefix)
+                elif any(ac.startswith(prefix_clean) for ac in add_cpvs):
+                    matched_cpv.append(prefix)
 
         matched_on = _build_matched_on_explanation(
-            matched_keywords if keywords else [],
+            matched_kw if keywords else [],
             matched_country_for_explanation,
             matched_cpv if cpv_prefixes else [],
         )
 
-        match = WatchlistMatch(
+        db.add(WatchlistMatch(
             watchlist_id=watchlist.id,
             notice_id=notice.id,
             matched_on=matched_on,
-        )
-        db.add(match)
+        ))
         matched_count += 1
 
     watchlist.last_refresh_at = datetime.now(timezone.utc)
@@ -385,9 +406,56 @@ def list_watchlist_matches(
     return results, total
 
 
+
 # ---------------------------------------------------------------------------
-#  Bridge functions for ingest scripts (replacing legacy watchlists CRUD)
+#  Bridge functions: direct-query for Aperçu/Nouveaux, match-table for Pertinence
 # ---------------------------------------------------------------------------
+
+def _apply_extra_filters(query, source=None, q=None, sort="date_desc", active_only=False):
+    """Apply common extra filters and sorting to a Notice query."""
+    if source:
+        query = query.filter(Notice.source == source)
+    if q and q.strip():
+        term = f"%{q.strip()}%"
+        query = query.filter(or_(
+            Notice.title.ilike(term),
+            Notice.description.ilike(term),
+            cast(Notice.organisation_names, String).ilike(term),
+        ))
+    if active_only:
+        from datetime import date as date_cls
+        query = query.filter(Notice.deadline >= date_cls.today())
+
+    total = query.count()
+
+    if sort == "date_asc":
+        query = query.order_by(Notice.publication_date.asc().nulls_last())
+    elif sort == "deadline":
+        query = query.order_by(Notice.deadline.asc().nulls_last())
+    elif sort == "deadline_desc":
+        query = query.order_by(Notice.deadline.desc().nulls_last())
+    elif sort == "value_desc":
+        query = query.order_by(Notice.estimated_value.desc().nulls_last())
+    else:
+        query = query.order_by(Notice.publication_date.desc().nulls_last(), Notice.created_at.desc())
+
+    return query, total
+
+
+def _build_watchlist_query(db: Session, watchlist: Watchlist):
+    """Build a Notice query from watchlist filters — direct SQL, no match table."""
+    keywords = _parse_array(watchlist.keywords)
+    countries = _parse_array(watchlist.countries)
+    cpv_prefixes = _parse_array(watchlist.cpv_prefixes)
+    sources = _parse_sources_json(watchlist.sources)
+
+    query = db.query(Notice)
+    query = _match_sources_sql(query, sources)
+    query, _ = _match_keywords_sql(query, keywords)
+    query, _ = _match_countries_sql(query, countries)
+    query, _ = _match_cpv_prefixes_sql(query, cpv_prefixes)
+    return query
+
 
 def list_notices_for_watchlist(
     db: Session,
@@ -400,46 +468,11 @@ def list_notices_for_watchlist(
     active_only: bool = False,
 ) -> Tuple[list[Notice], int]:
     """
-    Get notices matching a watchlist's filters.
-    Refreshes matches first, then queries matched notices.
+    Get notices matching a watchlist's filters via direct SQL query.
+    Fast read-only — no refresh, no match table.
     """
-    refresh_watchlist_matches(db, watchlist)
-    match_ids = (
-        db.query(WatchlistMatch.notice_id)
-        .filter(WatchlistMatch.watchlist_id == watchlist.id)
-        .subquery()
-    )
-    query = db.query(Notice).filter(Notice.id.in_(match_ids))
-
-    # Extra filters
-    if source:
-        query = query.filter(Notice.source == source)
-    if q and q.strip():
-        term = f"%{q.strip()}%"
-        from sqlalchemy import cast, String, or_
-        query = query.filter(or_(
-            Notice.title.ilike(term),
-            Notice.description.ilike(term),
-            cast(Notice.organisation_names, String).ilike(term),
-        ))
-    if active_only:
-        from datetime import date
-        query = query.filter(Notice.deadline >= date.today())
-
-    total = query.count()
-
-    # Sorting
-    if sort == "date_asc":
-        query = query.order_by(Notice.publication_date.asc().nulls_last())
-    elif sort == "deadline":
-        query = query.order_by(Notice.deadline.asc().nulls_last())
-    elif sort == "deadline_desc":
-        query = query.order_by(Notice.deadline.desc().nulls_last())
-    elif sort == "value_desc":
-        query = query.order_by(Notice.estimated_value.desc().nulls_last())
-    else:
-        query = query.order_by(Notice.publication_date.desc().nulls_last(), Notice.created_at.desc())
-
+    query = _build_watchlist_query(db, watchlist)
+    query, total = _apply_extra_filters(query, source, q, sort, active_only)
     notices = query.offset(offset).limit(limit).all()
     return notices, total
 
@@ -456,53 +489,15 @@ def list_new_since_for_watchlist(
 ) -> Tuple[list[Notice], int]:
     """
     Get NEW notices matching a watchlist — created since last_refresh_at.
-    Falls back to list_notices_for_watchlist if no cutoff.
+    Direct SQL query, no match table.
     """
     cutoff = watchlist.last_refresh_at
     if not cutoff:
         return list_notices_for_watchlist(db, watchlist, limit, offset, source, q, sort, active_only)
 
-    refresh_watchlist_matches(db, watchlist)
-    match_ids = (
-        db.query(WatchlistMatch.notice_id)
-        .filter(WatchlistMatch.watchlist_id == watchlist.id)
-        .subquery()
-    )
-    query = (
-        db.query(Notice)
-        .filter(Notice.id.in_(match_ids))
-        .filter(Notice.created_at > cutoff)
-    )
-
-    # Extra filters
-    if source:
-        query = query.filter(Notice.source == source)
-    if q and q.strip():
-        term = f"%{q.strip()}%"
-        from sqlalchemy import cast, String, or_
-        query = query.filter(or_(
-            Notice.title.ilike(term),
-            Notice.description.ilike(term),
-            cast(Notice.organisation_names, String).ilike(term),
-        ))
-    if active_only:
-        from datetime import date
-        query = query.filter(Notice.deadline >= date.today())
-
-    total = query.count()
-
-    # Sorting
-    if sort == "date_asc":
-        query = query.order_by(Notice.publication_date.asc().nulls_last())
-    elif sort == "deadline":
-        query = query.order_by(Notice.deadline.asc().nulls_last())
-    elif sort == "deadline_desc":
-        query = query.order_by(Notice.deadline.desc().nulls_last())
-    elif sort == "value_desc":
-        query = query.order_by(Notice.estimated_value.desc().nulls_last())
-    else:
-        query = query.order_by(Notice.publication_date.desc().nulls_last(), Notice.created_at.desc())
-
+    query = _build_watchlist_query(db, watchlist)
+    query = query.filter(Notice.created_at > cutoff)
+    query, total = _apply_extra_filters(query, source, q, sort, active_only)
     notices = query.offset(offset).limit(limit).all()
     return notices, total
 

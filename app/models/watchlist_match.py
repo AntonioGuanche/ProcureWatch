@@ -23,11 +23,13 @@ class WatchlistMatch(Base):
         String(36),
         ForeignKey("watchlists.id", ondelete="CASCADE"),
         nullable=False,
+        index=True,
     )
     notice_id: Mapped[str] = mapped_column(
         String(36),
         ForeignKey("notices.id", ondelete="CASCADE"),
         nullable=False,
+        index=True,
     )
     matched_on: Mapped[str] = mapped_column(
         String(500),
