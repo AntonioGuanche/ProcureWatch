@@ -1502,6 +1502,36 @@ label {
   gap: 1.25rem;
   max-width: 850px;
 }
+.profile-card-wide {
+  grid-column: 1 / -1;
+}
+.form-row {
+  display: flex;
+  gap: .75rem;
+  margin-bottom: .75rem;
+}
+.form-group-flex {
+  flex: 1;
+  margin-bottom: 0;
+}
+.form-group-wide {
+  flex: 1;
+  margin-bottom: 0;
+}
+.form-group-sm {
+  flex: 0 0 80px;
+  margin-bottom: 0;
+}
+.form-group-flex input,
+.form-group-wide input,
+.form-group-sm input {
+  width: 100%;
+}
+.geo-info {
+  font-size: .8rem;
+  color: var(--gray-500);
+  margin: .25rem 0 0 0;
+}
 .profile-card {
   padding: 1.5rem;
   background: white;
@@ -1533,6 +1563,9 @@ label {
 
 @media (max-width: 700px) {
   .profile-grid { grid-template-columns: 1fr; }
+  .form-row { flex-direction: column; gap: 0; }
+  .form-group-flex, .form-group-wide, .form-group-sm { margin-bottom: .75rem; }
+  .form-group-sm { flex: 1; }
 }
 
 /* ══ Admin page ════════════════════════════════════════════════════════ */

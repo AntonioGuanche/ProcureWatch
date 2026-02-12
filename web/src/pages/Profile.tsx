@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../auth";
-import { updateProfile, changePassword, deleteAccount, getSubscription, createCheckout, createPortalSession } from "../api";
-import type { SubscriptionInfo } from "../api";
+import { updateProfile, changePassword, deleteAccount, getSubscription, createCheckout, createPortalSession, getProfile } from "../api";
+import type { SubscriptionInfo, FullProfile } from "../api";
 import { useNavigate } from "react-router-dom";
 
 function EyeIcon({ show }: { show: boolean }) {
@@ -27,6 +27,18 @@ export function Profile() {
   const [profileErr, setProfileErr] = useState<string | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
 
+  // Company profile form
+  const [companyName, setCompanyName] = useState("");
+  const [vatNumber, setVatNumber] = useState("");
+  const [address, setAddress] = useState("");
+  const [postalCode, setPostalCode] = useState("");
+  const [city, setCity] = useState("");
+  const [country, setCountry] = useState("BE");
+  const [companyMsg, setCompanyMsg] = useState<string | null>(null);
+  const [companyErr, setCompanyErr] = useState<string | null>(null);
+  const [companyLoading, setCompanyLoading] = useState(false);
+  const [geoInfo, setGeoInfo] = useState<string | null>(null);
+
   // Password form
   const [curPw, setCurPw] = useState("");
   const [newPw, setNewPw] = useState("");
@@ -50,6 +62,23 @@ export function Profile() {
       .then(setSub)
       .catch(() => {})
       .finally(() => setBillingLoading(false));
+  }, []);
+
+  // Fetch full profile (including company fields) on mount
+  useEffect(() => {
+    getProfile()
+      .then((p: FullProfile) => {
+        setCompanyName(p.company_name || "");
+        setVatNumber(p.vat_number || "");
+        setAddress(p.address || "");
+        setPostalCode(p.postal_code || "");
+        setCity(p.city || "");
+        setCountry(p.country || "BE");
+        if (p.latitude && p.longitude) {
+          setGeoInfo(`${p.latitude.toFixed(2)}°N, ${p.longitude.toFixed(2)}°E`);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   const handleUpgrade = async (plan: string, interval: string) => {
@@ -104,6 +133,38 @@ export function Profile() {
       setPwErr(err instanceof Error ? err.message : "Erreur");
     } finally {
       setPwLoading(false);
+    }
+  };
+
+  const handleCompanySave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCompanyErr(null);
+    setCompanyMsg(null);
+    setCompanyLoading(true);
+    try {
+      const updated = await updateProfile({
+        company_name: companyName.trim(),
+        vat_number: vatNumber.trim(),
+        address: address.trim(),
+        postal_code: postalCode.trim(),
+        city: city.trim(),
+        country: country.trim().toUpperCase(),
+      });
+      setCompanyMsg("Profil entreprise mis à jour");
+      // Update geo display
+      if (updated.latitude && updated.longitude) {
+        setGeoInfo(`${updated.latitude.toFixed(2)}°N, ${updated.longitude.toFixed(2)}°E`);
+      } else {
+        setGeoInfo(null);
+      }
+      // Sync normalized VAT from backend
+      if (updated.vat_number !== undefined) {
+        setVatNumber(updated.vat_number || "");
+      }
+    } catch (err) {
+      setCompanyErr(err instanceof Error ? err.message : "Erreur");
+    } finally {
+      setCompanyLoading(false);
     }
   };
 
@@ -176,6 +237,65 @@ export function Profile() {
             </div>
             <button type="submit" className="btn-primary" disabled={pwLoading}>
               {pwLoading ? "Modification…" : "Modifier le mot de passe"}
+            </button>
+          </form>
+        </div>
+
+        {/* Subscription Plan */}
+        <div className="profile-card profile-card-wide">
+          <h2>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{verticalAlign: "-2px", marginRight: "6px"}}><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
+            Profil entreprise
+          </h2>
+          <p className="card-subtitle">Utilisé pour personnaliser vos résultats de veille (scoring de pertinence)</p>
+
+          {companyMsg && <div className="alert alert-success">{companyMsg}</div>}
+          {companyErr && <div className="alert alert-error">{companyErr}</div>}
+
+          <form onSubmit={handleCompanySave}>
+            <div className="form-row">
+              <div className="form-group form-group-flex">
+                <label>Nom de l'entreprise</label>
+                <input type="text" value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="Ma Société SPRL" />
+              </div>
+              <div className="form-group form-group-flex">
+                <label>Numéro de TVA</label>
+                <input type="text" value={vatNumber} onChange={(e) => setVatNumber(e.target.value)} placeholder="BE0123456789" />
+              </div>
+            </div>
+
+            <div className="form-row">
+              <div className="form-group form-group-wide">
+                <label>Adresse</label>
+                <input type="text" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Rue de la Loi 1" />
+              </div>
+            </div>
+
+            <div className="form-row">
+              <div className="form-group form-group-flex">
+                <label>Code postal</label>
+                <input type="text" value={postalCode} onChange={(e) => setPostalCode(e.target.value)} placeholder="1000" maxLength={10} />
+              </div>
+              <div className="form-group form-group-flex">
+                <label>Ville</label>
+                <input type="text" value={city} onChange={(e) => setCity(e.target.value)} placeholder="Bruxelles" />
+              </div>
+              <div className="form-group form-group-sm">
+                <label>Pays</label>
+                <input type="text" value={country} onChange={(e) => setCountry(e.target.value)} placeholder="BE" maxLength={2} />
+              </div>
+            </div>
+
+            {geoInfo && (
+              <p className="geo-info">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{verticalAlign: "-1px"}}><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                {" "}Coordonnées géo : {geoInfo}
+              </p>
+            )}
+
+            <button type="submit" className="btn-primary" disabled={companyLoading} style={{marginTop: ".5rem"}}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+              {companyLoading ? "Enregistrement…" : "Enregistrer"}
             </button>
           </form>
         </div>
