@@ -14,6 +14,7 @@ from pydantic import BaseModel, field_validator
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db as _get_db
+from app.services.procurement_vocab import get_procurement_vocab, is_in_procurement_vocab
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +41,20 @@ _LANG_STOPS = frozenset(
     "www http https com org net html php asp jsp "
     "de het een van in is dat op te zijn was met voor niet hij zij ze "
     "er aan als ook door maar worden nog wel bij haar die deze "
-    "geen alle uit dan nu kan tot meer om over naar wij hen wat werd mijn uw".split()
+    "geen alle uit dan nu kan tot meer om over naar wij hen wat werd mijn uw "
+    "onze ons hun jullie zelf elkaar iemand niemand iets niets "
+    "elk elke iedere ieder reeds alleen slechts toch steeds altijd "
+    "waar wanneer waarom hoe welk welke hoeveel "
+    "nieuwe nieuw groot grote klein kleine beste best goed goede mooi mooie "
+    "snelle snel unieke uniek krachtige krachtig eenvoudige eenvoudig "
+    "bedrijf bedrijven organisatie klanten gebruikers "
+    "oplossing oplossingen platform tools tool apps "
+    "gratis online digitale digitaal website pagina "
+    "functies functie voordelen voordeel mogelijkheden "
+    "team teams medewerkers werken werkt samen "
+    "vraag vragen neem neemt bel stuur "
+    "informatie lees ontdek bekijk "
+    "ruim grootte aantal".split()
 )
 
 # Generic business/web words NOT useful for procurement matching
@@ -87,6 +101,9 @@ _BIZ_STOPS = frozenset(
     "famille familial familiale particulier particuliers "
     "conseil conseils accompagnement aide suivi gestion "
     "mise place point jour oeuvre ".split()
+    # NOTE: brand names (zoho, salesforce…) and proper nouns are NOT stopped here.
+    # Instead, they are filtered dynamically by the procurement vocabulary service
+    # which only keeps words that actually appear in real procurement notice titles.
 )
 
 # Common first names and proper nouns that appear on company sites
@@ -298,8 +315,13 @@ def _is_relevant_word(w: str) -> bool:
 
 
 def _is_procurement_relevant(w: str) -> bool:
-    """Check if word matches known procurement vocabulary."""
+    """Check if word matches known procurement vocabulary (hard-coded)."""
     return w in PROCUREMENT_BOOSTERS
+
+
+def _is_vocab_match(w: str) -> bool:
+    """Check if word appears in real procurement notice titles (DB-derived)."""
+    return is_in_procurement_vocab(w)
 
 
 def _tokenize(text: str) -> list[str]:
@@ -354,6 +376,8 @@ def _extract_keywords_from_html(html: str) -> dict[str, Any]:
                 # Boost procurement-relevant words
                 if _is_procurement_relevant(w):
                     weighted[w] += weight * 2
+                elif _is_vocab_match(w):
+                    weighted[w] += weight  # moderate boost for DB-verified words
 
     # Meta keywords (explicit = high value)
     if meta_kw:
@@ -372,6 +396,8 @@ def _extract_keywords_from_html(html: str) -> dict[str, Any]:
         weighted[w] += 1
         if _is_procurement_relevant(w):
             weighted[w] += 3
+        elif _is_vocab_match(w):
+            weighted[w] += 2  # moderate boost for DB-verified words
 
     # ── Extract meaningful phrases (2-3 words) from key text ──
     phrase_counter: Counter = Counter()
@@ -397,8 +423,10 @@ def _extract_keywords_from_html(html: str) -> dict[str, Any]:
                     continue
                 phrase = " ".join(phrase_words)
                 if len(phrase) > 5:
-                    # Extra boost if phrase contains procurement word
-                    boost = 2 if any(_is_procurement_relevant(w) for w in phrase_words) else 1
+                    # Extra boost if phrase contains procurement-relevant or vocab words
+                    has_booster = any(_is_procurement_relevant(w) for w in phrase_words)
+                    has_vocab = any(_is_vocab_match(w) for w in phrase_words)
+                    boost = 3 if has_booster else (2 if has_vocab else 1)
                     phrase_counter[phrase] += 3 * boost
 
     # ── Build final keyword list ──
@@ -406,12 +434,15 @@ def _extract_keywords_from_html(html: str) -> dict[str, Any]:
     min_score = 3
     top_words = [(w, s) for w, s in weighted.most_common(60) if s >= min_score and len(w) > 2]
 
-    # Phrases: filter out those containing only generic terms
+    # Phrases: filter — at least one word must be procurement-relevant or in vocab
     top_phrases = []
     for phrase, score in phrase_counter.most_common(20):
         words_in_phrase = phrase.split()
-        # At least one non-stop word
-        has_substance = any(w not in STOP_WORDS and len(w) > 3 for w in words_in_phrase)
+        has_substance = any(
+            w not in STOP_WORDS and len(w) > 3 and
+            (_is_procurement_relevant(w) or _is_vocab_match(w))
+            for w in words_in_phrase
+        )
         if has_substance and score >= 3:
             top_phrases.append((phrase, score))
 
@@ -434,14 +465,17 @@ def _extract_keywords_from_html(html: str) -> dict[str, Any]:
                 keywords.append(phrase)
                 seen.add(phrase)
 
-    # 3) Remaining single words — ONLY if procurement-adjacent or very high score
+    # 3) Remaining single words — ONLY if verified in procurement vocabulary
+    #    This dynamically filters out brand names, proper nouns, gibberish
+    #    without hard-coded stop lists.
     for w, s in top_words:
         if w not in seen and not any(w in p for p in keywords):
-            # Must be either: known procurement term, OR score >= 8 AND word >= 5 chars
             if _is_procurement_relevant(w):
+                # Hard-coded booster term → always keep
                 keywords.append(w)
                 seen.add(w)
-            elif s >= 8 and len(w) >= 5:
+            elif _is_vocab_match(w) and s >= 4 and len(w) >= 4:
+                # Word appears in real procurement notice titles + decent score
                 keywords.append(w)
                 seen.add(w)
 
@@ -590,7 +624,7 @@ def preview_matches(
     # Get 5 most recent samples
     samples = (
         base_q
-        .order_by(N.publication_date.desc().nullslast())
+        .order_by(N.publication_date.desc().nulls_last())
         .limit(5)
         .all()
     )

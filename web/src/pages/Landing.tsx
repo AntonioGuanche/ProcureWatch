@@ -38,20 +38,28 @@ export default function Landing() {
   const resultRef = useRef<HTMLDivElement>(null);
   const [preview, setPreview] = useState<PreviewResult | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [selectedCpv, setSelectedCpv] = useState<Set<string>>(new Set());
+  const [allCpv, setAllCpv] = useState<CpvSuggestion[]>([]);
+  const [customCpvInput, setCustomCpvInput] = useState("");
 
   // Fetch preview matches whenever keywords/cpv change
-  const fetchPreview = async (kws: Set<string>, cpvs: string[]) => {
+  const fetchPreview = async (kws: Set<string>, cpvs: Set<string>) => {
     const kwArr = Array.from(kws);
-    if (kwArr.length === 0) { setPreview(null); return; }
+    const cpvArr = Array.from(cpvs);
+    if (kwArr.length === 0 && cpvArr.length === 0) { setPreview(null); return; }
     setPreviewLoading(true);
     try {
       const resp = await fetch("/api/public/preview-matches", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ keywords: kwArr, cpv_codes: cpvs }),
+        body: JSON.stringify({ keywords: kwArr, cpv_codes: cpvArr }),
       });
-      if (resp.ok) setPreview(await resp.json());
-    } catch { /* ignore */ }
+      if (resp.ok) {
+        setPreview(await resp.json());
+      } else {
+        console.warn("preview-matches error", resp.status, await resp.text());
+      }
+    } catch (err) { console.warn("preview-matches fetch failed", err); }
     finally { setPreviewLoading(false); }
   };
 
@@ -72,8 +80,13 @@ export default function Landing() {
       // Auto-select all detected keywords (they're already filtered for relevance)
       const kws = new Set<string>(data.keywords);
       setSelectedKeywords(kws);
+      // Auto-select all suggested CPV codes
+      const cpvList: CpvSuggestion[] = data.suggested_cpv || [];
+      setAllCpv(cpvList);
+      const cpvSet = new Set<string>(cpvList.map((c: CpvSuggestion) => c.code));
+      setSelectedCpv(cpvSet);
       // Fetch preview matches
-      fetchPreview(kws, data.suggested_cpv?.map((c: CpvSuggestion) => c.code) || []);
+      fetchPreview(kws, cpvSet);
       setTimeout(() => resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 200);
     } catch (err: any) {
       setError(err.message || "Impossible d'analyser ce site");
@@ -87,10 +100,33 @@ export default function Landing() {
       // Debounce preview refresh
       clearTimeout((window as any)._pwPreviewTimer);
       (window as any)._pwPreviewTimer = setTimeout(() => {
-        fetchPreview(next, result?.suggested_cpv?.map(c => c.code) || []);
+        fetchPreview(next, selectedCpv);
       }, 600);
       return next;
     });
+  };
+
+  const toggleCpv = (code: string) => {
+    setSelectedCpv(prev => {
+      const next = new Set(prev);
+      next.has(code) ? next.delete(code) : next.add(code);
+      clearTimeout((window as any)._pwPreviewTimer);
+      (window as any)._pwPreviewTimer = setTimeout(() => {
+        fetchPreview(selectedKeywords, next);
+      }, 600);
+      return next;
+    });
+  };
+
+  const addCustomCpv = () => {
+    const raw = customCpvInput.trim().replace(/[^0-9]/g, "");
+    if (raw.length >= 2 && !allCpv.some(c => c.code === raw)) {
+      const padded = raw.padEnd(8, "0");
+      const newCpv: CpvSuggestion = { code: padded, label: "Code personnalisé" };
+      setAllCpv(prev => [...prev, newCpv]);
+      setSelectedCpv(prev => new Set([...prev, padded]));
+      setCustomCpvInput("");
+    }
   };
 
   const addCustomKeyword = () => {
@@ -108,7 +144,7 @@ export default function Landing() {
 
   const handleCreateWatchlist = () => {
     const kws = Array.from(selectedKeywords);
-    const cpvs = result?.suggested_cpv?.map(c => c.code) || [];
+    const cpvs = Array.from(selectedCpv);
     sessionStorage.setItem("pw_onboarding", JSON.stringify({
       keywords: kws, cpv_codes: cpvs,
       company_name: result?.company_name || "", source_url: result?.url || "",
@@ -263,17 +299,28 @@ export default function Landing() {
                 </div>
               </div>
 
-              {result.suggested_cpv.length > 0 && (
+              {allCpv.length > 0 && (
                 <div className="ld-result-card">
                   <h3>Codes CPV suggérés</h3>
-                  <p className="ld-hint">Catégories de marchés publics correspondant à votre activité.</p>
+                  <p className="ld-hint">Cliquez pour activer/désactiver. Ces catégories de marchés publics correspondent à votre activité.</p>
                   <div className="ld-cpv-list">
-                    {result.suggested_cpv.map(cpv => (
-                      <div key={cpv.code} className="ld-cpv-item">
-                        <span className="ld-cpv-code">{cpv.code}</span>
+                    {allCpv.map(cpv => (
+                      <div key={cpv.code}
+                        className={`ld-cpv-item ${selectedCpv.has(cpv.code) ? "on" : "off"}`}
+                        onClick={() => toggleCpv(cpv.code)}
+                        style={{ cursor: "pointer" }}>
+                        <span className="ld-cpv-code">{selectedCpv.has(cpv.code) ? "✓ " : ""}{cpv.code}</span>
                         <span>{cpv.label}</span>
                       </div>
                     ))}
+                  </div>
+                  <div className="ld-add-kw" style={{ marginTop: ".75rem" }}>
+                    <input type="text" value={customCpvInput}
+                      onChange={e => setCustomCpvInput(e.target.value)}
+                      onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addCustomCpv(); } }}
+                      placeholder="Ajouter un code CPV (ex: 72000000)…" className="ld-add-kw-input" />
+                    <button type="button" onClick={addCustomCpv} className="ld-add-kw-btn"
+                      disabled={!customCpvInput.trim()}>+ Ajouter</button>
                   </div>
                 </div>
               )}
@@ -329,7 +376,7 @@ export default function Landing() {
               )}
 
               <p><strong>{selectedKeywords.size}</strong> mot(s)-clé(s) sélectionné(s)
-                {result.suggested_cpv.length > 0 && <> + <strong>{result.suggested_cpv.length}</strong> code(s) CPV</>}
+                {selectedCpv.size > 0 && <> + <strong>{selectedCpv.size}</strong> code(s) CPV</>}
               </p>
               <button className="ld-btn-primary ld-btn-lg" onClick={handleCreateWatchlist}
                 disabled={selectedKeywords.size === 0}>

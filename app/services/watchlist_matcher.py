@@ -201,7 +201,7 @@ def _get_open_matches(db: Session, watchlist: Watchlist, limit: int = 20) -> lis
                 Notice.deadline >= now,
             )
         )
-        .order_by(Notice.deadline.asc().nullslast())
+        .order_by(Notice.deadline.asc().nulls_last())
         .limit(limit)
     )
     return query.all()

@@ -2030,6 +2030,25 @@ label {
   border-radius: 8px;
   font-size: 0.88rem;
   color: var(--ld-gray-600);
+  transition: all 0.2s;
+  user-select: none;
+}
+.ld-cpv-item:hover { background: #f0fdf4; }
+.ld-cpv-item.on {
+  background: #f0fdf4;
+  border: 1.5px solid #10b981;
+}
+.ld-cpv-item.off {
+  opacity: 0.45;
+  border: 1.5px solid transparent;
+}
+.ld-cpv-item.on .ld-cpv-code {
+  background: #10b981;
+  color: #fff;
+}
+.ld-cpv-item.off .ld-cpv-code {
+  background: #e2e8f0;
+  color: #94a3b8;
 }
 .ld-cpv-code {
   background: #dbeafe;
@@ -2040,6 +2059,7 @@ label {
   font-weight: 700;
   font-family: 'SF Mono', 'Consolas', monospace;
   white-space: nowrap;
+  transition: all 0.2s;
 }
 
 .ld-result-cta {

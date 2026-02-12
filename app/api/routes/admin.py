@@ -720,7 +720,7 @@ def bosa_sample_can(
             Notice.source == "BOSA_EPROC",
             Notice.notice_sub_type == notice_sub_type,
         )
-        .order_by(Notice.publication_date.desc().nullslast())
+        .order_by(Notice.publication_date.desc().nulls_last())
         .limit(limit)
         .all()
     )
