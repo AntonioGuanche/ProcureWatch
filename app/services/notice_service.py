@@ -292,8 +292,11 @@ def _bosa_enrich_raw_data_and_extras(
     """
     raw = dict(publication) if publication else {}
 
-    # URL (constructible)
-    pub_id = publication.get("id") if publication else None
+    # URL (constructible from workspace ID)
+    pub_id = (
+        publication.get("publicationWorkspaceId")
+        or publication.get("id")
+    ) if publication else None
     if pub_id:
         raw["url"] = f"https://publicprocurement.be/publication-workspaces/{pub_id}/general"
 

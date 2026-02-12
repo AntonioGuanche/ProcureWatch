@@ -476,3 +476,106 @@ def cleanup_orphan_cans(
     """
     from app.services.enrichment_service import cleanup_orphan_cans
     return cleanup_orphan_cans(db, limit=limit, dry_run=dry_run)
+
+
+# ── BOSA diagnostics & backfill ──────────────────────────────────────
+
+@router.get("/bosa-diagnostics", tags=["admin"])
+def bosa_diagnostics(db: Session = Depends(get_db)) -> dict:
+    """
+    Diagnostic: distribution of form_type, notice_sub_type, URL coverage,
+    procedure_id coverage for BOSA notices.
+    """
+    from app.models.notice import ProcurementNotice as Notice
+    from sqlalchemy import func, case
+
+    base = db.query(func.count(Notice.id)).filter(Notice.source == "BOSA_EPROC")
+    total = base.scalar()
+
+    # form_type distribution
+    form_types = (
+        db.query(Notice.form_type, func.count(Notice.id))
+        .filter(Notice.source == "BOSA_EPROC")
+        .group_by(Notice.form_type)
+        .order_by(func.count(Notice.id).desc())
+        .all()
+    )
+
+    # notice_sub_type distribution
+    sub_types = (
+        db.query(Notice.notice_sub_type, func.count(Notice.id))
+        .filter(Notice.source == "BOSA_EPROC")
+        .group_by(Notice.notice_sub_type)
+        .order_by(func.count(Notice.id).desc())
+        .all()
+    )
+
+    # URL coverage
+    has_url = db.query(func.count(Notice.id)).filter(
+        Notice.source == "BOSA_EPROC", Notice.url.isnot(None), Notice.url != ""
+    ).scalar()
+
+    # procedure_id coverage
+    has_proc_id = db.query(func.count(Notice.id)).filter(
+        Notice.source == "BOSA_EPROC", Notice.procedure_id.isnot(None), Notice.procedure_id != ""
+    ).scalar()
+
+    # award fields coverage
+    has_winner = db.query(func.count(Notice.id)).filter(
+        Notice.source == "BOSA_EPROC", Notice.award_winner_name.isnot(None)
+    ).scalar()
+    has_award_val = db.query(func.count(Notice.id)).filter(
+        Notice.source == "BOSA_EPROC", Notice.award_value.isnot(None)
+    ).scalar()
+
+    return {
+        "total": total,
+        "form_types": {str(k): v for k, v in form_types},
+        "notice_sub_types": {str(k): v for k, v in sub_types},
+        "url_coverage": {"filled": has_url, "pct": round(has_url / total * 100, 1) if total else 0},
+        "procedure_id_coverage": {"filled": has_proc_id, "pct": round(has_proc_id / total * 100, 1) if total else 0},
+        "award_winner_name": {"filled": has_winner, "pct": round(has_winner / total * 100, 1) if total else 0},
+        "award_value": {"filled": has_award_val, "pct": round(has_award_val / total * 100, 1) if total else 0},
+    }
+
+
+@router.post("/bosa-backfill-urls", tags=["admin"])
+def bosa_backfill_urls(
+    limit: int = Query(50000, ge=1, le=200000),
+    dry_run: bool = Query(True),
+    db: Session = Depends(get_db),
+) -> dict:
+    """
+    Backfill URLs for BOSA notices using source_id (= publicationWorkspaceId).
+    URL pattern: https://publicprocurement.be/publication-workspaces/{source_id}/general
+    """
+    from app.models.notice import ProcurementNotice as Notice
+    from sqlalchemy import or_
+
+    notices = (
+        db.query(Notice)
+        .filter(
+            Notice.source == "BOSA_EPROC",
+            or_(Notice.url.is_(None), Notice.url == ""),
+            Notice.source_id.isnot(None),
+            Notice.source_id != "",
+        )
+        .limit(limit)
+        .all()
+    )
+
+    updated = 0
+    for n in notices:
+        url = f"https://publicprocurement.be/publication-workspaces/{n.source_id}/general"
+        if not dry_run:
+            n.url = url
+        updated += 1
+
+    if not dry_run and updated:
+        try:
+            db.commit()
+        except Exception as e:
+            db.rollback()
+            return {"error": str(e), "updated": 0}
+
+    return {"updated": updated, "total_missing": len(notices), "dry_run": dry_run}
