@@ -7,6 +7,7 @@ from typing import Sequence
 
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy import text
 
 revision: str = "011"
 down_revision: str = "010"
@@ -14,26 +15,47 @@ branch_labels: Sequence[str] | None = None
 depends_on: Sequence[str] | None = None
 
 
+def _col_exists(conn, table: str, column: str) -> bool:
+    result = conn.execute(text(
+        "SELECT 1 FROM information_schema.columns "
+        "WHERE table_name = :t AND column_name = :c"
+    ), {"t": table, "c": column})
+    return result.fetchone() is not None
+
+
+def _index_exists(conn, name: str) -> bool:
+    return conn.execute(
+        text("SELECT 1 FROM pg_indexes WHERE indexname = :n"),
+        {"n": name},
+    ).fetchone() is not None
+
+
 def upgrade() -> None:
-    # Company identity
-    op.add_column("users", sa.Column("company_name", sa.String(255), nullable=True))
-    op.add_column("users", sa.Column("vat_number", sa.String(20), nullable=True,
-                                      comment="VAT number, e.g. BE0123456789"))
-    op.add_column("users", sa.Column("nace_codes", sa.String(500), nullable=True,
-                                      comment="Comma-separated NACE codes (auto from BCE)"))
+    conn = op.get_bind()
 
-    # Location
-    op.add_column("users", sa.Column("address", sa.String(500), nullable=True))
-    op.add_column("users", sa.Column("postal_code", sa.String(10), nullable=True))
-    op.add_column("users", sa.Column("city", sa.String(100), nullable=True))
-    op.add_column("users", sa.Column("country", sa.String(5), nullable=True,
-                                      server_default="BE", comment="ISO 3166-1 alpha-2"))
-    op.add_column("users", sa.Column("latitude", sa.Float, nullable=True))
-    op.add_column("users", sa.Column("longitude", sa.Float, nullable=True))
+    columns = [
+        # Company identity
+        ("company_name", sa.String(255), {}),
+        ("vat_number", sa.String(20), {"comment": "VAT number, e.g. BE0123456789"}),
+        ("nace_codes", sa.String(500), {"comment": "Comma-separated NACE codes (auto from BCE)"}),
+        # Location
+        ("address", sa.String(500), {}),
+        ("postal_code", sa.String(10), {}),
+        ("city", sa.String(100), {}),
+        ("country", sa.String(5), {"server_default": "BE", "comment": "ISO 3166-1 alpha-2"}),
+        ("latitude", sa.Float, {}),
+        ("longitude", sa.Float, {}),
+    ]
 
-    # Useful indexes
-    op.create_index("ix_users_vat_number", "users", ["vat_number"], unique=True)
-    op.create_index("ix_users_country", "users", ["country"])
+    for col_name, col_type, kwargs in columns:
+        if not _col_exists(conn, "users", col_name):
+            op.add_column("users", sa.Column(col_name, col_type, nullable=True, **kwargs))
+
+    # Indexes
+    if not _index_exists(conn, "ix_users_vat_number"):
+        op.create_index("ix_users_vat_number", "users", ["vat_number"], unique=True)
+    if not _index_exists(conn, "ix_users_country"):
+        op.create_index("ix_users_country", "users", ["country"])
 
 
 def downgrade() -> None:

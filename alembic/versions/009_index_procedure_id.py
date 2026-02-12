@@ -4,6 +4,7 @@ Revision ID: 009
 Revises: 008
 """
 from alembic import op
+from sqlalchemy import text
 
 revision = "009"
 down_revision = "008"
@@ -12,11 +13,19 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.create_index(
-        "ix_notices_procedure_id",
-        "notices",  # was "procurement_notices" — WRONG table name
-        ["procedure_id"],
-    )
+    conn = op.get_bind()
+
+    # Check if index already exists (idempotent)
+    result = conn.execute(text(
+        "SELECT 1 FROM pg_indexes WHERE indexname = 'ix_notices_procedure_id'"
+    )).fetchone()
+
+    if not result:
+        op.create_index(
+            "ix_notices_procedure_id",
+            "notices",
+            ["procedure_id"],
+        )
 
 
 def downgrade() -> None:
