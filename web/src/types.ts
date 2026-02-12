@@ -18,6 +18,11 @@ export interface NoticeSearchItem {
   estimated_value: number | null;
   url: string | null;
   status: string | null;
+  // CAN (Contract Award Notice) fields
+  award_winner_name: string | null;
+  award_value: number | null;
+  award_date: string | null;
+  number_tenders_received: number | null;
 }
 
 export interface NoticeSearchResponse {
