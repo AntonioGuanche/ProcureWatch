@@ -332,6 +332,25 @@ def bulk_import_all(
             results["bosa_can_enrichment_error"] = str(e)
             logger.exception("[Bulk] BOSA CAN enrichment failed")
 
+    # TED CAN award enrichment — re-fetch CANs with country-code-only winners
+    # Now that DEFAULT_FIELDS includes organisation-name-tenderer, re-search yields real names
+    if run_backfill and "TED" in source_list:
+        try:
+            from app.services.ted_award_enrichment import enrich_ted_can_batch
+            ted_enrich = enrich_ted_can_batch(
+                db, limit=200, batch_size=10, api_delay_ms=500,
+            )
+            results["ted_can_enrichment"] = ted_enrich
+            logger.info(
+                "[Bulk] TED CAN enrichment: %d enriched, %d still country-only, %d errors",
+                ted_enrich.get("enriched", 0),
+                ted_enrich.get("still_country_only", 0),
+                ted_enrich.get("api_errors", 0),
+            )
+        except Exception as e:
+            results["ted_can_enrichment_error"] = str(e)
+            logger.exception("[Bulk] TED CAN enrichment failed")
+
     # Watchlist matcher
     if run_matcher and (total_created > 0 or backfill_only_mode):
         try:

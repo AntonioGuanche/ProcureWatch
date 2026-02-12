@@ -949,6 +949,36 @@ def _serialize_parsed(parsed: dict) -> dict:
     return out
 
 
+# ── TED CAN award enrichment (re-fetch expanded fields) ──────────────
+
+@router.post(
+    "/ted-can-enrich",
+    tags=["admin"],
+    summary="Re-enrich TED CANs that have country-code-only winner names",
+    description=(
+        "Finds TED notices where award_winner_name is just a country code (e.g. 'BEL', 'FR')\n"
+        "and re-fetches from TED search with expanded fields (organisation-name-tenderer, etc.).\n"
+        "Fixes the gap where DEFAULT_FIELDS didn't include winner detail fields."
+    ),
+)
+def ted_can_enrich(
+    limit: int = Query(500, ge=1, le=5000, description="Max notices to process"),
+    batch_size: int = Query(10, ge=1, le=50, description="Notices per batch"),
+    api_delay_ms: int = Query(500, ge=100, le=5000, description="Delay between API calls (ms)"),
+    dry_run: bool = Query(True, description="Preview only — set false to execute"),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Re-enrich TED CANs with proper winner names."""
+    from app.services.ted_award_enrichment import enrich_ted_can_batch
+    return enrich_ted_can_batch(
+        db,
+        limit=limit,
+        batch_size=batch_size,
+        api_delay_ms=api_delay_ms,
+        dry_run=dry_run,
+    )
+
+
 @router.get("/bosa-can-formats")
 def bosa_can_formats(
     limit: int = Query(500, ge=10, le=5000),

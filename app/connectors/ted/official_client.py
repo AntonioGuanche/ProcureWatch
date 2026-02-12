@@ -65,10 +65,13 @@ DEFAULT_FIELDS = [
     # CAN (Contract Award Notice) fields – valid v3 search fields
     "winner-country",
     "award-criterion-type-lot",
-    # ── NEW CAN fields (Phase 1 intelligence roadmap) ──
-    "business-name",          # Winner/tenderer company name (most valuable!)
-    "tender-value",           # Awarded contract value
-    "winner-decision-date",   # Date the winner was chosen
+    # ── CAN enrichment fields (Phase 1 intelligence roadmap) ──
+    "business-name",              # Winner/tenderer company name (most valuable!)
+    "organisation-name-tenderer", # Formal company name — often populated when business-name isn't
+    "winner-name",                # Alternative winner name field
+    "tender-value",               # Awarded contract value
+    "winner-decision-date",       # Date the winner was chosen
+    "received-submissions-type-val",  # Number of tenders received
     # Links / documents
     "links",
     "document-url-lot",
