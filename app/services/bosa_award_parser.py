@@ -113,6 +113,9 @@ def parse_award_data(xml_content: str) -> dict[str, Any]:
         except InvalidOperation:
             pass
 
+    # Flag to compute total from tenders if not set at the end
+    _need_total_fallback = result["total_amount"] is None
+
     # ── 3. Organizations lookup table: org_id → {name, size, country}
     orgs: dict[str, dict[str, str]] = {}
     for org_el in root.findall(".//efac:Organizations/efac:Organization", NS):
@@ -273,12 +276,44 @@ def parse_award_data(xml_content: str) -> dict[str, Any]:
                     "lot_id": tender_info.get("lot_id"),
                 })
 
-    # ── 9. Award date from TenderResult
+    # ── 8b. Total amount fallback: sum winner tender amounts
+    if _need_total_fallback and result["winners"]:
+        tender_total = Decimal(0)
+        has_any = False
+        for w in result["winners"]:
+            if w.get("amount"):
+                try:
+                    tender_total += Decimal(w["amount"])
+                    has_any = True
+                except InvalidOperation:
+                    pass
+        if has_any and tender_total > 0:
+            result["total_amount"] = tender_total
+            # Try to get currency from PayableAmount elements
+            if not result["currency"]:
+                for lt in notice_result.findall("efac:LotTender", NS):
+                    amt_el = lt.find("cac:LegalMonetaryTotal/cbc:PayableAmount", NS)
+                    if amt_el is not None:
+                        result["currency"] = amt_el.get("currencyID", "EUR")
+                        break
+
+    # ── 9. Award date: try TenderResult first, fallback to SettledContract IssueDate
     award_date_el = root.find(".//cac:TenderResult/cbc:AwardDate", NS)
     if award_date_el is not None and award_date_el.text:
-        raw_date = award_date_el.text.strip()
-        # Format: "2025-12-01+01:00" or "2025-12-01"
-        result["award_date"] = _parse_date(raw_date)
+        d = _parse_date(award_date_el.text.strip())
+        if d and d.year >= 2010:
+            result["award_date"] = d
+
+    # Fallback: use earliest SettledContract IssueDate
+    if not result.get("award_date") and result["contracts"]:
+        contract_dates = []
+        for c in result["contracts"]:
+            if c.get("issue_date"):
+                d = _parse_date(c["issue_date"])
+                if d and d.year >= 2010:
+                    contract_dates.append(d)
+        if contract_dates:
+            result["award_date"] = min(contract_dates)
 
     return result
 
