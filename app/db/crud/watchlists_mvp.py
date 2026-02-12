@@ -282,12 +282,14 @@ def _check_keyword_in_searchable_text(
     return matched
 
 
-def refresh_watchlist_matches(db: Session, watchlist: Watchlist) -> dict[str, int]:
+def refresh_watchlist_matches(db: Session, watchlist: Watchlist, user=None) -> dict[str, int]:
     """
     Recompute and store matches for a watchlist idempotently.
     Optimized: batch-loads NoticeDetail + NoticeCpvAdditional to avoid N+1.
+    If user is provided, relevance scores include profile boost (geo + NACE).
     Returns dict with counts: matched, added.
     """
+    from app.services.relevance_scoring import calculate_relevance_score
     keywords = _parse_array(watchlist.keywords)
     countries = _parse_array(watchlist.countries)
     cpv_prefixes = _parse_array(watchlist.cpv_prefixes)
@@ -364,10 +366,13 @@ def refresh_watchlist_matches(db: Session, watchlist: Watchlist) -> dict[str, in
             matched_cpv if cpv_prefixes else [],
         )
 
+        score, score_explanation = calculate_relevance_score(notice, watchlist, user=user)
+
         db.add(WatchlistMatch(
             watchlist_id=watchlist.id,
             notice_id=notice.id,
             matched_on=matched_on,
+            relevance_score=score,
         ))
         matched_count += 1
 

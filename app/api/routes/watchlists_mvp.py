@@ -149,7 +149,7 @@ async def post_watchlist_refresh(
     wl = get_watchlist_by_id(db, watchlist_id, user_id=current_user.id)
     if not wl:
         raise HTTPException(status_code=404, detail="Watchlist not found")
-    summary = refresh_watchlist_matches(db, wl)
+    summary = refresh_watchlist_matches(db, wl, user=current_user)
     return summary
 
 

@@ -216,6 +216,7 @@ def match_watchlist(
 ) -> list[Notice]:
     """Find new notices matching watchlist, store matches with relevance score (dedup), update last_refresh_at."""
     from app.services.relevance_scoring import calculate_relevance_score
+    from app.models.user import User
 
     cutoff = since or watchlist.last_refresh_at
     query = _build_match_query(db, watchlist, since=cutoff)
@@ -223,6 +224,12 @@ def match_watchlist(
 
     explanation = _build_explanation(watchlist)
     new_matches = []
+
+    # Load user for profile-based scoring boost
+    user = None
+    user_id = getattr(watchlist, "user_id", None)
+    if user_id:
+        user = db.query(User).filter(User.id == user_id).first()
 
     for notice in candidates:
         existing = (
@@ -236,7 +243,7 @@ def match_watchlist(
         if existing:
             continue
 
-        score, score_explanation = calculate_relevance_score(notice, watchlist)
+        score, score_explanation = calculate_relevance_score(notice, watchlist, user=user)
 
         match = WatchlistMatch(
             watchlist_id=watchlist.id,

@@ -1,16 +1,32 @@
 """Relevance scoring engine for watchlist → notice matches.
 
-Computes a 0–100 score based on match quality across multiple dimensions:
-  - Keyword match quality (40 pts)
-  - CPV code match (25 pts)
-  - Geographic match (20 pts)
-  - Recency / deadline proximity (15 pts)
+Computes a 0–100 score based on two layers:
 
-Used by watchlist_matcher to assign scores to each WatchlistMatch record.
+Layer 1 — Watchlist match quality (0–70 pts):
+  - Keyword match quality (30 pts)
+  - CPV code match (20 pts)
+  - Geographic match via watchlist filters (10 pts)
+  - Recency / deadline proximity (10 pts)
+
+Layer 2 — Company profile boost (0–30 pts):
+  - Geo proximity: distance from user's address to notice NUTS centroid (0–15 pts)
+  - NACE↔CPV: user's business activity matches notice category (0–15 pts)
+
+Total = min(Layer1 + Layer2, 100).
+
+Used by:
+  - watchlist_matcher (import pipeline) → stores score in WatchlistMatch
+  - refresh_watchlist_matches (manual Refresh button) → same
 """
+import logging
 import re
 from datetime import datetime, timezone
 from typing import Any, Optional
+
+from app.utils.geo import closest_distance_km
+from app.utils.nace_cpv import nace_matches_cpv, cpv_prefixes_for_nace_list
+
+logger = logging.getLogger(__name__)
 
 
 def _parse_csv(val: Optional[str]) -> list[str]:
@@ -19,24 +35,15 @@ def _parse_csv(val: Optional[str]) -> list[str]:
     return [v.strip().lower() for v in val.split(",") if v.strip()]
 
 
-def _get_text_fields(notice: Any) -> str:
-    """Concatenate title + description for keyword matching."""
-    parts = []
-    title = getattr(notice, "title", None)
-    if title:
-        parts.append(str(title))
-    desc = getattr(notice, "description", None)
-    if desc:
-        parts.append(str(desc))
-    return " ".join(parts).lower()
+# ─── Layer 1: Watchlist match scoring ────────────────────────────────
 
 
 def _keyword_score(notice: Any, keywords: list[str]) -> tuple[int, list[str]]:
-    """Score keyword matches (0–40 pts). Returns (score, matched_keywords).
+    """Score keyword matches (0–30 pts). Returns (score, matched_keywords).
 
-    - Each keyword found in title: +15 pts (title is highest signal)
-    - Each keyword found only in description: +8 pts
-    - Capped at 40.
+    - Each keyword found in title: +12 pts (title is highest signal)
+    - Each keyword found only in description: +6 pts
+    - Capped at 30.
     """
     if not keywords:
         return 0, []
@@ -51,22 +58,22 @@ def _keyword_score(notice: Any, keywords: list[str]) -> tuple[int, list[str]]:
         if not kw_lower:
             continue
         if kw_lower in title:
-            score += 15
+            score += 12
             matched.append(kw)
         elif kw_lower in desc:
-            score += 8
+            score += 6
             matched.append(kw)
 
-    return min(score, 40), matched
+    return min(score, 30), matched
 
 
 def _cpv_score(notice: Any, cpv_prefixes: list[str]) -> tuple[int, list[str]]:
-    """Score CPV code match (0–25 pts). Returns (score, matched_prefixes).
+    """Score CPV code match (0–20 pts). Returns (score, matched_prefixes).
 
-    - Exact match (full code): 25 pts
-    - Division match (first 2 digits): 20 pts
-    - Group match (first 3 digits): 15 pts
-    - Broader match (first 1-2 chars): 10 pts
+    - Exact match (full code): 20 pts
+    - Division match (first 2 digits): 15 pts
+    - Group match (first 3 digits): 12 pts
+    - Broader match (first 1-2 chars): 8 pts
     """
     if not cpv_prefixes:
         return 0, []
@@ -85,13 +92,13 @@ def _cpv_score(notice: Any, cpv_prefixes: list[str]) -> tuple[int, list[str]]:
         if notice_cpv == p_clean or notice_cpv.startswith(p_clean):
             overlap = len(p_clean)
             if overlap >= 8:
-                s = 25  # Exact/nearly exact
+                s = 20  # Exact/nearly exact
             elif overlap >= 5:
-                s = 20  # Division level
+                s = 15  # Division level
             elif overlap >= 3:
-                s = 15  # Group level
+                s = 12  # Group level
             else:
-                s = 10  # Broader
+                s = 8   # Broader
             if s > best_score:
                 best_score = s
                 matched = [prefix]
@@ -99,12 +106,8 @@ def _cpv_score(notice: Any, cpv_prefixes: list[str]) -> tuple[int, list[str]]:
     return best_score, matched
 
 
-def _geo_score(notice: Any, nuts_prefixes: list[str], countries: list[str]) -> tuple[int, list[str]]:
-    """Score geographic match (0–20 pts). Returns (score, matched_regions).
-
-    - NUTS exact/prefix match: 20 pts
-    - Country match (from NUTS codes): 15 pts
-    """
+def _geo_score_watchlist(notice: Any, nuts_prefixes: list[str], countries: list[str]) -> tuple[int, list[str]]:
+    """Score geographic match from watchlist filters (0–10 pts)."""
     nuts_codes = getattr(notice, "nuts_codes", None) or []
     if not isinstance(nuts_codes, list):
         nuts_codes = []
@@ -119,7 +122,7 @@ def _geo_score(notice: Any, nuts_prefixes: list[str], countries: list[str]) -> t
                 p = prefix.strip().upper()
                 if n.startswith(p):
                     matched.append(p)
-                    return 20, matched
+                    return 10, matched
 
     # Country match (first 2 chars of NUTS code = country)
     if countries:
@@ -128,47 +131,116 @@ def _geo_score(notice: Any, nuts_prefixes: list[str], countries: list[str]) -> t
             n = str(notice_nut).strip().upper()
             if len(n) >= 2 and n[:2] in country_set:
                 matched.append(n[:2])
-                return 15, matched
+                return 7, matched
 
     return 0, matched
 
 
 def _recency_score(notice: Any) -> int:
-    """Score based on deadline proximity (0–15 pts).
+    """Score based on deadline proximity (0–10 pts).
 
-    - Deadline > 14 days away: 15 pts (ample time to respond)
-    - Deadline 7–14 days: 10 pts
-    - Deadline 3–7 days: 5 pts
-    - Deadline < 3 days or past: 2 pts
-    - No deadline: 8 pts (neutral)
+    - Deadline > 14 days away: 10 pts (ample time to respond)
+    - Deadline 7–14 days: 7 pts
+    - Deadline 3–7 days: 4 pts
+    - Deadline < 3 days or past: 1 pt
+    - No deadline: 5 pts (neutral)
     """
     deadline = getattr(notice, "deadline", None)
     if not deadline:
-        return 8
+        return 5
 
     now = datetime.now(timezone.utc)
     if hasattr(deadline, "tzinfo") and deadline.tzinfo is None:
-        # Naive datetime — assume UTC
         from datetime import timezone as tz
         deadline = deadline.replace(tzinfo=tz.utc)
 
     days_left = (deadline - now).days
 
     if days_left > 14:
-        return 15
-    elif days_left >= 7:
         return 10
+    elif days_left >= 7:
+        return 7
     elif days_left >= 3:
-        return 5
+        return 4
     else:
-        return 2
+        return 1
+
+
+# ─── Layer 2: Company profile boost ─────────────────────────────────
+
+
+def _geo_proximity_boost(
+    notice: Any,
+    user_lat: Optional[float],
+    user_lng: Optional[float],
+) -> tuple[int, Optional[str]]:
+    """Boost based on distance from user's location to notice NUTS centroid (0–15 pts).
+
+    - < 30 km:  15 pts  (local — very likely relevant)
+    - < 75 km:  12 pts  (regional)
+    - < 150 km: 8 pts   (inter-regional, e.g. Bruxelles→Liège)
+    - < 300 km: 4 pts   (national, e.g. Bruxelles→Arlon)
+    - > 300 km: 0 pts   (far away)
+    """
+    if user_lat is None or user_lng is None:
+        return 0, None
+
+    nuts_codes = getattr(notice, "nuts_codes", None) or []
+    if not isinstance(nuts_codes, list) or not nuts_codes:
+        return 0, None
+
+    dist = closest_distance_km(user_lat, user_lng, nuts_codes)
+    if dist is None:
+        return 0, None
+
+    if dist < 30:
+        return 15, f"~{dist:.0f}km (local)"
+    elif dist < 75:
+        return 12, f"~{dist:.0f}km (régional)"
+    elif dist < 150:
+        return 8, f"~{dist:.0f}km"
+    elif dist < 300:
+        return 4, f"~{dist:.0f}km"
+    else:
+        return 0, f"~{dist:.0f}km (loin)"
+
+
+def _nace_cpv_boost(
+    notice: Any,
+    nace_codes: Optional[str],
+) -> tuple[int, Optional[str]]:
+    """Boost when user's NACE business activity matches notice CPV (0–15 pts).
+
+    - Direct NACE→CPV division match: 15 pts
+    """
+    if not nace_codes:
+        return 0, None
+
+    cpv_code = (getattr(notice, "cpv_main_code", "") or "").replace("-", "").strip()
+    if not cpv_code or len(cpv_code) < 2:
+        return 0, None
+
+    if nace_matches_cpv(nace_codes, cpv_code):
+        cpv_div = cpv_code[:2]
+        return 15, f"NACE→CPV:{cpv_div}"
+
+    return 0, None
+
+
+# ─── Public API ──────────────────────────────────────────────────────
 
 
 def calculate_relevance_score(
     notice: Any,
     watchlist: Any,
+    user: Any = None,
 ) -> tuple[int, str]:
     """Calculate relevance score (0–100) for a notice against a watchlist.
+
+    Args:
+        notice: Notice ORM instance
+        watchlist: Watchlist ORM instance
+        user: Optional User ORM instance (for profile boost)
 
     Returns:
         (score, explanation) — score 0–100 and human-readable breakdown.
@@ -178,24 +250,44 @@ def calculate_relevance_score(
     nuts_prefixes = _parse_csv(getattr(watchlist, "nuts_prefixes", None))
     countries = _parse_csv(getattr(watchlist, "countries", None))
 
+    # Layer 1: watchlist match (0–70)
     kw_pts, kw_matched = _keyword_score(notice, keywords)
     cpv_pts, cpv_matched = _cpv_score(notice, cpv_prefixes)
-    geo_pts, geo_matched = _geo_score(notice, nuts_prefixes, countries)
+    geo_pts, geo_matched = _geo_score_watchlist(notice, nuts_prefixes, countries)
     recency_pts = _recency_score(notice)
 
-    total = kw_pts + cpv_pts + geo_pts + recency_pts
+    layer1 = kw_pts + cpv_pts + geo_pts + recency_pts
+
+    # Layer 2: profile boost (0–30)
+    prox_pts, prox_detail = 0, None
+    nace_pts, nace_detail = 0, None
+
+    if user is not None:
+        user_lat = getattr(user, "latitude", None)
+        user_lng = getattr(user, "longitude", None)
+        prox_pts, prox_detail = _geo_proximity_boost(notice, user_lat, user_lng)
+
+        user_nace = getattr(user, "nace_codes", None)
+        nace_pts, nace_detail = _nace_cpv_boost(notice, user_nace)
+
+    layer2 = prox_pts + nace_pts
+    total = min(layer1 + layer2, 100)
 
     # Build explanation
     parts = []
     if kw_matched:
-        parts.append(f"keywords: {', '.join(kw_matched)} ({kw_pts}pts)")
+        parts.append(f"mots-clés: {', '.join(kw_matched)} ({kw_pts})")
     elif keywords:
-        parts.append(f"keywords: none matched ({kw_pts}pts)")
+        parts.append(f"mots-clés: aucun ({kw_pts})")
     if cpv_matched:
-        parts.append(f"CPV: {', '.join(cpv_matched)} ({cpv_pts}pts)")
+        parts.append(f"CPV: {', '.join(cpv_matched)} ({cpv_pts})")
     if geo_matched:
-        parts.append(f"geo: {', '.join(geo_matched)} ({geo_pts}pts)")
-    parts.append(f"recency: {recency_pts}pts")
+        parts.append(f"zone: {', '.join(geo_matched)} ({geo_pts})")
+    parts.append(f"délai: {recency_pts}")
+    if prox_pts:
+        parts.append(f"proximité: {prox_detail} (+{prox_pts})")
+    if nace_pts:
+        parts.append(f"activité: {nace_detail} (+{nace_pts})")
 
-    explanation = ", ".join(parts)
-    return min(total, 100), explanation
+    explanation = " | ".join(parts)
+    return total, explanation
