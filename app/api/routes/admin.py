@@ -1297,3 +1297,129 @@ def _update_notice_fields(db: Session, notice_id: str, fields: dict[str, Any]):
         set_clauses.append("updated_at = now()")
         sql = f"UPDATE notices SET {', '.join(set_clauses)} WHERE id = :nid"
         db.execute(text(sql), params)
+
+
+@router.get("/bosa-enrich-debug")
+def bosa_enrich_debug(
+    limit: int = Query(5, ge=1, le=20),
+    db: Session = Depends(get_db),
+):
+    """
+    Debug endpoint: fetch workspace + parse for a few CANs and show
+    exactly what happens at each step (errors, XML presence, parsed data).
+    """
+    import time
+    import traceback
+
+    from app.services.bosa_award_parser import (
+        extract_xml_from_raw_data,
+        parse_award_data,
+        build_notice_fields,
+    )
+
+    # Init client
+    try:
+        from app.connectors.bosa.client import _get_client
+        from app.connectors.bosa.official_client import OfficialEProcurementClient
+        client, provider = _get_client()
+        if not isinstance(client, OfficialEProcurementClient):
+            return {"error": f"Not official client: {provider}"}
+    except Exception as e:
+        return {"error": str(e)}
+
+    # Get flat CANs (no XML in raw_data, no award data)
+    rows = db.execute(text(
+        "SELECT id, source_id, title, raw_data FROM notices "
+        "WHERE source = 'BOSA_EPROC' "
+        "  AND notice_sub_type = '29' "
+        "  AND raw_data IS NOT NULL "
+        "  AND (award_winner_name IS NULL OR award_winner_name = '') "
+        "ORDER BY publication_date DESC "
+        "LIMIT :limit"
+    ), {"limit": limit * 3}).fetchall()  # fetch more to skip XML ones
+
+    results = []
+    for row in rows:
+        if len(results) >= limit:
+            break
+
+        notice_id = row[0]
+        source_id = row[1]
+        title = (row[2] or "")[:80]
+        raw_data = row[3]
+
+        item: dict[str, Any] = {
+            "id": str(notice_id),
+            "source_id": source_id,
+            "title": title,
+            "steps": {},
+        }
+
+        try:
+            if not isinstance(raw_data, dict):
+                raw_data = json.loads(raw_data) if raw_data else {}
+
+            # Step 1: Check existing XML
+            existing_xml = extract_xml_from_raw_data(raw_data)
+            if existing_xml:
+                item["steps"]["1_existing_xml"] = "FOUND (skipping API)"
+                continue  # skip — we want flat ones
+
+            item["steps"]["1_existing_xml"] = "NOT_FOUND (will fetch API)"
+
+            # Step 2: Fetch workspace
+            time.sleep(0.3)
+            workspace = client.get_workspace(source_id)
+            if not workspace:
+                item["steps"]["2_api_fetch"] = "FAILED (None returned)"
+                results.append(item)
+                continue
+
+            ws_keys = sorted(workspace.keys()) if isinstance(workspace, dict) else str(type(workspace))
+            item["steps"]["2_api_fetch"] = f"OK — keys: {ws_keys}"
+
+            # Step 3: Extract XML from workspace
+            xml_content = extract_xml_from_raw_data(workspace)
+            if not xml_content:
+                # Check why: does it have versions?
+                versions = workspace.get("versions", [])
+                version_info = []
+                for v in versions:
+                    if isinstance(v, dict):
+                        notice = v.get("notice")
+                        if notice is None:
+                            version_info.append("notice=None")
+                        elif isinstance(notice, dict):
+                            has_xml = bool(notice.get("xmlContent"))
+                            version_info.append(f"notice=dict(xmlContent={has_xml})")
+                        else:
+                            version_info.append(f"notice=type:{type(notice).__name__}")
+                    else:
+                        version_info.append(f"version=type:{type(v).__name__}")
+
+                item["steps"]["3_extract_xml"] = f"NO XML — {len(versions)} versions: {version_info}"
+                results.append(item)
+                continue
+
+            item["steps"]["3_extract_xml"] = f"OK — {len(xml_content)} chars"
+
+            # Step 4: Parse award data
+            parsed = parse_award_data(xml_content)
+            item["steps"]["4_parse"] = {
+                "total_amount": str(parsed.get("total_amount")) if parsed.get("total_amount") else None,
+                "winners_count": len(parsed.get("winners", [])),
+                "tenders_received": parsed.get("tenders_received"),
+                "award_date": str(parsed.get("award_date")) if parsed.get("award_date") else None,
+            }
+
+            # Step 5: Build fields
+            fields = build_notice_fields(parsed)
+            item["steps"]["5_fields"] = fields if fields else "EMPTY (no fields generated)"
+
+        except Exception as e:
+            item["steps"]["ERROR"] = f"{type(e).__name__}: {e}"
+            item["steps"]["traceback"] = traceback.format_exc()[-500:]
+
+        results.append(item)
+
+    return {"count": len(results), "results": results}
