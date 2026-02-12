@@ -579,3 +579,120 @@ def bosa_backfill_urls(
             return {"error": str(e), "updated": 0}
 
     return {"updated": updated, "total_missing": len(notices), "dry_run": dry_run}
+
+
+# ── BOSA deep sample: explore what's really inside type 29 (CAN) ──────
+
+
+@router.get("/bosa-sample-can", tags=["admin"])
+def bosa_sample_can(
+    limit: int = Query(3, ge=1, le=10),
+    notice_sub_type: str = Query("29"),
+    fetch_workspace: bool = Query(True),
+    fetch_notice: bool = Query(True),
+    db: Session = Depends(get_db),
+) -> dict:
+    """
+    Sample BOSA notices of a given noticeSubType and explore their content:
+    1. raw_data from DB (search result)
+    2. /publication-workspaces/{id} detail (Dos API)
+    3. /notices/{notice-id} detail (Dos API) for each noticeId
+    """
+    from app.models.notice import ProcurementNotice as Notice
+
+    # Get sample notices
+    notices = (
+        db.query(Notice)
+        .filter(
+            Notice.source == "BOSA_EPROC",
+            Notice.notice_sub_type == notice_sub_type,
+        )
+        .order_by(Notice.published_at.desc().nullslast())
+        .limit(limit)
+        .all()
+    )
+
+    if not notices:
+        return {"error": f"No BOSA notices with notice_sub_type={notice_sub_type}"}
+
+    # Try to get BOSA client for detail APIs
+    workspace_client = None
+    if fetch_workspace or fetch_notice:
+        try:
+            from app.connectors.bosa.client import _get_client
+            from app.connectors.bosa.official_client import OfficialEProcurementClient
+            client, provider = _get_client()
+            if isinstance(client, OfficialEProcurementClient):
+                workspace_client = client
+            else:
+                logger.warning("BOSA client is not official, can't fetch detail: %s", provider)
+        except Exception as e:
+            logger.warning("Failed to get BOSA client: %s", e)
+
+    results = []
+    for n in notices:
+        item: dict[str, Any] = {
+            "db_id": n.id,
+            "source_id": n.source_id,
+            "title": n.title[:120] if n.title else None,
+            "notice_sub_type": n.notice_sub_type,
+            "form_type": n.form_type,
+            "procedure_id": n.procedure_id,
+            "published_at": str(n.published_at) if n.published_at else None,
+            "award_winner_name": n.award_winner_name,
+            "award_value": str(n.award_value) if n.award_value else None,
+        }
+
+        # 1. Raw data from DB (keys summary + full dump)
+        raw = n.raw_data or {}
+        item["raw_data_keys"] = sorted(raw.keys())
+        item["raw_data_full"] = raw
+
+        # Extract noticeIds from raw_data
+        notice_ids = raw.get("noticeIds") or []
+        item["notice_ids_in_raw"] = notice_ids
+
+        # 2. Fetch workspace detail
+        if fetch_workspace and workspace_client and n.source_id:
+            try:
+                ws = workspace_client.get_publication_workspace(n.source_id)
+                if ws:
+                    item["workspace_detail_keys"] = sorted(ws.keys()) if isinstance(ws, dict) else str(type(ws))
+                    item["workspace_detail"] = ws
+                else:
+                    item["workspace_detail"] = None
+                    item["workspace_detail_error"] = "returned None (404/401/403?)"
+            except Exception as e:
+                item["workspace_detail_error"] = str(e)
+
+        # 3. Fetch notice detail for each noticeId
+        if fetch_notice and workspace_client and notice_ids:
+            item["notice_details"] = []
+            for nid in notice_ids[:3]:  # max 3 per notice
+                try:
+                    nd = workspace_client.get_notice(nid)
+                    if nd:
+                        item["notice_details"].append({
+                            "notice_id": nid,
+                            "keys": sorted(nd.keys()) if isinstance(nd, dict) else str(type(nd)),
+                            "detail": nd,
+                        })
+                    else:
+                        item["notice_details"].append({
+                            "notice_id": nid,
+                            "error": "returned None (404/401/403?)",
+                        })
+                except Exception as e:
+                    item["notice_details"].append({
+                        "notice_id": nid,
+                        "error": str(e),
+                    })
+
+        results.append(item)
+
+    return {
+        "notice_sub_type": notice_sub_type,
+        "sample_count": len(results),
+        "client_available": workspace_client is not None,
+        "samples": results,
+    }
