@@ -305,6 +305,38 @@ export interface NoticeDocument {
   ai_analysis_generated_at: string | null;
 }
 
+// ── Document Q&A (Phase 3) ────────────────────────────────────────
+
+export interface QASource {
+  document_id: string | null;
+  title: string;
+  file_type: string | null;
+  text_length: number;
+}
+
+export interface QAResponse {
+  status: "ok" | "no_content" | "no_documents" | "error";
+  answer: string | null;
+  question?: string;
+  message?: string;
+  sources: QASource[];
+  documents_used?: number;
+  notice_data_used?: boolean;
+  lang?: string;
+}
+
+// ── Document Upload (Phase 3) ────────────────────────────────────
+
+export interface UploadResponse {
+  status: "ok" | "duplicate";
+  document_id: string;
+  filename?: string;
+  file_size?: number;
+  text_length?: number;
+  has_text?: boolean;
+  message: string;
+}
+
 // ── Favorites ───────────────────────────────────────────────────────
 
 export interface FavoriteItem {

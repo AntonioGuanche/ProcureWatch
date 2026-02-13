@@ -234,6 +234,61 @@ export function analyzeDocument(
   return request(`/api/notices/${noticeId}/documents/${documentId}/analyze?${params}`, { method: "POST" });
 }
 
+// ── Document Q&A (Phase 3) ─────────────────────────────────────────
+
+export function askNoticeQuestion(
+  noticeId: string,
+  question: string,
+  lang = "fr",
+): Promise<import("./types").QAResponse> {
+  return request(`/api/notices/${noticeId}/documents/ask`, {
+    method: "POST",
+    body: JSON.stringify({ question, lang }),
+  });
+}
+
+// ── Document Upload (Phase 3) ──────────────────────────────────────
+
+export async function uploadDocument(
+  noticeId: string,
+  file: File,
+  title?: string,
+): Promise<import("./types").UploadResponse> {
+  const url = `${API_BASE}/api/notices/${noticeId}/documents/upload?title=${encodeURIComponent(title || file.name)}`;
+  const token = getToken();
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers,
+    body: formData,
+  });
+
+  if (res.status === 401) {
+    sessionStorage.removeItem(TOKEN_KEY);
+    sessionStorage.removeItem("pw_user");
+    window.location.reload();
+    throw new Error("Session expirée");
+  }
+
+  if (!res.ok) {
+    const text = await res.text();
+    let detail: string;
+    try {
+      const j = JSON.parse(text);
+      detail = j.detail ?? text;
+    } catch {
+      detail = text || res.statusText;
+    }
+    throw new Error(detail);
+  }
+  return res.json();
+}
+
 // ── Favorites ───────────────────────────────────────────────────────
 
 export function listFavorites(page = 1, pageSize = 25): Promise<import("./types").FavoriteListResponse> {

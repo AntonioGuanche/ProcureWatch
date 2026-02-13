@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { getNotice, getNoticeLots, getNoticeDocuments, addFavorite, removeFavorite, generateSummary, analyzeDocument } from "../api";
-import type { Notice, NoticeLot, NoticeDocument, AISummaryResponse, DocumentAnalysisResponse } from "../types";
+import { getNotice, getNoticeLots, getNoticeDocuments, addFavorite, removeFavorite, generateSummary, analyzeDocument, askNoticeQuestion, uploadDocument } from "../api";
+import type { Notice, NoticeLot, NoticeDocument, AISummaryResponse, DocumentAnalysisResponse, QAResponse } from "../types";
 
 function fmtDate(s: string | null): string {
   if (!s) return "—";
@@ -232,6 +232,16 @@ export function NoticeModal({ noticeId, isFavorited, onToggleFavorite, onClose }
   const [analysisErrors, setAnalysisErrors] = useState<Record<string, string>>({});
   const [expandedDoc, setExpandedDoc] = useState<string | null>(null);
 
+  // Q&A state
+  const [qaQuestion, setQaQuestion] = useState("");
+  const [qaHistory, setQaHistory] = useState<Array<{ q: string; a: QAResponse }>>([]);
+  const [qaLoading, setQaLoading] = useState(false);
+  const [qaError, setQaError] = useState<string | null>(null);
+
+  // Upload state
+  const [uploadLoading, setUploadLoading] = useState(false);
+  const [uploadMessage, setUploadMessage] = useState<string | null>(null);
+
   useEffect(() => {
     setLoading(true);
     setSummaryData(null);
@@ -239,6 +249,10 @@ export function NoticeModal({ noticeId, isFavorited, onToggleFavorite, onClose }
     setAnalysisResults({});
     setAnalysisErrors({});
     setExpandedDoc(null);
+    setQaQuestion("");
+    setQaHistory([]);
+    setQaError(null);
+    setUploadMessage(null);
     Promise.all([
       getNotice(noticeId),
       getNoticeLots(noticeId).catch(() => ({ items: [], total: 0 })),
@@ -328,6 +342,41 @@ export function NoticeModal({ noticeId, isFavorited, onToggleFavorite, onClose }
       if (!analysisResults[docId] && !analysisLoading[docId]) {
         handleAnalyzeDoc(docId);
       }
+    }
+  };
+
+  const handleAskQuestion = async () => {
+    const q = qaQuestion.trim();
+    if (!q || qaLoading) return;
+    setQaLoading(true);
+    setQaError(null);
+    try {
+      const result = await askNoticeQuestion(noticeId, q, summaryLang);
+      setQaHistory((prev) => [...prev, { q, a: result }]);
+      setQaQuestion("");
+    } catch (e) {
+      setQaError(e instanceof Error ? e.message : "Erreur lors de la requête");
+    } finally {
+      setQaLoading(false);
+    }
+  };
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadLoading(true);
+    setUploadMessage(null);
+    try {
+      const result = await uploadDocument(noticeId, file);
+      setUploadMessage(result.message);
+      // Refresh docs list
+      const d = await getNoticeDocuments(noticeId).catch(() => ({ items: [], total: 0 }));
+      setDocs(d.items);
+    } catch (err) {
+      setUploadMessage(err instanceof Error ? err.message : "Erreur d'upload");
+    } finally {
+      setUploadLoading(false);
+      e.target.value = ""; // reset input
     }
   };
 
@@ -551,14 +600,34 @@ export function NoticeModal({ noticeId, isFavorited, onToggleFavorite, onClose }
             )}
 
             {/* Documents */}
-            {docs.length > 0 && (
-              <div className="notice-section">
+            <div className="notice-section">
+              <div className="docs-header">
                 <h3>Documents ({docs.length})</h3>
+                <label className={`btn-sm btn-outline btn-upload ${uploadLoading ? "loading" : ""}`}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+                  </svg>
+                  {uploadLoading ? "Upload…" : "Ajouter un PDF"}
+                  <input type="file" accept=".pdf" onChange={handleUpload} disabled={uploadLoading} style={{ display: "none" }} />
+                </label>
+              </div>
+              {uploadMessage && (
+                <div className={`upload-message ${uploadMessage.includes("Erreur") || uploadMessage.includes("erreur") ? "error" : "success"}`}>
+                  {uploadMessage}
+                </div>
+              )}
+              {docs.length > 0 && (
                 <div className="docs-list">
                   {docs.map((doc) => (
                     <div key={doc.id} className="doc-wrapper">
                       <div className="doc-row">
-                        <a href={doc.url} target="_blank" rel="noopener noreferrer" className="doc-item">
+                        <a
+                          href={doc.url?.startsWith("upload://") ? undefined : doc.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={`doc-item ${doc.url?.startsWith("upload://") ? "doc-uploaded" : ""}`}
+                          onClick={doc.url?.startsWith("upload://") ? (e) => e.preventDefault() : undefined}
+                        >
                           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
                             <polyline points="14 2 14 8 20 8"/>
@@ -566,6 +635,7 @@ export function NoticeModal({ noticeId, isFavorited, onToggleFavorite, onClose }
                           <span>{doc.title || "Document"}</span>
                           {doc.file_type && <span className="doc-type">{doc.file_type}</span>}
                           {doc.language && <span className="doc-lang">{doc.language.toUpperCase()}</span>}
+                          {doc.url?.startsWith("upload://") && <span className="doc-upload-badge">uploadé</span>}
                           {doc.has_ai_analysis && <span className="doc-analyzed-badge">✓ analysé</span>}
                         </a>
                         {isPdfDoc(doc) && (
@@ -639,8 +709,81 @@ export function NoticeModal({ noticeId, isFavorited, onToggleFavorite, onClose }
                     </div>
                   ))}
                 </div>
+              )}
+            </div>
+
+            {/* Q&A Section */}
+            <div className="notice-section notice-qa-section">
+              <h3>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+                </svg>
+                Questions sur ce marché
+              </h3>
+              <p className="qa-subtitle">
+                Posez une question — l'IA analyse les documents et les données de l'avis pour y répondre.
+              </p>
+
+              {qaHistory.length > 0 && (
+                <div className="qa-history">
+                  {qaHistory.map((item, i) => (
+                    <div key={i} className="qa-exchange">
+                      <div className="qa-question-bubble">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                        <span>{item.q}</span>
+                      </div>
+                      <div className={`qa-answer-bubble ${item.a.status !== "ok" ? "qa-answer-error" : ""}`}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M12 2a4 4 0 014 4c0 1.95-1.4 3.58-3.25 3.93L12 22"/>
+                          <path d="M8 6a4 4 0 018 0"/>
+                        </svg>
+                        <div className="qa-answer-content">
+                          {item.a.status === "ok" ? (
+                            <>
+                              <p>{item.a.answer}</p>
+                              {item.a.sources && item.a.sources.length > 0 && (
+                                <div className="qa-sources">
+                                  Sources : {item.a.sources.map((s) => s.title).join(", ")}
+                                </div>
+                              )}
+                            </>
+                          ) : (
+                            <p className="qa-no-answer">{item.a.message || "Pas de réponse disponible."}</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {qaError && <div className="qa-error">{qaError}</div>}
+
+              <div className="qa-input-row">
+                <input
+                  type="text"
+                  className="qa-input"
+                  placeholder="Ex : Quelles sont les conditions de participation ?"
+                  value={qaQuestion}
+                  onChange={(e) => setQaQuestion(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") handleAskQuestion(); }}
+                  disabled={qaLoading}
+                  maxLength={2000}
+                />
+                <button
+                  className="btn-sm btn-ai qa-send-btn"
+                  onClick={handleAskQuestion}
+                  disabled={qaLoading || !qaQuestion.trim()}
+                  title="Envoyer la question"
+                >
+                  {qaLoading ? (
+                    <svg className="spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>
+                  ) : (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                  )}
+                </button>
               </div>
-            )}
+            </div>
 
             {/* URL */}
             {notice.url && (
