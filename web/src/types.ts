@@ -352,6 +352,17 @@ export interface DownloadResponse {
   message: string;
 }
 
+export interface DiscoverResponse {
+  status: "ok" | "no_workspace" | "no_documents" | "not_supported";
+  source: string;
+  message: string;
+  documents_created: number;
+  total_found?: number;
+  already_existing?: number;
+  skipped_non_pdf?: number;
+  errors?: number;
+}
+
 // ── Favorites ───────────────────────────────────────────────────────
 
 export interface FavoriteItem {

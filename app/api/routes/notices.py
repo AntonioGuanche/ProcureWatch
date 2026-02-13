@@ -801,6 +801,119 @@ async def upload_notice_document(
     }
 
 
+# ── On-demand BOSA document discovery ────────────────────────────
+
+
+@router.post(
+    "/{notice_id}/documents/discover",
+    summary="Discover & download documents from BOSA or TED APIs",
+    description=(
+        "For BOSA notices: calls the official BOSA API to list all documents in the "
+        "publication workspace, then downloads and extracts text from PDFs.\n"
+        "For TED notices: currently not needed (docs extracted at import time).\n"
+        "Creates individual document records for each discovered PDF."
+    ),
+)
+async def discover_notice_documents(
+    notice_id: str,
+    download: bool = Query(True, description="Download PDFs or just discover"),
+    request: Request = None,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_optional_user),
+):
+    """Discover and download documents for a notice via source API."""
+    import logging as _logging
+
+    _logger = _logging.getLogger(__name__)
+
+    # Auth: JWT or admin key
+    if not current_user:
+        from app.core.config import settings as _settings
+        admin_key = request.headers.get("X-Admin-Key") if request else None
+        if admin_key and _settings.admin_api_key and admin_key == _settings.admin_api_key:
+            pass  # admin OK
+        else:
+            raise HTTPException(status_code=401, detail="Authentification requise")
+
+    notice = get_notice_by_id(db, notice_id)
+    if not notice:
+        raise HTTPException(status_code=404, detail="Notice not found")
+
+    source = (notice.source or "").upper()
+
+    # ── BOSA: use official API to list workspace documents ────────
+    if source in ("BOSA_EPROC", "BOSA"):
+        workspace_id = notice.publication_workspace_id
+        if not workspace_id:
+            return {
+                "status": "no_workspace",
+                "source": source,
+                "message": "Cette notice BOSA n'a pas de publication_workspace_id.",
+                "documents_created": 0,
+            }
+
+        try:
+            from app.services.document_crawler import crawl_bosa_documents
+
+            results = crawl_bosa_documents(
+                db,
+                notice_id=notice_id,
+                workspace_id=workspace_id,
+                download_pdfs=download,
+            )
+
+            downloaded = sum(1 for r in results if r.get("status") == "downloaded")
+            existing = sum(1 for r in results if r.get("status") in ("exists_hash", "exists_content"))
+            skipped = sum(1 for r in results if r.get("status") == "skipped_non_pdf")
+            errors = sum(1 for r in results if r.get("status") in ("download_failed", "no_download_url"))
+            no_docs = any(r.get("status") == "no_documents" for r in results)
+
+            if no_docs:
+                return {
+                    "status": "no_documents",
+                    "source": source,
+                    "workspace_id": workspace_id,
+                    "message": "Aucun document trouvé dans l'espace de publication BOSA.",
+                    "documents_created": 0,
+                }
+
+            total_found = len([r for r in results if r.get("status") != "no_documents"])
+
+            return {
+                "status": "ok",
+                "source": source,
+                "workspace_id": workspace_id,
+                "total_found": total_found,
+                "documents_created": downloaded,
+                "already_existing": existing,
+                "skipped_non_pdf": skipped,
+                "errors": errors,
+                "message": (
+                    f"{total_found} documents trouvés, {downloaded} PDFs téléchargés"
+                    + (f", {existing} déjà existants" if existing else "")
+                    + (f", {skipped} non-PDF ignorés" if skipped else "")
+                    + "."
+                ),
+                "details": results,
+            }
+
+        except Exception as e:
+            _logger.exception("BOSA discover failed for notice %s: %s", notice_id, e)
+            db.rollback()
+            raise HTTPException(
+                status_code=500,
+                detail=f"Erreur lors de la découverte BOSA : {str(e)[:500]}",
+            )
+
+    # ── TED or other sources: not yet supported ──────────────────
+    return {
+        "status": "not_supported",
+        "source": source,
+        "message": f"La découverte automatique n'est pas encore disponible pour la source {source}.",
+        "documents_created": 0,
+    }
+
+
 # ── On-demand document download ──────────────────────────────────
 
 

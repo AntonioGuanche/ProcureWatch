@@ -2567,6 +2567,24 @@ label {
 .btn-upload:hover { border-color: var(--blue); color: var(--blue); }
 .btn-upload.loading { opacity: .6; cursor: wait; }
 
+.btn-discover {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  font-size: .78rem;
+  padding: .35rem .6rem;
+  border: 1px solid var(--green);
+  border-radius: var(--radius-sm);
+  background: var(--green-light);
+  color: var(--green);
+  cursor: pointer;
+  font-weight: 500;
+  transition: all .15s ease;
+}
+.btn-discover:hover { background: var(--green); color: white; }
+.btn-discover:disabled { opacity: .6; cursor: not-allowed; }
+.btn-discover.loading { opacity: .7; }
+
 .upload-message {
   font-size: .78rem;
   padding: .4rem .6rem;

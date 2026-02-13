@@ -259,6 +259,17 @@ export function downloadDocument(
   return request(`/api/notices/${noticeId}/documents/${documentId}/download?${params}`, { method: "POST" });
 }
 
+// ── Document Discovery (BOSA workspace crawl) ─────────────────────
+
+export function discoverDocuments(
+  noticeId: string,
+  download = true,
+): Promise<import("./types").DiscoverResponse> {
+  const params = new URLSearchParams();
+  if (!download) params.set("download", "false");
+  return request(`/api/notices/${noticeId}/documents/discover?${params}`, { method: "POST" });
+}
+
 // ── Document Upload (Phase 3) ──────────────────────────────────────
 
 export async function uploadDocument(

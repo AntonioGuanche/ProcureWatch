@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getNotice, getNoticeLots, getNoticeDocuments, addFavorite, removeFavorite, generateSummary, analyzeDocument, askNoticeQuestion, uploadDocument, downloadDocument } from "../api";
+import { getNotice, getNoticeLots, getNoticeDocuments, addFavorite, removeFavorite, generateSummary, analyzeDocument, askNoticeQuestion, uploadDocument, downloadDocument, discoverDocuments } from "../api";
 import type { Notice, NoticeLot, NoticeDocument, AISummaryResponse, DocumentAnalysisResponse, QAResponse } from "../types";
 
 function fmtDate(s: string | null): string {
@@ -247,6 +247,10 @@ export function NoticeModal({ noticeId, isFavorited, onToggleFavorite, onClose }
   const [downloadLoading, setDownloadLoading] = useState<Record<string, boolean>>({});
   const [downloadMessages, setDownloadMessages] = useState<Record<string, string>>({});
 
+  // BOSA document discovery state
+  const [discoverLoading, setDiscoverLoading] = useState(false);
+  const [discoverMessage, setDiscoverMessage] = useState<string | null>(null);
+
   useEffect(() => {
     setLoading(true);
     setSummaryData(null);
@@ -260,6 +264,8 @@ export function NoticeModal({ noticeId, isFavorited, onToggleFavorite, onClose }
     setUploadMessage(null);
     setDownloadLoading({});
     setDownloadMessages({});
+    setDiscoverLoading(false);
+    setDiscoverMessage(null);
     Promise.all([
       getNotice(noticeId),
       getNoticeLots(noticeId).catch(() => ({ items: [], total: 0 })),
@@ -403,6 +409,22 @@ export function NoticeModal({ noticeId, isFavorited, onToggleFavorite, onClose }
       }));
     } finally {
       setDownloadLoading((prev) => ({ ...prev, [docId]: false }));
+    }
+  };
+
+  const handleDiscover = async () => {
+    setDiscoverLoading(true);
+    setDiscoverMessage(null);
+    try {
+      const result = await discoverDocuments(noticeId);
+      setDiscoverMessage(result.message);
+      // Refresh docs list to show newly discovered PDFs
+      const d = await getNoticeDocuments(noticeId).catch(() => ({ items: [], total: 0 }));
+      setDocs(d.items);
+    } catch (err) {
+      setDiscoverMessage(err instanceof Error ? err.message : "Erreur lors de la découverte");
+    } finally {
+      setDiscoverLoading(false);
     }
   };
 
@@ -630,6 +652,21 @@ export function NoticeModal({ noticeId, isFavorited, onToggleFavorite, onClose }
               <div className="docs-header">
                 <h3>Documents ({docs.length})</h3>
                 <div className="docs-header-actions">
+                  {/* BOSA discover button */}
+                  {notice.source?.toUpperCase().includes("BOSA") && (
+                    <button
+                      className={`btn-sm btn-discover ${discoverLoading ? "loading" : ""}`}
+                      onClick={handleDiscover}
+                      disabled={discoverLoading}
+                      title="Récupérer les PDFs depuis l'espace BOSA"
+                    >
+                      {discoverLoading ? (
+                        <><svg className="spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg> Chargement…</>
+                      ) : (
+                        <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Récupérer les PDFs</>
+                      )}
+                    </button>
+                  )}
                   <label className={`btn-sm btn-outline btn-upload ${uploadLoading ? "loading" : ""}`}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
@@ -658,6 +695,11 @@ export function NoticeModal({ noticeId, isFavorited, onToggleFavorite, onClose }
               {uploadMessage && (
                 <div className={`upload-message ${uploadMessage.includes("Erreur") || uploadMessage.includes("erreur") || uploadMessage.includes("Échec") ? "error" : "success"}`}>
                   {uploadMessage}
+                </div>
+              )}
+              {discoverMessage && (
+                <div className={`upload-message ${discoverMessage.includes("Erreur") || discoverMessage.includes("erreur") ? "error" : "success"}`}>
+                  {discoverMessage}
                 </div>
               )}
               {docs.length > 0 && (
