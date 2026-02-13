@@ -1724,7 +1724,7 @@ def crawl_single_notice(
 
 # ── Phase 2b: BOSA API Document Explorer ─────────────────────────
 
-# ── Phase 2b: BOSA API Document Explorer ─────────────────────────
+# ── Phase 2b: BOSA Diagnostic ────────────────────────────────────
 
 
 @router.post(
@@ -1736,11 +1736,13 @@ def bosa_explore_docs(
     notice_id: str,
     db: Session = Depends(get_db),
 ) -> dict:
-    """Diagnostic: use official BOSA client (OAuth2 + BelGov-Trace-Id) to find documents."""
+    """Minimal diagnostic: dump workspace detail and try /documents endpoint."""
     from app.connectors.bosa.client import _get_client
     from app.connectors.bosa.official_client import OfficialEProcurementClient
     from app.models.notice import ProcurementNotice
     import re
+    import requests as req
+    import traceback
 
     notice = db.query(ProcurementNotice).filter(
         ProcurementNotice.id == notice_id
@@ -1752,125 +1754,106 @@ def bosa_explore_docs(
         "notice_id": notice_id,
         "source_id": notice.source_id,
         "publication_workspace_id": notice.publication_workspace_id,
-        "dossier_id": notice.dossier_id,
-        "reference_number": notice.reference_number,
-        "tests": [],
     }
 
-    # Get portal URLs from notice_documents
-    from sqlalchemy import text as sql_text
-    portal_rows = db.execute(
-        sql_text("SELECT url FROM notice_documents WHERE notice_id = :nid"),
-        {"nid": notice_id},
-    ).fetchall()
-    result["stored_urls"] = [r[0] for r in portal_rows]
-
-    # Get the official BOSA client (has OAuth2 + BelGov-Trace-Id)
+    # Get official BOSA client
     try:
         client, provider = _get_client()
-        if not isinstance(client, OfficialEProcurementClient):
-            return {**result, "error": f"Client is {provider}, not official"}
+        assert isinstance(client, OfficialEProcurementClient)
     except Exception as e:
-        return {**result, "error": f"Client init failed: {e}"}
+        return {**result, "error": f"Client: {e}"}
 
     dos_base = client.dos_base_url.rstrip("/")
-    result["dos_base_url"] = dos_base
+    ws_id = notice.publication_workspace_id or notice.source_id
 
-    # IDs to try
-    ids_to_try = set()
-    if notice.publication_workspace_id:
-        ids_to_try.add(notice.publication_workspace_id)
-    if notice.source_id and notice.source_id != notice.publication_workspace_id:
-        ids_to_try.add(notice.source_id)
-
-    # Test each ID with the official client (proper headers)
-    for ws_id in list(ids_to_try):
-        test = {"workspace_id": ws_id, "steps": []}
-
-        # Step 1: GET workspace detail via official client
+    # ── TEST 1: Workspace detail via official client ──
+    try:
         ws_data = client.get_publication_workspace(ws_id)
         if ws_data:
-            test["steps"].append({
-                "action": "get_publication_workspace",
-                "status": "ok",
-                "keys": list(ws_data.keys())[:15],
-                "real_id": ws_data.get("id"),
-                "has_versions": "versions" in ws_data,
-                "version_count": len(ws_data.get("versions", [])),
-            })
-
-            # Extract real workspace UUID from XML in versions
+            # Check for XML in versions
+            xml_ids = []
+            has_xml = False
             for v in ws_data.get("versions", []):
                 notice_obj = v.get("notice", {})
                 xml = notice_obj.get("xmlContent", "")
                 if xml:
-                    # Look for publication-workspaces/{UUID} in XML
-                    xml_matches = re.findall(
-                        r"publication-workspaces/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})",
-                        xml, re.IGNORECASE,
+                    has_xml = True
+                    matches = re.findall(
+                        r"publication-workspaces/([0-9a-f-]{36})", xml, re.IGNORECASE,
                     )
-                    unique_xml_ids = list(set(xml_matches))
-                    test["xml_workspace_ids"] = unique_xml_ids
-                    for xid in unique_xml_ids:
-                        if xid != ws_id:
-                            ids_to_try.add(xid)
-        else:
-            test["steps"].append({
-                "action": "get_publication_workspace",
-                "status": "not_found_or_error",
-            })
+                    xml_ids.extend(matches)
 
-        # Step 2: Try /documents endpoint via raw client.request()
-        for doc_params in ["?full=false&type=WORKSPACE&type=ESPD_REQUEST&type=SDI", ""]:
-            try:
-                url = f"{dos_base}/publication-workspaces/{ws_id}/documents{doc_params}"
-                resp = client.request("GET", url)
-                doc_step = {
-                    "action": f"list_documents{doc_params}",
-                    "status_code": resp.status_code,
-                }
-                if resp.status_code == 200:
-                    data = resp.json()
-                    if isinstance(data, list):
-                        doc_step["doc_count"] = len(data)
-                        if data:
-                            titles = []
-                            for d in data[:5]:
-                                t = d.get("titles", [{}])
-                                titles.append(t[0].get("text", "?") if t else "?")
-                            doc_step["sample_titles"] = titles
-                    break  # Found working endpoint
-                else:
-                    doc_step["body"] = resp.text[:300]
-                test["steps"].append(doc_step)
-            except Exception as e:
-                test["steps"].append({"action": f"list_documents{doc_params}", "error": str(e)})
-
-        result["tests"].append(test)
-
-    # Now try any XML-discovered IDs that are different
-    xml_ids = ids_to_try - {notice.publication_workspace_id, notice.source_id}
-    for xid in xml_ids:
-        test = {"workspace_id": xid, "source": "from_xml", "steps": []}
-        try:
-            url = f"{dos_base}/publication-workspaces/{xid}/documents?full=false&type=WORKSPACE&type=ESPD_REQUEST&type=SDI"
-            resp = client.request("GET", url)
-            step = {
-                "action": "list_documents (XML ID)",
-                "status_code": resp.status_code,
+            result["test1_workspace"] = {
+                "status": "ok",
+                "ws_id_returned": ws_data.get("id"),
+                "version_count": len(ws_data.get("versions", [])),
+                "has_xml_content": has_xml,
+                "xml_workspace_ids": list(set(xml_ids)),
+                "dossier_id": ws_data.get("dossierId"),
+                "dossier_ref": ws_data.get("dossierReferenceNumber"),
+                "notice_keys_in_version": list(
+                    ws_data.get("versions", [{}])[0].get("notice", {}).keys()
+                ) if ws_data.get("versions") else [],
             }
-            if resp.status_code == 200:
-                data = resp.json()
-                if isinstance(data, list):
-                    step["doc_count"] = len(data)
-                    if data:
-                        titles = [d.get("titles", [{}])[0].get("text", "?") for d in data[:5]]
-                        step["sample_titles"] = titles
-            else:
-                step["body"] = resp.text[:300]
-            test["steps"].append(step)
-        except Exception as e:
-            test["steps"].append({"error": str(e)})
-        result["tests"].append(test)
+        else:
+            result["test1_workspace"] = {"status": "not_found"}
+    except Exception as e:
+        result["test1_workspace"] = {"error": str(e), "tb": traceback.format_exc()[-500:]}
+
+    # ── TEST 2: /documents via official client.request() (has BelGov-Trace-Id) ──
+    try:
+        url2 = f"{dos_base}/publication-workspaces/{ws_id}/documents?full=false&type=WORKSPACE"
+        resp2 = client.request("GET", url2)
+        result["test2_official_docs"] = {
+            "url": url2,
+            "status_code": resp2.status_code,
+            "body": resp2.text[:500],
+        }
+    except Exception as e:
+        result["test2_official_docs"] = {"error": str(e), "tb": traceback.format_exc()[-500:]}
+
+    # ── TEST 3: /documents via portal API (publicprocurement.be) ──
+    try:
+        # Try portal API with BelGov-Trace-Id header
+        import uuid as _uuid
+        url3 = f"https://www.publicprocurement.be/api/dos/publication-workspaces/{ws_id}/documents?full=false&type=WORKSPACE&type=ESPD_REQUEST&type=SDI"
+        portal_headers = {
+            "Accept": "application/json",
+            "BelGov-Trace-Id": str(_uuid.uuid4()),
+            "Accept-Language": "fr",
+        }
+        resp3 = req.get(url3, headers=portal_headers, timeout=15)
+        result["test3_portal_docs"] = {
+            "url": url3,
+            "status_code": resp3.status_code,
+            "body": resp3.text[:500],
+        }
+    except Exception as e:
+        result["test3_portal_docs"] = {"error": str(e), "tb": traceback.format_exc()[-500:]}
+
+    # ── TEST 4: If XML found a different workspace ID, try that one ──
+    xml_ids_found = result.get("test1_workspace", {}).get("xml_workspace_ids", [])
+    for xid in xml_ids_found:
+        if xid != ws_id:
+            try:
+                url4 = f"{dos_base}/publication-workspaces/{xid}/documents?full=false&type=WORKSPACE"
+                resp4 = client.request("GET", url4)
+                test4 = {
+                    "xml_workspace_id": xid,
+                    "status_code": resp4.status_code,
+                }
+                if resp4.status_code == 200:
+                    data4 = resp4.json()
+                    if isinstance(data4, list):
+                        test4["doc_count"] = len(data4)
+                        test4["sample"] = [
+                            d.get("titles", [{}])[0].get("text", "?")
+                            for d in data4[:3]
+                        ]
+                else:
+                    test4["body"] = resp4.text[:300]
+                result[f"test4_xml_id_{xid[:8]}"] = test4
+            except Exception as e:
+                result[f"test4_xml_id_{xid[:8]}"] = {"error": str(e)}
 
     return result
