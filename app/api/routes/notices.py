@@ -14,6 +14,7 @@ from app.core.auth import rate_limit_public
 from app.api.routes.auth import get_optional_user
 
 from app.api.schemas.notice import (
+    DocumentQuestionRequest,
     NoticeDetailRead,
     NoticeDocumentListResponse,
     NoticeDocumentRead,
@@ -606,8 +607,7 @@ async def analyze_notice_document(
 )
 async def ask_about_documents(
     notice_id: str,
-    body: dict,
-    lang: str = Query("fr", regex="^(fr|nl|en|de)$", description="Target language"),
+    body: DocumentQuestionRequest,
     db: Session = Depends(get_db),
     current_user=Depends(get_optional_user),
 ):
@@ -619,7 +619,7 @@ async def ask_about_documents(
     from app.services.document_qa import ask_document_question
     from app.services.ai_summary import check_ai_usage, increment_ai_usage
 
-    question = (body.get("question") or "").strip()
+    question = body.question.strip()
     if not question:
         raise HTTPException(status_code=422, detail="La question ne peut pas être vide.")
     if len(question) > 2000:
@@ -641,8 +641,7 @@ async def ask_about_documents(
     if usage_error:
         raise HTTPException(status_code=403, detail=usage_error)
 
-    # Use lang from body if provided, fallback to query param
-    req_lang = body.get("lang", lang)
+    req_lang = body.lang
 
     # Ask the question
     result = await ask_document_question(db, notice, question=question, lang=req_lang)
