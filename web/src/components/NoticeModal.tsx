@@ -630,6 +630,13 @@ export function NoticeModal({ noticeId, isFavorited, onToggleFavorite, onClose }
               <div className="docs-header">
                 <h3>Documents ({docs.length})</h3>
                 <div className="docs-header-actions">
+                  <label className={`btn-sm btn-outline btn-upload ${uploadLoading ? "loading" : ""}`}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+                    </svg>
+                    {uploadLoading ? "Upload…" : "Ajouter un PDF"}
+                    <input type="file" accept=".pdf" onChange={handleUpload} disabled={uploadLoading} style={{ display: "none" }} />
+                  </label>
                   <div className="upload-help-wrapper">
                     <button
                       className="btn-icon-xs help-trigger"
@@ -646,13 +653,6 @@ export function NoticeModal({ noticeId, isFavorited, onToggleFavorite, onClose }
                       </div>
                     )}
                   </div>
-                  <label className={`btn-sm btn-outline btn-upload ${uploadLoading ? "loading" : ""}`}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
-                    </svg>
-                    {uploadLoading ? "Upload…" : "Ajouter un PDF"}
-                    <input type="file" accept=".pdf" onChange={handleUpload} disabled={uploadLoading} style={{ display: "none" }} />
-                  </label>
                 </div>
               </div>
               {uploadMessage && (
@@ -665,8 +665,14 @@ export function NoticeModal({ noticeId, isFavorited, onToggleFavorite, onClose }
                   {docs.map((doc) => {
                     const isUploaded = doc.url?.startsWith("upload://");
                     const isDownloaded = doc.download_status === "ok";
-                    const canDownload = !isUploaded && isPdfDoc(doc) && !isDownloaded;
+                    const isHtml = (doc.file_type || "").toUpperCase() === "HTML";
+                    const hasRealUrl = doc.url && !doc.url.startsWith("upload://");
+                    // Show download for any doc with a real URL that hasn't been downloaded yet
+                    // (skip HTML-only portal links)
+                    const canDownload = hasRealUrl && !isDownloaded && !isHtml;
                     const downloadFailed = doc.download_status === "failed" || doc.download_status === "skipped";
+                    // Show analyze for docs that have text available
+                    const canAnalyze = isPdfDoc(doc) && (isDownloaded || isUploaded);
 
                     return (
                     <div key={doc.id} className="doc-wrapper">
@@ -709,7 +715,7 @@ export function NoticeModal({ noticeId, isFavorited, onToggleFavorite, onClose }
                             </button>
                           )}
                           {/* Analyze button */}
-                          {isPdfDoc(doc) && (isDownloaded || isUploaded) && (
+                          {canAnalyze && (
                           <button
                             className="btn-sm btn-analyze"
                             onClick={() => {
