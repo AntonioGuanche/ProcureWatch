@@ -172,6 +172,9 @@ def _download_and_extract(download_url: str, doc_id: str) -> Optional[dict[str, 
             return None
 
         text = extract_text_from_pdf(tmp_path)
+        # Strip NUL bytes — PostgreSQL TEXT columns reject \x00
+        if text:
+            text = text.replace("\x00", "")
         content_type = (
             resp.headers.get("Content-Type", "").split(";")[0].strip()
             or "application/pdf"
@@ -445,6 +448,7 @@ def batch_crawl_notices(
             time.sleep(POLITENESS_DELAY)
 
         except Exception as e:
+            db.rollback()  # Reset session state so next notice gets a clean transaction
             logger.warning("Crawl error for notice %s: %s", notice_id, e)
             stats["errors"] += 1
 
