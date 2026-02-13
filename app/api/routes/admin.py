@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, Query
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -1649,13 +1649,16 @@ def batch_download_documents(
     description=(
         "Re-runs document extraction on TED notices to pick up links.pdf URLs "
         "that were previously missed due to nested dict parsing bug.\n\n"
+        "For limit <= 2000: synchronous (returns results).\n"
+        "For limit > 2000: background task (returns immediately).\n"
         "Use replace=true to delete old docs and re-extract from scratch."
     ),
 )
 def backfill_ted_documents(
-    limit: int = Query(1000, ge=1, le=50000, description="Max notices to process"),
+    limit: int = Query(1000, ge=1, le=200000, description="Max notices to process"),
     replace: bool = Query(False, description="Delete existing docs and re-extract"),
     dry_run: bool = Query(True, description="Preview only"),
+    background_tasks: BackgroundTasks = None,
     db: Session = Depends(get_db),
 ) -> dict:
     """Backfill TED documents from raw_data with corrected extraction."""
@@ -1663,17 +1666,14 @@ def backfill_ted_documents(
     from app.services.document_extraction import backfill_documents_for_all
 
     if dry_run:
-        # Count TED notices
         total = db.execute(sql_text(
             "SELECT COUNT(*) FROM notices WHERE source = 'TED_EU' AND raw_data IS NOT NULL"
         )).scalar() or 0
-        # Count current TED docs
         current_docs = db.execute(sql_text("""
             SELECT COUNT(*) FROM notice_documents nd
             JOIN notices n ON n.id = nd.notice_id
             WHERE n.source = 'TED_EU'
         """)).scalar() or 0
-        # Count docs with ted.europa.eu URLs (the ones we want to add)
         ted_pdf_docs = db.execute(sql_text("""
             SELECT COUNT(*) FROM notice_documents nd
             JOIN notices n ON n.id = nd.notice_id
@@ -1689,8 +1689,30 @@ def backfill_ted_documents(
             "message": f"{total} TED notices to re-extract. Set dry_run=false to run.",
         }
 
+    # For large runs, use background task
+    if limit > 2000 and background_tasks:
+        def _run_backfill():
+            from app.core.database import SessionLocal
+            bg_db = SessionLocal()
+            try:
+                backfill_documents_for_all(
+                    bg_db, source="TED_EU", replace=replace,
+                    batch_size=10, limit=limit,
+                )
+            finally:
+                bg_db.close()
+
+        background_tasks.add_task(_run_backfill)
+        return {
+            "status": "background",
+            "limit": limit,
+            "replace": replace,
+            "message": f"Backfill launched in background for up to {limit} notices. Check /document-stats to monitor.",
+        }
+
+    # Synchronous for small runs
     result = backfill_documents_for_all(
-        db, source="TED_EU", replace=replace, batch_size=200,
+        db, source="TED_EU", replace=replace, batch_size=10, limit=limit,
     )
     return {**result, "replace": replace}
 

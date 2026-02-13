@@ -296,39 +296,135 @@ def backfill_documents_for_all(
     db: Session,
     source: Optional[str] = None,
     replace: bool = False,
-    batch_size: int = 200,
+    batch_size: int = 10,
+    limit: int = 0,
 ) -> dict[str, int]:
     """
-    Backfill documents for all existing notices.
+    Backfill documents for existing notices — ultra-lightweight.
 
-    Returns:
-        {"processed": N, "documents_created": N, "notices_with_docs": N}
+    Processes ONE notice at a time via raw SQL to avoid ORM memory bloat.
+    Uses id-based cursor for consistent performance on 100k+ rows.
+
+    Args:
+        limit: max notices to process (0 = all)
     """
-    query = db.query(Notice).filter(Notice.raw_data.isnot(None))
-    if source:
-        query = query.filter(Notice.source == source)
+    from sqlalchemy import text as sql_text
+    import json as _json
 
     stats = {"processed": 0, "documents_created": 0, "notices_with_docs": 0}
-    offset = 0
+    last_id = ""
+
+    source_filter = "AND source = :source" if source else ""
 
     while True:
-        batch = query.offset(offset).limit(batch_size).all()
-        if not batch:
+        if limit and stats["processed"] >= limit:
             break
 
-        for notice in batch:
-            count = extract_and_save_documents(db, notice, replace=replace)
+        current_limit = min(batch_size, (limit - stats["processed"]) if limit else batch_size)
+
+        # Fetch only IDs first (tiny memory footprint)
+        params: dict[str, Any] = {"cursor": last_id, "lim": current_limit}
+        if source:
+            params["source"] = source
+
+        id_rows = db.execute(sql_text(f"""
+            SELECT id FROM notices
+            WHERE raw_data IS NOT NULL AND id > :cursor {source_filter}
+            ORDER BY id LIMIT :lim
+        """), params).fetchall()
+
+        if not id_rows:
+            break
+
+        for (notice_id,) in id_rows:
+            last_id = notice_id
+
+            # Load raw_data for ONE notice
+            row = db.execute(sql_text(
+                "SELECT raw_data, source FROM notices WHERE id = :nid"
+            ), {"nid": notice_id}).fetchone()
+
+            if not row or not row[0]:
+                stats["processed"] += 1
+                continue
+
+            raw_data = row[0]
+            nsource = row[1]
+
+            # Parse JSON if needed (Postgres JSONB returns dict, but safety check)
+            if isinstance(raw_data, str):
+                try:
+                    raw_data = _json.loads(raw_data)
+                except Exception:
+                    stats["processed"] += 1
+                    continue
+
+            if not isinstance(raw_data, dict):
+                stats["processed"] += 1
+                continue
+
+            # Extract document URLs from raw_data
+            if nsource == "TED_EU":
+                docs = _extract_ted_documents(raw_data)
+            else:
+                docs = _extract_bosa_documents(raw_data)
+
+            if not docs:
+                stats["processed"] += 1
+                continue
+
+            # Get existing URLs
+            existing = set(
+                r[0] for r in db.execute(sql_text(
+                    "SELECT url FROM notice_documents WHERE notice_id = :nid"
+                ), {"nid": notice_id}).fetchall()
+            )
+
+            if replace:
+                db.execute(sql_text(
+                    "DELETE FROM notice_documents WHERE notice_id = :nid"
+                ), {"nid": notice_id})
+                existing = set()
+
+            created = 0
+            for doc in docs:
+                url = doc.get("url", "")
+                if url in existing:
+                    continue
+                db.execute(sql_text("""
+                    INSERT INTO notice_documents (id, notice_id, title, url, file_type, language)
+                    VALUES (:id, :nid, :title, :url, :ftype, :lang)
+                """), {
+                    "id": str(uuid.uuid4()),
+                    "nid": notice_id,
+                    "title": (doc.get("title") or "Document")[:500],
+                    "url": url[:2000],
+                    "ftype": doc.get("file_type"),
+                    "lang": doc.get("language"),
+                })
+                existing.add(url)
+                created += 1
+
             stats["processed"] += 1
-            stats["documents_created"] += count
-            if count > 0:
+            stats["documents_created"] += created
+            if created > 0:
                 stats["notices_with_docs"] += 1
 
-        db.flush()
-        offset += batch_size
+            # Free raw_data reference
+            del raw_data
+
+        # Commit after each micro-batch
+        db.commit()
+
+        if stats["processed"] % 500 == 0 and stats["processed"] > 0:
+            logger.info(
+                "Document backfill progress: processed=%d, created=%d",
+                stats["processed"], stats["documents_created"],
+            )
 
     db.commit()
     logger.info(
-        "Document backfill: processed=%d, created=%d, notices_with_docs=%d",
+        "Document backfill done: processed=%d, created=%d, notices_with_docs=%d",
         stats["processed"], stats["documents_created"], stats["notices_with_docs"],
     )
     return stats
