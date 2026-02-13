@@ -590,3 +590,71 @@ async def analyze_notice_document(
         "document_id": document_id,
         **result,
     }
+
+
+# --- Document Q&A (Phase 3) ---
+
+
+@router.post(
+    "/{notice_id}/documents/ask",
+    summary="Ask a question about notice documents",
+    description=(
+        "Uses AI to answer questions based on the extracted text "
+        "from all available PDF documents for this notice.\n\n"
+        "Requires authentication. Counts toward AI usage quota."
+    ),
+)
+async def ask_about_documents(
+    notice_id: str,
+    body: dict,
+    lang: str = Query("fr", regex="^(fr|nl|en|de)$", description="Target language"),
+    db: Session = Depends(get_db),
+    current_user=Depends(get_optional_user),
+):
+    """Ask a question about a notice's documents using AI.
+
+    The AI reads all extracted document text and answers based on the content.
+    Returns structured answer with source document references.
+    """
+    from app.services.document_qa import ask_document_question
+    from app.services.ai_summary import check_ai_usage, increment_ai_usage
+
+    question = (body.get("question") or "").strip()
+    if not question:
+        raise HTTPException(status_code=422, detail="La question ne peut pas être vide.")
+    if len(question) > 2000:
+        raise HTTPException(status_code=422, detail="Question trop longue (max 2000 caractères).")
+
+    notice = get_notice_by_id(db, notice_id)
+    if not notice:
+        raise HTTPException(status_code=404, detail="Notice not found")
+
+    # Auth required
+    if not current_user:
+        raise HTTPException(
+            status_code=401,
+            detail="Authentification requise pour poser des questions sur les documents",
+        )
+
+    # Check plan limits (shared quota with AI summaries)
+    usage_error = check_ai_usage(db, current_user)
+    if usage_error:
+        raise HTTPException(status_code=403, detail=usage_error)
+
+    # Use lang from body if provided, fallback to query param
+    req_lang = body.get("lang", lang)
+
+    # Ask the question
+    result = await ask_document_question(db, notice, question=question, lang=req_lang)
+
+    if result.get("status") == "error":
+        raise HTTPException(status_code=503, detail=result.get("message", "Erreur IA"))
+
+    # Increment usage for successful AI calls
+    if result.get("status") == "ok":
+        increment_ai_usage(db, current_user)
+
+    return {
+        "notice_id": notice_id,
+        **result,
+    }

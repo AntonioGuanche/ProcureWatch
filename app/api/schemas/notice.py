@@ -2,7 +2,7 @@
 from datetime import date, datetime
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, ConfigDict, model_validator
 
 from app.utils.cpv import normalize_cpv
 
@@ -230,3 +230,35 @@ class NoticeStatsResponse(BaseModel):
     total_notices: int
     by_source: dict
     last_import: Optional[str] = None
+
+
+# ── Document Q&A ─────────────────────────────────────────────────
+
+
+class DocumentQuestionRequest(BaseModel):
+    question: str
+    lang: str = "fr"
+
+    model_config = ConfigDict(json_schema_extra={
+        "example": {
+            "question": "Quelles sont les agréations requises ?",
+            "lang": "fr",
+        }
+    })
+
+
+class DocumentQASourceRead(BaseModel):
+    document_id: str
+    title: str
+    file_type: Optional[str] = None
+    text_length: int = 0
+
+
+class DocumentQAResponse(BaseModel):
+    status: str
+    answer: Optional[str] = None
+    question: Optional[str] = None
+    message: Optional[str] = None
+    sources: list[DocumentQASourceRead] = []
+    documents_used: int = 0
+    lang: str = "fr"

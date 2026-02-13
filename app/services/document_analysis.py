@@ -90,6 +90,9 @@ def _download_and_extract_text(doc: NoticeDocument) -> Optional[str]:
 
         # Extract text
         text = extract_text_from_pdf(tmp_path)
+        # Strip NUL bytes — PostgreSQL TEXT columns reject \x00
+        if text:
+            text = text.replace("\x00", "")
         doc.extracted_text = text or ""
         doc.extracted_at = datetime.now(timezone.utc)
         doc.extraction_status = "ok"
