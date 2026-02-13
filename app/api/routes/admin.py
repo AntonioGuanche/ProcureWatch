@@ -1640,3 +1640,71 @@ def batch_download_documents(
     """Batch download PDFs and extract text (Phase 2 document pipeline)."""
     from app.services.document_analysis import batch_download_and_extract
     return batch_download_and_extract(db, limit=limit, source=source, dry_run=dry_run)
+
+
+# ── Phase 2b: Document Portal Crawler ────────────────────────────
+
+
+@router.post(
+    "/crawl-portal-documents",
+    tags=["admin"],
+    summary="Crawl portal pages to discover and download PDF documents",
+    description=(
+        "Follows HTML links (publicprocurement.be portals, TED pages, etc.) "
+        "to find actual PDF documents. Downloads + extracts text.\n\n"
+        "Targets notices that have portal links but no downloaded PDFs.\n"
+        "Use dry_run=true first to see count."
+    ),
+)
+def crawl_portal_documents(
+    limit: int = Query(50, ge=1, le=1000, description="Max notices to crawl"),
+    source: Optional[str] = Query(None, description="Filter: BOSA_EPROC or TED_EU"),
+    download: bool = Query(True, description="Download PDFs (false = discover only)"),
+    dry_run: bool = Query(True, description="Preview only"),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Crawl procurement portal pages to discover PDF documents."""
+    from app.services.document_crawler import batch_crawl_notices
+    return batch_crawl_notices(
+        db, limit=limit, source=source, download=download, dry_run=dry_run,
+    )
+
+
+@router.post(
+    "/crawl-notice/{notice_id}",
+    tags=["admin"],
+    summary="Crawl portal pages for a single notice",
+)
+def crawl_single_notice(
+    notice_id: str,
+    download: bool = Query(True),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Crawl portal pages for a specific notice to discover PDF documents."""
+    from app.services.document_crawler import crawl_portal_for_pdfs
+    from sqlalchemy import text as sql_text
+
+    # Find portal URLs for this notice
+    rows = db.execute(
+        sql_text(
+            "SELECT url FROM notice_documents WHERE notice_id = :nid "
+            "AND (LOWER(file_type) = 'html' "
+            "     OR url LIKE '%publicprocurement.be%' "
+            "     OR url LIKE '%e-tendering%')"
+        ),
+        {"nid": notice_id},
+    ).fetchall()
+
+    if not rows:
+        return {"status": "no_portal_links", "notice_id": notice_id}
+
+    all_results = []
+    for (portal_url,) in rows:
+        results = crawl_portal_for_pdfs(db, notice_id, portal_url, download=download)
+        all_results.extend(results)
+
+    return {
+        "notice_id": notice_id,
+        "portal_urls_crawled": len(rows),
+        "documents": all_results,
+    }
