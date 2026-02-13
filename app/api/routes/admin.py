@@ -1681,7 +1681,7 @@ def crawl_single_notice(
     db: Session = Depends(get_db),
 ) -> dict:
     """Crawl BOSA portal API for a specific notice to discover PDF documents."""
-    from app.services.document_crawler import crawl_bosa_documents, extract_workspace_id_from_url
+    from app.services.document_crawler import crawl_bosa_documents
     from app.models.notice import ProcurementNotice
 
     notice = db.query(ProcurementNotice).filter(
@@ -1690,24 +1690,9 @@ def crawl_single_notice(
     if not notice:
         return {"status": "error", "message": "Notice not found"}
 
-    # Try to find workspace UUID from portal URL in notice_documents
-    from sqlalchemy import text as sql_text
-    portal_row = db.execute(
-        sql_text(
-            "SELECT url FROM notice_documents WHERE notice_id = :nid "
-            "AND url LIKE '%%publicprocurement.be/publication-workspaces/%%' "
-            "LIMIT 1"
-        ),
-        {"nid": notice_id},
-    ).fetchone()
-
-    workspace_id = None
-    if portal_row:
-        workspace_id = extract_workspace_id_from_url(portal_row[0])
-
-    # Fallback to publication_workspace_id
+    workspace_id = notice.publication_workspace_id
     if not workspace_id:
-        workspace_id = notice.publication_workspace_id
+        workspace_id = notice.source_id
 
     if not workspace_id:
         return {"status": "no_workspace_id", "notice_id": notice_id}
