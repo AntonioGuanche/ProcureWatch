@@ -1,6 +1,6 @@
 # =============================================================================
 # ProcureWatch - Nightly All-in-One v4
-# v4: added TED doc download (Step 8) + Q&A endpoint backend
+# v5: fixed TED links.pdf extraction, smart batch download, Q&A fallback, user upload
 # v3: added BOSA document crawl (Step 7) - PDF download + text extraction
 # v2: higher timeouts, retry on connection errors, skip BOSA XML loop
 # Usage: powershell -ExecutionPolicy Bypass -File .\nightly_all.ps1
@@ -270,15 +270,15 @@ Show-Elapsed
 
 # =====================================================================
 # STEP 8 - TED Document Download + Text Extraction
-# Picks up TED documents already in notice_documents (URLs from import)
-# and downloads/extracts text from PDFs
+# Downloads TED PDF documents (from links.pdf URLs after backfill).
+# Smart: skips HTML pages, cloud.3p.eu (reCAPTCHA), marks non-PDFs as skipped.
 # =====================================================================
-Write-Host "`n========== STEP 8/9 - TED Document Download (PDFs) ==========" -ForegroundColor Cyan
+Write-Host "`n========== STEP 8/9 - TED Document Download (smart) ==========" -ForegroundColor Cyan
 
 $urlTedDocDry = "$BASE/batch-download-documents?source=TED_EU&limit=500&dry_run=true"
 $dry = Call-Api "POST" $urlTedDocDry
 if ($dry) {
-    Write-Host "  Eligible: $($dry.total_eligible) TED PDF documents without text" -ForegroundColor Yellow
+    Write-Host "  Eligible: $($dry.total_eligible) TED documents to process" -ForegroundColor Yellow
 }
 
 $tedDocTotal = 0
@@ -305,11 +305,12 @@ do {
     $attempted = if ($r.attempted) { $r.attempted } else { 0 }
     $downloaded = if ($r.downloaded) { $r.downloaded } else { 0 }
     $extracted = if ($r.extracted) { $r.extracted } else { 0 }
+    $skipped = if ($r.skipped_not_pdf) { $r.skipped_not_pdf } else { 0 }
     $tedDocTotal += $attempted
     $tedDocDownloaded += $downloaded
     $tedDocExtracted += $extracted
 
-    Write-Host "  Attempted: $attempted | Downloaded: $downloaded | Extracted: $extracted | Running total: $tedDocTotal" -ForegroundColor Green
+    Write-Host "  Attempted: $attempted | Downloaded: $downloaded | Extracted: $extracted | Skipped: $skipped" -ForegroundColor Green
     Show-Elapsed
 
     if ($attempted -eq 0) { Write-Host "  No more TED docs to process, done." -ForegroundColor Green; break }

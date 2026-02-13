@@ -1,18 +1,17 @@
-"""Document Q&A: ask questions about notice documents using Claude AI.
+"""Notice Q&A: ask questions about notice content using Claude AI.
 
-Pipeline:
-  1. Gather all extracted text from notice documents
-  2. Build Q&A prompt with document context + user question
-  3. Send to Claude → structured answer with source references
+Smart context gathering (3 layers):
+  1. PDF documents with extracted text -> richest source (cahiers des charges)
+  2. Notice description + raw_data fields -> always available, works for all notices
+  3. Both combined when PDFs exist
+
+This means Q&A works for ALL notices, not just those with PDFs.
 
 Usage:
     from app.services.document_qa import ask_document_question
-    result = await ask_document_question(db, notice, question="Quelles sont les agréations requises?", lang="fr")
-
-Cost: ~€0.01-0.03/question depending on document volume.
+    result = await ask_document_question(db, notice, question="Quelles agreations?", lang="fr")
 """
 import logging
-from datetime import datetime, timezone
 from typing import Any, Optional
 
 from sqlalchemy.orm import Session
@@ -23,18 +22,14 @@ from app.models.notice_document import NoticeDocument
 
 logger = logging.getLogger(__name__)
 
-# Max chars of document text sent to Claude (~8K tokens ≈ 32K chars).
-MAX_QA_CONTEXT = 32_000
+MAX_QA_CONTEXT = 32_000  # ~8K tokens
 
 
-def _gather_document_texts(
-    db: Session,
-    notice_id: str,
-) -> list[dict[str, Any]]:
-    """Gather all available extracted text for a notice's documents.
+# -- Context gathering --
 
-    Returns list of {"doc_id", "title", "text", "file_type"}.
-    """
+
+def _gather_document_texts(db: Session, notice_id: str) -> list[dict[str, Any]]:
+    """Gather extracted text from notice's downloaded documents (PDFs)."""
     docs = (
         db.query(NoticeDocument)
         .filter(
@@ -44,7 +39,6 @@ def _gather_document_texts(
         )
         .all()
     )
-
     results = []
     for doc in docs:
         text = (doc.extracted_text or "").strip()
@@ -56,86 +50,176 @@ def _gather_document_texts(
             "text": text,
             "file_type": doc.file_type,
         })
-
     return results
 
 
-def _build_qa_prompt(
+def _extract_notice_context(notice: ProcurementNotice) -> str:
+    """Build rich text context from notice fields + raw_data.
+
+    Used as primary context for TED notices or supplementary for BOSA.
+    """
+    parts: list[str] = []
+
+    if notice.description:
+        parts.append(f"DESCRIPTION:\n{notice.description}")
+
+    raw = notice.raw_data
+    if isinstance(raw, dict):
+        # TED multilingual text fields
+        for field_key, label in [
+            ("description-glo", "Description globale"),
+            ("description-lot", "Description des lots"),
+            ("description-proc", "Description procedure"),
+            ("title-lot", "Titres des lots"),
+            ("additional-information-lot", "Informations complementaires"),
+        ]:
+            text = _flatten(raw.get(field_key))
+            if text and text not in (notice.description or ""):
+                parts.append(f"\n{label.upper()}:\n{text}")
+
+        for key, label in [
+            ("procedure-type", "Type de procedure"),
+            ("contract-nature-main-proc", "Nature du marche"),
+            ("award-criterion-type-lot", "Criteres d'attribution"),
+            ("business-name", "Adjudicataire"),
+            ("tender-value", "Valeur attribuee"),
+            ("received-submissions-type-val", "Offres recues"),
+            ("place-of-performance", "Lieu d'execution"),
+        ]:
+            text = _flatten(raw.get(key))
+            if text:
+                parts.append(f"{label}: {text}")
+
+        # BOSA-specific fields
+        for key, label in [
+            ("descriptionTechnical", "Details techniques"),
+            ("conditionsParticipation", "Conditions de participation"),
+            ("technicalCapacity", "Capacite technique"),
+            ("economicFinancialCapacity", "Capacite financiere"),
+        ]:
+            val = raw.get(key)
+            text = val.strip() if isinstance(val, str) else _flatten(val)
+            if text and text not in (notice.description or ""):
+                parts.append(f"\n{label}:\n{text}")
+
+    full = "\n".join(parts)
+    return full[:MAX_QA_CONTEXT] if len(full) > MAX_QA_CONTEXT else full
+
+
+def _flatten(val: Any) -> str:
+    """Flatten a TED multilingual value to a single text string."""
+    if val is None:
+        return ""
+    if isinstance(val, str):
+        return val.strip()
+    if isinstance(val, (int, float)):
+        return str(val)
+    if isinstance(val, list):
+        return "\n".join(filter(None, (_flatten(v) for v in val[:20])))
+    if isinstance(val, dict):
+        for lang in ("fra", "fr", "eng", "en", "nld", "nl", "deu", "de"):
+            if lang in val:
+                return _flatten(val[lang])
+        for v in val.values():
+            t = _flatten(v)
+            if t:
+                return t
+    return ""
+
+
+# -- Prompt building --
+
+
+def _build_prompt(
     question: str,
     doc_texts: list[dict[str, Any]],
+    notice_context: str,
     notice: ProcurementNotice,
     lang: str = "fr",
 ) -> str:
-    """Build Q&A prompt with document context."""
+    """Build Q&A prompt combining document texts and notice context."""
 
-    # Notice metadata context
-    ctx_parts = []
+    meta = []
     if notice.title:
-        ctx_parts.append(f"Titre: {notice.title}")
+        meta.append(f"Titre: {notice.title}")
     if notice.cpv_main_code:
-        ctx_parts.append(f"CPV: {notice.cpv_main_code}")
+        meta.append(f"CPV: {notice.cpv_main_code}")
     org = None
     if notice.organisation_names and isinstance(notice.organisation_names, dict):
         org = next(iter(notice.organisation_names.values()), None)
     if org:
-        ctx_parts.append(f"Pouvoir adjudicateur: {org}")
+        meta.append(f"Pouvoir adjudicateur: {org}")
     if notice.estimated_value:
-        ctx_parts.append(f"Valeur estimée: {notice.estimated_value:,.2f} EUR")
+        meta.append(f"Valeur estimee: {notice.estimated_value:,.2f} EUR")
     if notice.deadline:
-        ctx_parts.append(f"Date limite: {notice.deadline.strftime('%d/%m/%Y')}")
+        meta.append(f"Date limite: {notice.deadline.strftime('%d/%m/%Y')}")
+    if notice.source:
+        meta.append(f"Source: {notice.source}")
+    header = "\n".join(meta) if meta else "(pas de metadonnees)"
 
-    notice_context = "\n".join(ctx_parts) if ctx_parts else "(pas de métadonnées)"
-
-    # Concatenate document texts with headers, respecting token budget
     remaining = MAX_QA_CONTEXT
-    doc_sections = []
+    sections = []
+
+    # PDFs first (richest)
     for i, dt in enumerate(doc_texts, 1):
-        header = f"--- DOCUMENT {i}: {dt['title']} ({dt['file_type'] or 'PDF'}) ---"
+        label = f"DOCUMENT {i}: {dt['title']} ({dt['file_type'] or 'PDF'})"
         text = dt["text"]
         if len(text) > remaining:
-            text = text[:remaining] + "\n[... texte tronqué ...]"
-        doc_sections.append(f"{header}\n{text}")
+            text = text[:remaining] + "\n[... tronque ...]"
+        sections.append(f"--- {label} ---\n{text}")
         remaining -= len(text)
-        if remaining <= 0:
+        if remaining <= 500:
             break
 
-    all_docs_text = "\n\n".join(doc_sections)
+    # Notice context (supplementary or primary)
+    if remaining > 500 and notice_context:
+        nc = notice_context[:remaining]
+        sections.append(f"--- DONNEES DE L'AVIS ---\n{nc}")
 
-    lang_instructions = {
-        "fr": "Réponds en français.",
+    all_context = "\n\n".join(sections)
+    has_docs = len(doc_texts) > 0
+
+    source_note = (
+        "Cite les documents par numero (Document 1, 2...) quand possible."
+        if has_docs
+        else "Les informations proviennent des donnees de l'avis de marche."
+    )
+
+    lang_map = {
+        "fr": "Reponds en francais.",
         "nl": "Antwoord in het Nederlands.",
         "en": "Reply in English.",
         "de": "Antworte auf Deutsch.",
     }
-    lang_instr = lang_instructions.get(lang, lang_instructions["fr"])
 
-    return f"""Tu es un expert en marchés publics belges et européens.
-L'utilisateur te pose une question sur un marché public. Réponds en te basant UNIQUEMENT sur les documents fournis ci-dessous.
+    return f"""Tu es un expert en marches publics belges et europeens.
+Reponds a la question en te basant UNIQUEMENT sur les informations fournies ci-dessous.
 
-## Contexte du marché
-{notice_context}
+## Metadonnees
+{header}
 
-## Documents disponibles
-{all_docs_text}
+## Contenu disponible
+{all_context}
 
 ---
 
-## Question de l'utilisateur
+## Question
 {question}
 
 ---
 
-{lang_instr} Réponds de façon claire et structurée:
-- Cite les passages pertinents des documents quand c'est possible
-- Indique de quel document provient chaque information (Document 1, Document 2, etc.)
-- Si l'information n'est pas dans les documents, dis-le clairement. Ne devine pas.
-- Sois concis mais complet"""
+{lang_map.get(lang, lang_map['fr'])} {source_note}
+Si l'information n'est pas disponible, dis-le clairement. Ne devine pas.
+Sois concis mais complet."""
 
 
-async def _call_claude_qa(prompt: str) -> Optional[str]:
+# -- Claude API call --
+
+
+async def _call_claude(prompt: str) -> Optional[str]:
     """Call Anthropic API for Q&A response."""
     if not settings.anthropic_api_key:
-        logger.warning("ANTHROPIC_API_KEY not set — cannot answer question")
+        logger.warning("ANTHROPIC_API_KEY not set")
         return None
 
     try:
@@ -158,9 +242,8 @@ async def _call_claude_qa(prompt: str) -> Optional[str]:
             response.raise_for_status()
             data = response.json()
 
-        content = data.get("content", [])
         text = ""
-        for block in content:
+        for block in data.get("content", []):
             if isinstance(block, dict) and block.get("type") == "text":
                 text += block.get("text", "")
 
@@ -173,14 +256,14 @@ async def _call_claude_qa(prompt: str) -> Optional[str]:
         return text.strip() if text.strip() else None
 
     except ImportError:
-        logger.error("httpx not installed — pip install httpx")
+        logger.error("httpx not installed")
         return None
     except Exception as e:
-        logger.exception("Claude Q&A API call failed: %s", e)
+        logger.exception("Claude Q&A failed: %s", e)
         return None
 
 
-# ── Public API ────────────────────────────────────────────────────
+# -- Public API --
 
 
 async def ask_document_question(
@@ -189,38 +272,35 @@ async def ask_document_question(
     question: str,
     lang: str = "fr",
 ) -> dict[str, Any]:
-    """Ask a question about a notice's documents.
+    """Ask a question about a notice - uses PDFs + notice data as context.
 
-    Returns dict with answer, sources, status.
+    Works for ALL notices: BOSA with PDFs, TED with descriptions, or mixed.
     """
-    # Step 1: gather document texts
     doc_texts = _gather_document_texts(db, notice.id)
+    notice_context = _extract_notice_context(notice)
 
-    if not doc_texts:
+    if not doc_texts and not notice_context:
         return {
-            "status": "no_documents",
+            "status": "no_content",
             "answer": None,
             "message": (
-                "Aucun document avec du texte extractible n'est disponible "
-                "pour ce marché. Les documents n'ont peut-être pas encore "
-                "été téléchargés ou sont des scans non-OCR."
+                "Aucune information disponible pour ce marche. "
+                "Ni documents telecharges, ni description dans l'avis."
             ),
             "sources": [],
         }
 
-    # Step 2: build prompt and call Claude
-    prompt = _build_qa_prompt(question, doc_texts, notice, lang=lang)
-    answer = await _call_claude_qa(prompt)
+    prompt = _build_prompt(question, doc_texts, notice_context, notice, lang=lang)
+    answer = await _call_claude(prompt)
 
     if not answer:
         return {
             "status": "error",
             "answer": None,
-            "message": "Impossible de générer une réponse. Réessayez plus tard.",
+            "message": "Impossible de generer une reponse. Reessayez plus tard.",
             "sources": [],
         }
 
-    # Step 3: return structured response
     sources = [
         {
             "document_id": dt["doc_id"],
@@ -230,6 +310,13 @@ async def ask_document_question(
         }
         for dt in doc_texts
     ]
+    if notice_context:
+        sources.append({
+            "document_id": None,
+            "title": "Donnees de l'avis",
+            "file_type": "NOTICE",
+            "text_length": len(notice_context),
+        })
 
     return {
         "status": "ok",
@@ -237,5 +324,6 @@ async def ask_document_question(
         "question": question,
         "sources": sources,
         "documents_used": len(doc_texts),
+        "notice_data_used": bool(notice_context),
         "lang": lang,
     }

@@ -6,7 +6,7 @@ from collections import deque
 from datetime import date, datetime, timezone
 from typing import Any, Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, Request, UploadFile
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
@@ -39,6 +39,7 @@ from app.db.crud.notice_detail import (
 )
 from app.db.session import SessionLocal, get_db
 from app.models.notice import NoticeSource, ProcurementNotice
+from app.models.notice_document import NoticeDocument
 from app.db.crud.notices import get_notice_by_id, get_notice_stats, list_notices
 from app.services.notice_service import NoticeService
 
@@ -608,6 +609,7 @@ async def analyze_notice_document(
 async def ask_about_documents(
     notice_id: str,
     body: DocumentQuestionRequest,
+    request: Request,
     db: Session = Depends(get_db),
     current_user=Depends(get_optional_user),
 ):
@@ -615,6 +617,8 @@ async def ask_about_documents(
 
     The AI reads all extracted document text and answers based on the content.
     Returns structured answer with source document references.
+
+    Auth: Bearer JWT token OR X-Admin-Key header (for testing).
     """
     from app.services.document_qa import ask_document_question
     from app.services.ai_summary import check_ai_usage, increment_ai_usage
@@ -629,17 +633,24 @@ async def ask_about_documents(
     if not notice:
         raise HTTPException(status_code=404, detail="Notice not found")
 
-    # Auth required
+    # Auth: accept Bearer JWT OR admin key (for PowerShell testing)
+    is_admin = False
     if not current_user:
-        raise HTTPException(
-            status_code=401,
-            detail="Authentification requise pour poser des questions sur les documents",
-        )
+        from app.core.config import settings as _settings
+        admin_key = request.headers.get("X-Admin-Key")
+        if admin_key and _settings.admin_api_key and admin_key == _settings.admin_api_key:
+            is_admin = True
+        else:
+            raise HTTPException(
+                status_code=401,
+                detail="Authentification requise pour poser des questions sur les documents",
+            )
 
-    # Check plan limits (shared quota with AI summaries)
-    usage_error = check_ai_usage(db, current_user)
-    if usage_error:
-        raise HTTPException(status_code=403, detail=usage_error)
+    # Check plan limits (skip for admin)
+    if not is_admin and current_user:
+        usage_error = check_ai_usage(db, current_user)
+        if usage_error:
+            raise HTTPException(status_code=403, detail=usage_error)
 
     req_lang = body.lang
 
@@ -649,11 +660,142 @@ async def ask_about_documents(
     if result.get("status") == "error":
         raise HTTPException(status_code=503, detail=result.get("message", "Erreur IA"))
 
-    # Increment usage for successful AI calls
-    if result.get("status") == "ok":
+    # Increment usage for successful AI calls (skip for admin)
+    if result.get("status") == "ok" and not is_admin and current_user:
         increment_ai_usage(db, current_user)
 
     return {
         "notice_id": notice_id,
         **result,
+    }
+
+
+# --- Document Upload (Phase 3 - Layer 3) ---
+
+
+@router.post(
+    "/{notice_id}/documents/upload",
+    summary="Upload a document for a notice",
+    description=(
+        "Allows users to upload PDF documents for notices where automatic "
+        "download is not possible (e.g. cloud.3p.eu with reCAPTCHA, "
+        "or platforms requiring authentication).\n\n"
+        "The uploaded PDF is text-extracted and stored for AI analysis."
+    ),
+)
+async def upload_notice_document(
+    notice_id: str,
+    file: UploadFile = File(...),
+    title: str = Query("Document uploadé", max_length=500),
+    request: Request = None,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_optional_user),
+):
+    """Upload a PDF document and extract text for AI analysis."""
+    import hashlib
+    import tempfile
+    import uuid
+    from pathlib import Path
+
+    # Auth: JWT or admin key
+    is_admin = False
+    if not current_user:
+        from app.core.config import settings as _settings
+        admin_key = request.headers.get("X-Admin-Key") if request else None
+        if admin_key and _settings.admin_api_key and admin_key == _settings.admin_api_key:
+            is_admin = True
+        else:
+            raise HTTPException(status_code=401, detail="Authentification requise")
+
+    notice = get_notice_by_id(db, notice_id)
+    if not notice:
+        raise HTTPException(status_code=404, detail="Notice not found")
+
+    # Validate file
+    if not file.filename:
+        raise HTTPException(status_code=422, detail="Nom de fichier manquant")
+
+    content_type = (file.content_type or "").lower()
+    filename_lower = (file.filename or "").lower()
+
+    if "pdf" not in content_type and not filename_lower.endswith(".pdf"):
+        raise HTTPException(
+            status_code=422,
+            detail="Seuls les fichiers PDF sont acceptés pour le moment.",
+        )
+
+    # Read file content
+    content = await file.read()
+    if len(content) > 50 * 1024 * 1024:
+        raise HTTPException(status_code=422, detail="Fichier trop volumineux (max 50 MB)")
+    if len(content) < 100:
+        raise HTTPException(status_code=422, detail="Fichier trop petit ou vide")
+
+    # Extract text from PDF
+    tmp_dir = Path(tempfile.gettempdir()) / "procurewatch_uploads"
+    tmp_dir.mkdir(exist_ok=True)
+    doc_id = str(uuid.uuid4())
+    tmp_path = tmp_dir / f"{doc_id}.pdf"
+
+    try:
+        tmp_path.write_bytes(content)
+
+        from app.documents.pdf_extractor import extract_text_from_pdf
+        text = extract_text_from_pdf(tmp_path)
+        if text:
+            text = text.replace("\x00", "")  # NUL byte fix
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur d'extraction: {e}")
+    finally:
+        tmp_path.unlink(missing_ok=True)
+
+    # Compute hash
+    sha256 = hashlib.sha256(content).hexdigest()
+
+    # Check for duplicate by hash
+    existing = (
+        db.query(NoticeDocument)
+        .filter(NoticeDocument.notice_id == notice_id, NoticeDocument.sha256 == sha256)
+        .first()
+    )
+    if existing:
+        return {
+            "status": "duplicate",
+            "document_id": existing.id,
+            "message": "Ce document a déjà été uploadé pour ce marché.",
+        }
+
+    # Create document record
+    from datetime import datetime, timezone
+
+    doc = NoticeDocument(
+        id=doc_id,
+        notice_id=notice_id,
+        title=title[:500],
+        url=f"upload://{file.filename}",
+        file_type="PDF",
+        content_type="application/pdf",
+        file_size=len(content),
+        sha256=sha256,
+        downloaded_at=datetime.now(timezone.utc),
+        download_status="ok",
+        extracted_text=text or "",
+        extracted_at=datetime.now(timezone.utc),
+        extraction_status="ok" if text else "empty",
+    )
+    db.add(doc)
+    db.commit()
+
+    return {
+        "status": "ok",
+        "document_id": doc_id,
+        "filename": file.filename,
+        "file_size": len(content),
+        "text_length": len(text or ""),
+        "has_text": bool(text and len(text.strip()) > 20),
+        "message": (
+            f"Document uploadé et analysé ({len(text or '')} caractères extraits)."
+            if text
+            else "Document uploadé mais aucun texte extractible (PDF scanné ?)."
+        ),
     }

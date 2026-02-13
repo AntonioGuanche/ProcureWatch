@@ -63,7 +63,8 @@ def _extract_ted_documents(raw: dict[str, Any]) -> list[dict[str, Any]]:
             "file_type": ftype or _guess_file_type(url),
         })
 
-    # 1) document-url-lot: string or list of strings/dicts
+    # 1) document-url-lot: external procurement document URLs (cahiers des charges)
+    #    These point to buyer platforms (publicprocurement.be, cloud.3p.eu, etc.)
     doc_url_lot = raw.get("document-url-lot")
     if isinstance(doc_url_lot, str):
         _add(doc_url_lot, "Documents du marché")
@@ -76,23 +77,53 @@ def _extract_ted_documents(raw: dict[str, Any]) -> list[dict[str, Any]]:
                 lang = entry.get("language") or entry.get("lang") or ""
                 _add(url, entry.get("title") or "Documents du marché", lang)
 
-    # 2) links: dict with html/xml/pdf keys, or list
+    # 2) links: TED-rendered notice PDFs/HTML/XML
+    #    Structure per swagger: links.pdf = {lang_code: url, ...}
+    #    e.g. links.pdf = {"eng": "https://ted.europa.eu/...", "fra": "https://..."}
     links = raw.get("links")
     if isinstance(links, dict):
-        for key in ("html", "xml", "pdf"):
-            url = links.get(key)
-            if isinstance(url, str):
-                _add(url, f"Avis TED ({key.upper()})", ftype=key.upper())
-    elif isinstance(links, list):
-        for entry in links:
-            if isinstance(entry, str):
-                _add(entry, "Avis TED")
-            elif isinstance(entry, dict):
-                url = entry.get("url") or entry.get("href") or ""
-                _add(url, entry.get("title") or "Avis TED")
+        # Priority: pdf > pdfs > html > xml
+        for link_key, label, ftype in [
+            ("pdf", "Avis TED (PDF)", "PDF"),
+            ("pdfs", "Avis TED (PDF)", "PDF"),
+            ("html", "Avis TED (HTML)", "HTML"),
+            ("xml", "Avis TED (XML)", "XML"),
+        ]:
+            link_val = links.get(link_key)
+            if isinstance(link_val, str) and _is_valid_url(link_val):
+                # Simple string URL (legacy format)
+                _add(link_val, label, ftype=ftype)
+            elif isinstance(link_val, dict):
+                # Multilingual dict: {lang_code: url_string}
+                # Pick best language: FR > EN > NL > DE > first available
+                best_url = None
+                best_lang = ""
+                for pref_lang in ("fra", "fr", "eng", "en", "nld", "nl", "deu", "de"):
+                    candidate = link_val.get(pref_lang)
+                    if isinstance(candidate, str) and _is_valid_url(candidate):
+                        best_url = candidate
+                        best_lang = pref_lang
+                        break
+                if not best_url:
+                    # Take first available
+                    for lk, lv in link_val.items():
+                        if isinstance(lv, str) and _is_valid_url(lv):
+                            best_url = lv
+                            best_lang = lk
+                            break
+                if best_url:
+                    _add(best_url, f"{label} [{best_lang}]", best_lang, ftype=ftype)
+            elif isinstance(link_val, list):
+                # List of URLs
+                for entry in link_val:
+                    if isinstance(entry, str) and _is_valid_url(entry):
+                        _add(entry, label, ftype=ftype)
+                    elif isinstance(entry, dict):
+                        url = entry.get("url") or entry.get("href") or ""
+                        _add(url, label, ftype=ftype)
 
-    # 3) procurement-docs-url (sometimes present)
-    for key in ("procurement-docs-url", "url-participation", "url-tool"):
+    # 3) document-url-part and other procurement doc URLs
+    for key in ("document-url-part", "procurement-docs-url", "url-participation", "url-tool"):
         val = raw.get(key)
         if isinstance(val, str) and _is_valid_url(val):
             _add(val, _doc_label(key))

@@ -1642,6 +1642,142 @@ def batch_download_documents(
     return batch_download_and_extract(db, limit=limit, source=source, dry_run=dry_run)
 
 
+@router.post(
+    "/backfill-ted-documents",
+    tags=["admin"],
+    summary="Re-extract document URLs from TED raw_data (after links fix)",
+    description=(
+        "Re-runs document extraction on TED notices to pick up links.pdf URLs "
+        "that were previously missed due to nested dict parsing bug.\n\n"
+        "Use replace=true to delete old docs and re-extract from scratch."
+    ),
+)
+def backfill_ted_documents(
+    limit: int = Query(1000, ge=1, le=50000, description="Max notices to process"),
+    replace: bool = Query(False, description="Delete existing docs and re-extract"),
+    dry_run: bool = Query(True, description="Preview only"),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Backfill TED documents from raw_data with corrected extraction."""
+    from sqlalchemy import text as sql_text
+    from app.services.document_extraction import backfill_documents_for_all
+
+    if dry_run:
+        # Count TED notices
+        total = db.execute(sql_text(
+            "SELECT COUNT(*) FROM notices WHERE source = 'TED_EU' AND raw_data IS NOT NULL"
+        )).scalar() or 0
+        # Count current TED docs
+        current_docs = db.execute(sql_text("""
+            SELECT COUNT(*) FROM notice_documents nd
+            JOIN notices n ON n.id = nd.notice_id
+            WHERE n.source = 'TED_EU'
+        """)).scalar() or 0
+        # Count docs with ted.europa.eu URLs (the ones we want to add)
+        ted_pdf_docs = db.execute(sql_text("""
+            SELECT COUNT(*) FROM notice_documents nd
+            JOIN notices n ON n.id = nd.notice_id
+            WHERE n.source = 'TED_EU'
+              AND nd.url LIKE '%%ted.europa.eu%%'
+              AND LOWER(nd.file_type) = 'pdf'
+        """)).scalar() or 0
+        return {
+            "ted_notices_total": total,
+            "current_ted_documents": current_docs,
+            "ted_pdf_documents": ted_pdf_docs,
+            "dry_run": True,
+            "message": f"{total} TED notices to re-extract. Set dry_run=false to run.",
+        }
+
+    result = backfill_documents_for_all(
+        db, source="TED_EU", replace=replace, batch_size=200,
+    )
+    return {**result, "replace": replace}
+
+
+@router.get(
+    "/document-stats",
+    tags=["admin"],
+    summary="Document pipeline statistics",
+)
+def document_pipeline_stats(
+    db: Session = Depends(get_db),
+) -> dict:
+    """Document pipeline stats: docs by source, download status, sample notices with text."""
+    from sqlalchemy import text as sql_text
+
+    stats = {}
+
+    # By source + status
+    rows = db.execute(sql_text("""
+        SELECT
+            n.source,
+            COUNT(DISTINCT nd.id) as total_docs,
+            COUNT(DISTINCT CASE WHEN nd.extracted_text IS NOT NULL
+                AND LENGTH(nd.extracted_text) > 50 THEN nd.id END) as with_text,
+            COUNT(DISTINCT CASE WHEN nd.download_status = 'ok' THEN nd.id END) as downloaded,
+            COUNT(DISTINCT CASE WHEN nd.download_status = 'failed' THEN nd.id END) as failed,
+            COUNT(DISTINCT CASE WHEN nd.download_status = 'skipped' THEN nd.id END) as skipped
+        FROM notice_documents nd
+        JOIN notices n ON n.id = nd.notice_id
+        GROUP BY n.source
+    """)).fetchall()
+    stats["by_source"] = [
+        {"source": r[0], "total_docs": r[1], "with_text": r[2],
+         "downloaded": r[3], "failed": r[4], "skipped": r[5]}
+        for r in rows
+    ]
+
+    # By file_type
+    rows2 = db.execute(sql_text("""
+        SELECT COALESCE(nd.file_type, '(null)') as ft, COUNT(*) as cnt
+        FROM notice_documents nd
+        GROUP BY nd.file_type
+        ORDER BY cnt DESC
+        LIMIT 15
+    """)).fetchall()
+    stats["by_file_type"] = [{"file_type": r[0], "count": r[1]} for r in rows2]
+
+    # By URL domain (top 10)
+    rows3 = db.execute(sql_text("""
+        SELECT
+            CASE
+                WHEN nd.url LIKE '%%ted.europa.eu%%' THEN 'ted.europa.eu'
+                WHEN nd.url LIKE '%%publicprocurement.be%%' THEN 'publicprocurement.be'
+                WHEN nd.url LIKE '%%cloud.3p.eu%%' THEN 'cloud.3p.eu'
+                WHEN nd.url LIKE '%%upload://%%' THEN 'user-upload'
+                ELSE 'other'
+            END as domain,
+            COUNT(*) as cnt
+        FROM notice_documents nd
+        GROUP BY domain
+        ORDER BY cnt DESC
+    """)).fetchall()
+    stats["by_domain"] = [{"domain": r[0], "count": r[1]} for r in rows3]
+
+    # Sample notices with extracted text (for Q&A testing)
+    samples = db.execute(sql_text("""
+        SELECT n.id, LEFT(n.title, 80) as title, n.source,
+               COUNT(nd.id) as doc_count,
+               SUM(CASE WHEN nd.extracted_text IS NOT NULL
+                   AND LENGTH(nd.extracted_text) > 50 THEN 1 ELSE 0 END) as docs_with_text,
+               MAX(LENGTH(nd.extracted_text)) as max_text_len
+        FROM notices n
+        JOIN notice_documents nd ON nd.notice_id = n.id
+        WHERE nd.extracted_text IS NOT NULL AND LENGTH(nd.extracted_text) > 50
+        GROUP BY n.id, n.title, n.source
+        ORDER BY docs_with_text DESC, max_text_len DESC
+        LIMIT 10
+    """)).fetchall()
+    stats["sample_notices_with_text"] = [
+        {"notice_id": r[0], "title": r[1], "source": r[2],
+         "doc_count": r[3], "docs_with_text": r[4], "max_text_len": r[5]}
+        for r in samples
+    ]
+
+    return stats
+
+
 # ── Phase 2b: BOSA Document Crawler (API-based) ─────────────────
 
 
@@ -1842,88 +1978,3 @@ def bosa_explore_docs(
                 result[f"test4_xml_id_{xid[:8]}"] = {"error": str(e)}
 
     return result
-
-
-# ── Document Pipeline Diagnostics ────────────────────────────────
-
-
-@router.get(
-    "/document-stats",
-    tags=["admin"],
-    summary="Document pipeline statistics and sample notices with text",
-)
-def document_pipeline_stats(
-    db: Session = Depends(get_db),
-) -> dict:
-    """Show document pipeline stats: how many docs have text, sample notice IDs for testing."""
-    from sqlalchemy import text as sql_text
-
-    stats = {}
-
-    # Overall counts
-    rows = db.execute(sql_text("""
-        SELECT
-            n.source,
-            COUNT(DISTINCT nd.id) as total_docs,
-            COUNT(DISTINCT CASE WHEN nd.extracted_text IS NOT NULL AND LENGTH(nd.extracted_text) > 50 THEN nd.id END) as with_text,
-            COUNT(DISTINCT CASE WHEN nd.download_status = 'ok' THEN nd.id END) as downloaded,
-            COUNT(DISTINCT CASE WHEN nd.download_status = 'failed' THEN nd.id END) as failed
-        FROM notice_documents nd
-        JOIN notices n ON n.id = nd.notice_id
-        GROUP BY n.source
-    """)).fetchall()
-
-    stats["by_source"] = [
-        {"source": r[0], "total_docs": r[1], "with_text": r[2], "downloaded": r[3], "failed": r[4]}
-        for r in rows
-    ]
-
-    # Sample notices with extracted text (for Q&A testing)
-    samples = db.execute(sql_text("""
-        SELECT n.id, LEFT(n.title, 80) as title, n.source,
-               COUNT(nd.id) as doc_count,
-               SUM(CASE WHEN nd.extracted_text IS NOT NULL AND LENGTH(nd.extracted_text) > 50 THEN 1 ELSE 0 END) as docs_with_text,
-               MAX(LENGTH(nd.extracted_text)) as max_text_len
-        FROM notices n
-        JOIN notice_documents nd ON nd.notice_id = n.id
-        WHERE nd.extracted_text IS NOT NULL AND LENGTH(nd.extracted_text) > 50
-        GROUP BY n.id, n.title, n.source
-        ORDER BY docs_with_text DESC, max_text_len DESC
-        LIMIT 10
-    """)).fetchall()
-
-    stats["sample_notices_with_text"] = [
-        {
-            "notice_id": r[0],
-            "title": r[1],
-            "source": r[2],
-            "doc_count": r[3],
-            "docs_with_text": r[4],
-            "max_text_len": r[5],
-        }
-        for r in samples
-    ]
-
-    # TED doc URLs sample (to diagnose download failures)
-    ted_docs = db.execute(sql_text("""
-        SELECT nd.id, nd.url, nd.file_type, nd.download_status, nd.download_error, nd.extraction_status
-        FROM notice_documents nd
-        JOIN notices n ON n.id = nd.notice_id
-        WHERE n.source LIKE '%%TED%%'
-        ORDER BY nd.download_status NULLS FIRST
-        LIMIT 10
-    """)).fetchall()
-
-    stats["ted_doc_samples"] = [
-        {
-            "doc_id": r[0],
-            "url": r[1][:200] if r[1] else None,
-            "file_type": r[2],
-            "download_status": r[3],
-            "download_error": (r[4] or "")[:200],
-            "extraction_status": r[5],
-        }
-        for r in ted_docs
-    ]
-
-    return stats

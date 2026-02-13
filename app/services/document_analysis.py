@@ -44,13 +44,31 @@ def _is_pdf_document(doc: NoticeDocument) -> bool:
 
 
 def _download_and_extract_text(doc: NoticeDocument) -> Optional[str]:
-    """Download PDF to /tmp, extract text with pypdf, delete file. Returns text or None."""
+    """Download document to /tmp, verify it's a PDF, extract text, delete file.
+
+    Smart Content-Type detection: checks server response before downloading
+    the full body. Skips HTML/XML pages gracefully (marks as 'skipped'
+    instead of 'failed') so the batch can move on to the next document.
+    This handles TED docs with unknown file_type (e.g. cloud.3p.eu URLs).
+    """
     import requests
     from app.documents.pdf_extractor import extract_text_from_pdf
 
     url = doc.url
     if not url:
         return None
+
+    # Skip known inaccessible platforms (reCAPTCHA, auth walls)
+    skip_domains = ("cloud.3p.eu",)
+    url_lower = url.lower()
+    for domain in skip_domains:
+        if domain in url_lower:
+            logger.info("Document %s on blocked domain %s, skipping", doc.id, domain)
+            doc.download_status = "skipped"
+            doc.download_error = f"Blocked domain: {domain} (reCAPTCHA)"
+            doc.extraction_status = "skipped"
+            doc.extraction_error = f"Blocked domain: {domain}"
+            return None
 
     # Generate a temp filename from doc id
     suffix = ".pdf"
@@ -60,8 +78,29 @@ def _download_and_extract_text(doc: NoticeDocument) -> Optional[str]:
 
     try:
         logger.info("Downloading document %s from %s", doc.id, url[:120])
-        resp = requests.get(url, timeout=60, stream=True)
+        resp = requests.get(url, timeout=60, stream=True, allow_redirects=True)
         resp.raise_for_status()
+
+        # Check Content-Type BEFORE downloading the whole body
+        content_type = (
+            resp.headers.get("Content-Type", "").split(";")[0].strip().lower()
+        )
+
+        # Skip non-downloadable content (HTML portals, XML feeds, etc.)
+        skip_types = ("text/html", "text/xml", "application/xml", "text/plain")
+        if any(content_type.startswith(t) for t in skip_types):
+            logger.info(
+                "Document %s is %s (not PDF), skipping", doc.id, content_type
+            )
+            resp.close()
+            doc.content_type = content_type
+            doc.download_status = "skipped"
+            doc.download_error = f"Not a PDF: Content-Type={content_type}"
+            doc.extraction_status = "skipped"
+            doc.extraction_error = f"Not a PDF: {content_type}"
+            if not doc.file_type:
+                doc.file_type = content_type.split("/")[-1].upper()[:50]
+            return None
 
         sha256_hash = hashlib.sha256()
         size = 0
@@ -75,20 +114,36 @@ def _download_and_extract_text(doc: NoticeDocument) -> Optional[str]:
                 if size > 50 * 1024 * 1024:
                     logger.warning("Document %s too large (%d bytes), skipping", doc.id, size)
                     tmp_path.unlink(missing_ok=True)
+                    doc.download_status = "skipped"
+                    doc.download_error = f"Too large: {size} bytes"
+                    doc.extraction_status = "skipped"
                     return None
 
         # Update download metadata
         doc.sha256 = sha256_hash.hexdigest()
         doc.file_size = size
-        doc.content_type = (
-            resp.headers.get("Content-Type", "").split(";")[0].strip()
-            or "application/pdf"
-        )
+        doc.content_type = content_type or "application/octet-stream"
         doc.downloaded_at = datetime.now(timezone.utc)
         doc.download_status = "ok"
         doc.download_error = None
 
-        # Extract text
+        # Update file_type from Content-Type if not already set
+        if not doc.file_type:
+            if "pdf" in content_type:
+                doc.file_type = "PDF"
+            elif "zip" in content_type:
+                doc.file_type = "ZIP"
+            elif content_type:
+                doc.file_type = content_type.split("/")[-1].upper()[:50]
+
+        # Only extract text from PDFs
+        if "pdf" not in (content_type or "") and not (doc.url or "").lower().endswith(".pdf"):
+            logger.info("Document %s is %s, not extracting text", doc.id, content_type)
+            doc.extraction_status = "skipped"
+            doc.extraction_error = f"Not a PDF: {content_type}"
+            return None
+
+        # Extract text from PDF
         text = extract_text_from_pdf(tmp_path)
         # Strip NUL bytes — PostgreSQL TEXT columns reject \x00
         if text:
@@ -99,8 +154,8 @@ def _download_and_extract_text(doc: NoticeDocument) -> Optional[str]:
         doc.extraction_error = None
 
         logger.info(
-            "Extracted %d chars from document %s (%d bytes)",
-            len(text or ""), doc.id, size,
+            "Extracted %d chars from document %s (%d bytes, %s)",
+            len(text or ""), doc.id, size, content_type,
         )
         return text
 
@@ -380,15 +435,20 @@ def batch_download_and_extract(
     """
     from sqlalchemy import text as sql_text
 
-    # Count eligible: PDF documents without extracted text
+    # Count eligible: documents not yet processed (extraction_status IS NULL).
+    # Includes docs with unknown file_type (e.g. cloud.3p.eu URLs from TED).
+    # Excludes:
+    #   - publicprocurement.be portal HTML pages (handled by BOSA crawler)
+    #   - cloud.3p.eu (reCAPTCHA, not automatable)
+    #   - docs already processed (extraction_status IS NOT NULL, includes 'skipped')
+    # NOTE: ted.europa.eu is NOT excluded — after TED links fix, those are real PDFs
     where_clause = (
         "WHERE nd.extraction_status IS NULL "
-        "  AND nd.file_type IS NOT NULL "
-        "  AND (LOWER(nd.file_type) LIKE '%pdf%' OR LOWER(nd.url) LIKE '%.pdf%') "
-        "  AND nd.url NOT LIKE '%publicprocurement.be%' "
+        "  AND nd.url NOT LIKE '%%publicprocurement.be%%' "
+        "  AND nd.url NOT LIKE '%%cloud.3p.eu%%' "
     )
     if source:
-        where_clause += f"  AND n.source = :source "
+        where_clause += "  AND n.source = :source "
 
     count_sql = f"""
         SELECT COUNT(*) FROM notice_documents nd
@@ -424,8 +484,9 @@ def batch_download_and_extract(
         "attempted": 0,
         "downloaded": 0,
         "extracted": 0,
-        "errors": 0,
+        "skipped_not_pdf": 0,
         "skipped_too_large": 0,
+        "errors": 0,
         "dry_run": False,
     }
 
@@ -442,10 +503,13 @@ def batch_download_and_extract(
 
             if doc.download_status == "ok":
                 stats["downloaded"] += 1
+            elif doc.download_status == "skipped":
+                if doc.download_error and "Too large" in doc.download_error:
+                    stats["skipped_too_large"] += 1
+                else:
+                    stats["skipped_not_pdf"] += 1
             if text:
                 stats["extracted"] += 1
-            elif doc.file_size and doc.file_size > 50 * 1024 * 1024:
-                stats["skipped_too_large"] += 1
 
         except Exception as e:
             logger.warning("Batch extract error for doc %s: %s", doc_id, e)
