@@ -1642,69 +1642,63 @@ def batch_download_documents(
     return batch_download_and_extract(db, limit=limit, source=source, dry_run=dry_run)
 
 
-# ── Phase 2b: Document Portal Crawler ────────────────────────────
+# ── Phase 2b: BOSA Document Crawler (API-based) ─────────────────
 
 
 @router.post(
     "/crawl-portal-documents",
     tags=["admin"],
-    summary="Crawl portal pages to discover and download PDF documents",
+    summary="Crawl BOSA portal API to discover and download PDF documents",
     description=(
-        "Follows HTML links (publicprocurement.be portals, TED pages, etc.) "
-        "to find actual PDF documents. Downloads + extracts text.\n\n"
-        "Targets notices that have portal links but no downloaded PDFs.\n"
+        "Uses the BOSA portal API to list documents for each publication workspace, "
+        "then downloads PDFs and extracts text.\n\n"
+        "Targets BOSA notices with a workspace ID but no downloaded PDFs.\n"
         "Use dry_run=true first to see count."
     ),
 )
 def crawl_portal_documents(
     limit: int = Query(50, ge=1, le=1000, description="Max notices to crawl"),
-    source: Optional[str] = Query(None, description="Filter: BOSA_EPROC or TED_EU"),
-    download: bool = Query(True, description="Download PDFs (false = discover only)"),
+    source: str = Query("BOSA_EPROC", description="Notice source"),
+    download: bool = Query(True, description="Download PDFs (false = list only)"),
     dry_run: bool = Query(True, description="Preview only"),
     db: Session = Depends(get_db),
 ) -> dict:
-    """Crawl procurement portal pages to discover PDF documents."""
+    """Crawl BOSA portal API to discover and download procurement PDFs."""
     from app.services.document_crawler import batch_crawl_notices
     return batch_crawl_notices(
-        db, limit=limit, source=source, download=download, dry_run=dry_run,
+        db, limit=limit, source=source, download_pdfs=download, dry_run=dry_run,
     )
 
 
 @router.post(
     "/crawl-notice/{notice_id}",
     tags=["admin"],
-    summary="Crawl portal pages for a single notice",
+    summary="Crawl BOSA portal for a single notice",
 )
 def crawl_single_notice(
     notice_id: str,
     download: bool = Query(True),
     db: Session = Depends(get_db),
 ) -> dict:
-    """Crawl portal pages for a specific notice to discover PDF documents."""
-    from app.services.document_crawler import crawl_portal_for_pdfs
-    from sqlalchemy import text as sql_text
+    """Crawl BOSA portal API for a specific notice to discover PDF documents."""
+    from app.services.document_crawler import crawl_bosa_documents
+    from app.models.notice import ProcurementNotice
 
-    # Find portal URLs for this notice
-    rows = db.execute(
-        sql_text(
-            "SELECT url FROM notice_documents WHERE notice_id = :nid "
-            "AND (LOWER(file_type) = 'html' "
-            "     OR url LIKE '%publicprocurement.be%' "
-            "     OR url LIKE '%e-tendering%')"
-        ),
-        {"nid": notice_id},
-    ).fetchall()
+    notice = db.query(ProcurementNotice).filter(
+        ProcurementNotice.id == notice_id
+    ).first()
+    if not notice:
+        return {"status": "error", "message": "Notice not found"}
 
-    if not rows:
-        return {"status": "no_portal_links", "notice_id": notice_id}
+    workspace_id = notice.publication_workspace_id
+    if not workspace_id:
+        return {"status": "no_workspace_id", "notice_id": notice_id}
 
-    all_results = []
-    for (portal_url,) in rows:
-        results = crawl_portal_for_pdfs(db, notice_id, portal_url, download=download)
-        all_results.extend(results)
-
+    results = crawl_bosa_documents(
+        db, notice_id, workspace_id, download_pdfs=download,
+    )
     return {
         "notice_id": notice_id,
-        "portal_urls_crawled": len(rows),
-        "documents": all_results,
+        "workspace_id": workspace_id,
+        "documents": results,
     }
