@@ -144,8 +144,18 @@ class NoticeDocumentRead(BaseModel):
     extracted_at: Optional[datetime] = None
     extraction_status: Optional[str] = None
     extraction_error: Optional[str] = None
+    # Phase 2: AI analysis
+    has_ai_analysis: bool = False
+    ai_analysis_generated_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
+
+    @model_validator(mode="after")
+    def compute_has_analysis(self) -> "NoticeDocumentRead":
+        """Set has_ai_analysis flag based on generated_at."""
+        if self.ai_analysis_generated_at is not None:
+            object.__setattr__(self, "has_ai_analysis", True)
+        return self
 
 
 class NoticeDocumentTextRead(BaseModel):

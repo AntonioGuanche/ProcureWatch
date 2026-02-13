@@ -519,3 +519,74 @@ async def generate_notice_summary(
         "generated_at": notice.ai_summary_generated_at.isoformat() if notice.ai_summary_generated_at else None,
         "cached": False,
     }
+
+
+# --- Document AI Analysis (Phase 2) ---
+
+
+@router.post("/{notice_id}/documents/{document_id}/analyze")
+async def analyze_notice_document(
+    notice_id: str,
+    document_id: str,
+    lang: str = Query("fr", regex="^(fr|nl|en|de)$", description="Target language"),
+    force: bool = Query(False, description="Force regeneration even if cached"),
+    db: Session = Depends(get_db),
+    current_user=Depends(get_optional_user),
+):
+    """Analyze a document with AI: download PDF → extract text → structured analysis.
+
+    On-demand: only downloads/extracts when user requests analysis.
+    Returns structured JSON with criteria, conditions, budget, calendar, etc.
+
+    Requires authentication. Plan-gated: Pro gets 20/month, Business unlimited.
+    Counts toward the same AI usage quota as summaries.
+    """
+    from app.services.document_analysis import analyze_document
+    from app.services.ai_summary import check_ai_usage, increment_ai_usage
+
+    notice = get_notice_by_id(db, notice_id)
+    if not notice:
+        raise HTTPException(status_code=404, detail="Notice not found")
+
+    doc = get_document_by_notice_and_id(db, notice_id, document_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    # Return cached if available and no force
+    if not force and doc.ai_analysis:
+        from app.services.document_analysis import _parse_cached
+        return {
+            "notice_id": notice_id,
+            "document_id": document_id,
+            **_parse_cached(doc),
+        }
+
+    # Auth required for generation
+    if not current_user:
+        raise HTTPException(
+            status_code=401,
+            detail="Authentification requise pour l'analyse de documents",
+        )
+
+    # Check plan limits (shared quota with AI summaries)
+    usage_error = check_ai_usage(db, current_user)
+    if usage_error:
+        raise HTTPException(status_code=403, detail=usage_error)
+
+    # Analyze
+    result = await analyze_document(db, doc, notice, lang=lang, force=force)
+    if not result:
+        raise HTTPException(
+            status_code=503,
+            detail="Impossible d'analyser le document. Réessayez plus tard.",
+        )
+
+    # Increment usage (only for non-cached results)
+    if result.get("status") == "ok":
+        increment_ai_usage(db, current_user)
+
+    return {
+        "notice_id": notice_id,
+        "document_id": document_id,
+        **result,
+    }

@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import ForeignKey, String, Text
+from sqlalchemy import DateTime, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base
@@ -50,3 +50,7 @@ class NoticeDocument(Base):
     extracted_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)
     extraction_status: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)  # ok|skipped|failed
     extraction_error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    # Document pipeline: AI analysis (Phase 2)
+    ai_analysis: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    ai_analysis_generated_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)

@@ -1615,3 +1615,28 @@ def bosa_enrich_debug(
         results.append(item)
 
     return {"count": len(results), "results": results}
+
+
+# ── Phase 2: Document Pipeline ───────────────────────────────────
+
+
+@router.post(
+    "/batch-download-documents",
+    tags=["admin"],
+    summary="Batch download PDFs and extract text",
+    description=(
+        "Downloads PDF documents to /tmp, extracts text with pypdf, "
+        "stores extracted_text in notice_documents, deletes file.\n\n"
+        "Only processes PDF documents that haven't been extracted yet.\n"
+        "Use dry_run=true first to see count."
+    ),
+)
+def batch_download_documents(
+    limit: int = Query(100, ge=1, le=5000, description="Max documents to process"),
+    source: Optional[str] = Query(None, description="Filter: BOSA_EPROC or TED_EU"),
+    dry_run: bool = Query(True, description="Preview only"),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Batch download PDFs and extract text (Phase 2 document pipeline)."""
+    from app.services.document_analysis import batch_download_and_extract
+    return batch_download_and_extract(db, limit=limit, source=source, dry_run=dry_run)
