@@ -350,6 +350,25 @@ def crawl_bosa_documents(
     return results
 
 
+# ── Workspace ID Extraction ───────────────────────────────────────
+
+
+def extract_workspace_id_from_url(url: str) -> Optional[str]:
+    """Extract workspace UUID from portal URL.
+
+    Example:
+        https://publicprocurement.be/publication-workspaces/01e330e5-00ca-.../general
+        → 01e330e5-00ca-...
+    """
+    import re
+    match = re.search(
+        r"publication-workspaces/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})",
+        url,
+        re.IGNORECASE,
+    )
+    return match.group(1) if match else None
+
+
 # ── Batch Crawler ─────────────────────────────────────────────────
 
 
@@ -362,28 +381,33 @@ def batch_crawl_notices(
 ) -> dict[str, Any]:
     """Batch crawl BOSA notices to discover and download PDF documents.
 
-    Targets BOSA notices that have a publication_workspace_id but no
-    downloaded PDF documents yet.
+    Strategy: find portal URLs stored in notice_documents, extract the real
+    workspace UUID from the URL, then call the BOSA portal API to list
+    and download documents.
+
+    The portal URLs look like:
+        https://publicprocurement.be/publication-workspaces/{UUID}/general
+    The UUID in the URL is the real workspace ID needed for the API.
 
     Args:
         db: Database session
         limit: Max notices to process
-        source: Notice source filter (default BOSA_EPROC)
+        source: Notice source filter
         download_pdfs: Download and extract PDFs
         dry_run: If True, just count eligible notices
     """
-    # Count eligible: BOSA notices with workspace_id but no downloaded PDFs
+    # Find notices with portal URLs but no downloaded PDFs
     count_sql = """
-        SELECT COUNT(*)
+        SELECT COUNT(DISTINCT n.id)
         FROM notices n
+        JOIN notice_documents nd_portal ON nd_portal.notice_id = n.id
+            AND nd_portal.url LIKE '%%publicprocurement.be/publication-workspaces/%%'
         WHERE n.source = :source
-        AND n.publication_workspace_id IS NOT NULL
-        AND n.publication_workspace_id != ''
         AND NOT EXISTS (
-            SELECT 1 FROM notice_documents nd
-            WHERE nd.notice_id = n.id
-            AND nd.download_status = 'ok'
-            AND LOWER(COALESCE(nd.file_type, '')) LIKE '%pdf%'
+            SELECT 1 FROM notice_documents nd_pdf
+            WHERE nd_pdf.notice_id = n.id
+            AND nd_pdf.download_status = 'ok'
+            AND LOWER(COALESCE(nd_pdf.file_type, '')) LIKE '%%pdf%%'
         )
     """
     total_eligible = db.execute(
@@ -395,23 +419,23 @@ def batch_crawl_notices(
             "total_eligible": total_eligible,
             "dry_run": True,
             "message": (
-                f"{total_eligible} {source} notices have a workspace ID "
+                f"{total_eligible} {source} notices have portal URLs "
                 f"but no downloaded PDFs. Set dry_run=false to crawl."
             ),
         }
 
-    # Fetch eligible notices
+    # Fetch notice + portal URL pairs
     fetch_sql = """
-        SELECT n.id, n.publication_workspace_id
+        SELECT n.id, nd_portal.url
         FROM notices n
+        JOIN notice_documents nd_portal ON nd_portal.notice_id = n.id
+            AND nd_portal.url LIKE '%%publicprocurement.be/publication-workspaces/%%'
         WHERE n.source = :source
-        AND n.publication_workspace_id IS NOT NULL
-        AND n.publication_workspace_id != ''
         AND NOT EXISTS (
-            SELECT 1 FROM notice_documents nd
-            WHERE nd.notice_id = n.id
-            AND nd.download_status = 'ok'
-            AND LOWER(COALESCE(nd.file_type, '')) LIKE '%pdf%'
+            SELECT 1 FROM notice_documents nd_pdf
+            WHERE nd_pdf.notice_id = n.id
+            AND nd_pdf.download_status = 'ok'
+            AND LOWER(COALESCE(nd_pdf.file_type, '')) LIKE '%%pdf%%'
         )
         ORDER BY n.publication_date DESC NULLS LAST
         LIMIT :lim
@@ -430,12 +454,19 @@ def batch_crawl_notices(
         "pdfs_with_text": 0,
         "skipped_non_pdf": 0,
         "skipped_existing": 0,
+        "no_workspace_id": 0,
         "errors": 0,
         "dry_run": False,
     }
 
-    for notice_id, workspace_id in rows:
+    for notice_id, portal_url in rows:
         stats["notices_processed"] += 1
+
+        # Extract real workspace UUID from portal URL
+        workspace_id = extract_workspace_id_from_url(portal_url)
+        if not workspace_id:
+            stats["no_workspace_id"] += 1
+            continue
 
         try:
             results = crawl_bosa_documents(
