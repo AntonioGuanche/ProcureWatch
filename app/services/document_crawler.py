@@ -1,15 +1,14 @@
-"""Phase 2b: BOSA Document Crawler via Portal API.
+"""Phase 2b: BOSA Document Crawler via Official API.
 
-Uses the public BOSA API to discover and download procurement documents:
-  1. GET /api/dos/publication-workspaces/{workspace_id}/documents → list of docs
-  2. GET /api/dos/publication-workspace-document-versions/{version_id}/download-url → presigned S3 URL
-  3. Download PDF → extract text → store in notice_documents
-
-The API is the same backend that powers publicprocurement.be, accessible without auth.
+Uses the official BOSA eProcurementDos API (OAuth2 + BelGov-Trace-Id)
+to discover and download procurement documents:
+  1. GET /publication-workspaces/{id}/documents → list of docs
+  2. GET /publication-workspace-document-versions/{version_id}/download-url → presigned S3 URL
+  3. Download PDF from presigned URL → extract text → store in notice_documents
 
 Usage:
-    from app.services.document_crawler import crawl_bosa_documents, batch_crawl_notices
-    stats = batch_crawl_notices(db, limit=200)
+    from app.services.document_crawler import batch_crawl_notices
+    stats = batch_crawl_notices(db, limit=50)
 """
 import hashlib
 import logging
@@ -30,80 +29,73 @@ logger = logging.getLogger(__name__)
 
 # ── Configuration ─────────────────────────────────────────────────
 
-# Public portal API (same backend as publicprocurement.be SPA)
-BOSA_PORTAL_API = "https://www.publicprocurement.be/api/dos"
-
-# Document types to fetch
-DOC_TYPES = "type=WORKSPACE&type=ESPD_REQUEST&type=SDI"
-
-# File extensions we can extract text from
 PDF_EXTENSIONS = {".pdf"}
-
-# Timeouts
-API_TIMEOUT = 30
 DOWNLOAD_TIMEOUT = 90
-
-# Limits
 MAX_PDF_SIZE = 50 * 1024 * 1024  # 50 MB
 POLITENESS_DELAY = 0.5  # seconds between API calls
-
 USER_AGENT = "ProcureWatch/1.0 (+https://procurewatch.be)"
 
 
-# ── BOSA API Calls ────────────────────────────────────────────────
+# ── BOSA Official API Client ─────────────────────────────────────
 
 
-def _api_headers() -> dict[str, str]:
-    return {
-        "User-Agent": USER_AGENT,
-        "Accept": "application/json",
-        "Accept-Language": "fr",
-    }
+def _get_bosa_client():
+    """Get official BOSA client with OAuth2 credentials."""
+    from app.connectors.bosa.client import _get_client
+    from app.connectors.bosa.official_client import OfficialEProcurementClient
+
+    client, provider = _get_client()
+    if not isinstance(client, OfficialEProcurementClient):
+        raise RuntimeError(f"BOSA client is {provider}, not official")
+    return client
 
 
 def list_workspace_documents(workspace_id: str) -> list[dict[str, Any]]:
-    """Call BOSA portal API to list documents for a publication workspace.
+    """List documents for a publication workspace via official BOSA API.
 
-    Returns list of document dicts with id, titles, versions, languages.
+    Uses OAuth2 + BelGov-Trace-Id headers (required by BOSA).
     """
-    url = f"{BOSA_PORTAL_API}/publication-workspaces/{workspace_id}/documents?full=false&{DOC_TYPES}"
+    client = _get_bosa_client()
+    dos_base = client.dos_base_url.rstrip("/")
+    url = f"{dos_base}/publication-workspaces/{workspace_id}/documents?full=false&type=WORKSPACE"
 
     try:
-        resp = requests.get(url, headers=_api_headers(), timeout=API_TIMEOUT)
-        if resp.status_code == 404:
-            logger.debug("Workspace %s not found (404)", workspace_id)
+        resp = client.request("GET", url)
+        if resp.status_code in (404, 403):
+            logger.debug("Workspace %s: %d", workspace_id, resp.status_code)
             return []
-        if resp.status_code == 403:
-            logger.debug("Workspace %s access denied (403)", workspace_id)
+        if resp.status_code != 200:
+            logger.warning(
+                "Workspace %s documents: status=%d body=%s",
+                workspace_id, resp.status_code, resp.text[:200],
+            )
             return []
-        resp.raise_for_status()
         data = resp.json()
-        if isinstance(data, list):
-            return data
-        return []
-    except requests.RequestException as e:
+        return data if isinstance(data, list) else []
+    except Exception as e:
         logger.warning("Failed to list docs for workspace %s: %s", workspace_id, e)
         return []
 
 
 def get_download_url(version_id: str) -> Optional[str]:
-    """Get presigned download URL for a document version.
-
-    Returns presigned MinIO/S3 URL (valid ~2 hours) or None.
-    """
+    """Get presigned download URL for a document version via official API."""
+    client = _get_bosa_client()
+    dos_base = client.dos_base_url.rstrip("/")
     url = (
-        f"{BOSA_PORTAL_API}/publication-workspace-document-versions/"
+        f"{dos_base}/publication-workspace-document-versions/"
         f"{version_id}/download-url?unpublished=false"
     )
 
     try:
-        resp = requests.get(url, headers=_api_headers(), timeout=API_TIMEOUT)
+        resp = client.request("GET", url)
         if resp.status_code in (404, 403):
             return None
-        resp.raise_for_status()
+        if resp.status_code != 200:
+            logger.warning("Download URL for %s: status=%d", version_id, resp.status_code)
+            return None
         data = resp.json()
         return data.get("value") if isinstance(data, dict) else None
-    except requests.RequestException as e:
+    except Exception as e:
         logger.warning("Failed to get download URL for version %s: %s", version_id, e)
         return None
 
@@ -112,30 +104,22 @@ def get_download_url(version_id: str) -> Optional[str]:
 
 
 def _parse_bosa_document(doc_data: dict[str, Any]) -> dict[str, Any]:
-    """Parse a BOSA document JSON into a flat dict.
-
-    Extracts: title, filename, version_id, file_hash, languages, file_type.
-    """
-    # Title
+    """Parse a BOSA document JSON into a flat dict."""
     titles = doc_data.get("titles", [])
     title = titles[0]["text"] if titles else None
 
-    # Latest version
     versions = doc_data.get("versions", [])
     version = versions[0] if versions else {}
     version_id = version.get("id")
 
-    # Inner document info
     inner_doc = version.get("document", {})
     original_filename = inner_doc.get("originalFileName", "")
     file_hash = inner_doc.get("fileHash")
 
-    # Determine file type from filename
     ext = ""
     if original_filename and "." in original_filename:
         ext = "." + original_filename.rsplit(".", 1)[-1].lower()
 
-    # Languages
     languages = doc_data.get("languages", [])
     lang = languages[0] if languages else None
 
@@ -154,11 +138,7 @@ def _parse_bosa_document(doc_data: dict[str, Any]) -> dict[str, Any]:
 
 
 def _download_and_extract(download_url: str, doc_id: str) -> Optional[dict[str, Any]]:
-    """Download file from presigned URL, extract text if PDF.
-
-    Downloads to /tmp, extracts text, deletes file.
-    Returns metadata dict or None on failure.
-    """
+    """Download file from presigned URL, extract text if PDF."""
     from app.documents.pdf_extractor import extract_text_from_pdf
 
     tmp_dir = Path(tempfile.gettempdir()) / "procurewatch_bosa"
@@ -166,7 +146,12 @@ def _download_and_extract(download_url: str, doc_id: str) -> Optional[dict[str, 
     tmp_path = tmp_dir / f"{doc_id}.pdf"
 
     try:
-        resp = requests.get(download_url, timeout=DOWNLOAD_TIMEOUT, stream=True)
+        resp = requests.get(
+            download_url,
+            timeout=DOWNLOAD_TIMEOUT,
+            headers={"User-Agent": USER_AGENT},
+            stream=True,
+        )
         resp.raise_for_status()
 
         sha256_hash = hashlib.sha256()
@@ -186,9 +171,7 @@ def _download_and_extract(download_url: str, doc_id: str) -> Optional[dict[str, 
             tmp_path.unlink(missing_ok=True)
             return None
 
-        # Extract text
         text = extract_text_from_pdf(tmp_path)
-
         content_type = (
             resp.headers.get("Content-Type", "").split(";")[0].strip()
             or "application/pdf"
@@ -218,7 +201,7 @@ def crawl_bosa_documents(
     workspace_id: str,
     download_pdfs: bool = True,
 ) -> list[dict[str, Any]]:
-    """Discover and download documents for a BOSA notice via the portal API.
+    """Discover and download documents for a BOSA notice via official API.
 
     Args:
         db: Database session
@@ -231,16 +214,14 @@ def crawl_bosa_documents(
     """
     results: list[dict[str, Any]] = []
 
-    # Step 1: List documents via API
+    # Step 1: List documents via official API
     raw_docs = list_workspace_documents(workspace_id)
     if not raw_docs:
         return [{"status": "no_documents", "workspace_id": workspace_id}]
 
-    logger.info(
-        "Workspace %s: found %d documents", workspace_id, len(raw_docs),
-    )
+    logger.info("Workspace %s: found %d documents", workspace_id, len(raw_docs))
 
-    # Get existing document hashes for this notice (dedup)
+    # Get existing hashes for dedup
     existing_hashes = set(
         row[0] for row in db.execute(
             sql_text(
@@ -250,11 +231,12 @@ def crawl_bosa_documents(
             {"nid": notice_id},
         ).fetchall()
     )
-
-    # Get existing URLs
-    existing_urls = set(
+    existing_checksums = set(
         row[0] for row in db.execute(
-            sql_text("SELECT url FROM notice_documents WHERE notice_id = :nid"),
+            sql_text(
+                "SELECT checksum FROM notice_documents "
+                "WHERE notice_id = :nid AND checksum IS NOT NULL"
+            ),
             {"nid": notice_id},
         ).fetchall()
     )
@@ -274,13 +256,13 @@ def crawl_bosa_documents(
             results.append(doc_result)
             continue
 
-        # Dedup by file hash
-        if parsed["file_hash"] and parsed["file_hash"] in existing_hashes:
+        # Dedup by BOSA file hash
+        if parsed["file_hash"] and parsed["file_hash"] in existing_checksums:
             doc_result["status"] = "exists_hash"
             results.append(doc_result)
             continue
 
-        # Only download PDFs (for now)
+        # Only download PDFs
         if not parsed["is_pdf"]:
             doc_result["status"] = "skipped_non_pdf"
             results.append(doc_result)
@@ -318,24 +300,23 @@ def crawl_bosa_documents(
         doc_entity = NoticeDocument(
             id=doc_db_id,
             notice_id=notice_id,
-            url=download_url.split("?")[0],  # Store base URL without presigned params
+            url=download_url.split("?")[0],
             title=parsed["title"] or parsed["original_filename"],
             file_type="PDF",
             language=parsed["language"],
             checksum=parsed["file_hash"],
-            # Download metadata
             content_type=dl_result["content_type"],
             file_size=dl_result["file_size"],
             sha256=dl_result["sha256"],
             downloaded_at=datetime.now(timezone.utc),
             download_status="ok",
-            # Extraction metadata
             extracted_text=dl_result["extracted_text"],
             extracted_at=datetime.now(timezone.utc),
             extraction_status="ok",
         )
         db.add(doc_entity)
         existing_hashes.add(dl_result["sha256"])
+        existing_checksums.add(parsed["file_hash"])
 
         text_len = len(dl_result["extracted_text"])
         doc_result.update({
@@ -350,25 +331,6 @@ def crawl_bosa_documents(
     return results
 
 
-# ── Workspace ID Extraction ───────────────────────────────────────
-
-
-def extract_workspace_id_from_url(url: str) -> Optional[str]:
-    """Extract workspace UUID from portal URL.
-
-    Example:
-        https://publicprocurement.be/publication-workspaces/01e330e5-00ca-.../general
-        → 01e330e5-00ca-...
-    """
-    import re
-    match = re.search(
-        r"publication-workspaces/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})",
-        url,
-        re.IGNORECASE,
-    )
-    return match.group(1) if match else None
-
-
 # ── Batch Crawler ─────────────────────────────────────────────────
 
 
@@ -381,33 +343,20 @@ def batch_crawl_notices(
 ) -> dict[str, Any]:
     """Batch crawl BOSA notices to discover and download PDF documents.
 
-    Strategy: find portal URLs stored in notice_documents, extract the real
-    workspace UUID from the URL, then call the BOSA portal API to list
-    and download documents.
-
-    The portal URLs look like:
-        https://publicprocurement.be/publication-workspaces/{UUID}/general
-    The UUID in the URL is the real workspace ID needed for the API.
-
-    Args:
-        db: Database session
-        limit: Max notices to process
-        source: Notice source filter
-        download_pdfs: Download and extract PDFs
-        dry_run: If True, just count eligible notices
+    Uses publication_workspace_id stored on each notice to call the
+    official BOSA API and list/download documents.
     """
-    # Find notices with portal URLs but no downloaded PDFs
     count_sql = """
-        SELECT COUNT(DISTINCT n.id)
+        SELECT COUNT(*)
         FROM notices n
-        JOIN notice_documents nd_portal ON nd_portal.notice_id = n.id
-            AND nd_portal.url LIKE '%%publicprocurement.be/publication-workspaces/%%'
         WHERE n.source = :source
+        AND n.publication_workspace_id IS NOT NULL
+        AND n.publication_workspace_id != ''
         AND NOT EXISTS (
-            SELECT 1 FROM notice_documents nd_pdf
-            WHERE nd_pdf.notice_id = n.id
-            AND nd_pdf.download_status = 'ok'
-            AND LOWER(COALESCE(nd_pdf.file_type, '')) LIKE '%%pdf%%'
+            SELECT 1 FROM notice_documents nd
+            WHERE nd.notice_id = n.id
+            AND nd.download_status = 'ok'
+            AND LOWER(COALESCE(nd.file_type, '')) LIKE '%%pdf%%'
         )
     """
     total_eligible = db.execute(
@@ -419,23 +368,22 @@ def batch_crawl_notices(
             "total_eligible": total_eligible,
             "dry_run": True,
             "message": (
-                f"{total_eligible} {source} notices have portal URLs "
-                f"but no downloaded PDFs. Set dry_run=false to crawl."
+                f"{total_eligible} {source} notices eligible. "
+                f"Set dry_run=false to crawl."
             ),
         }
 
-    # Fetch notice + portal URL pairs
     fetch_sql = """
-        SELECT n.id, nd_portal.url
+        SELECT n.id, n.publication_workspace_id
         FROM notices n
-        JOIN notice_documents nd_portal ON nd_portal.notice_id = n.id
-            AND nd_portal.url LIKE '%%publicprocurement.be/publication-workspaces/%%'
         WHERE n.source = :source
+        AND n.publication_workspace_id IS NOT NULL
+        AND n.publication_workspace_id != ''
         AND NOT EXISTS (
-            SELECT 1 FROM notice_documents nd_pdf
-            WHERE nd_pdf.notice_id = n.id
-            AND nd_pdf.download_status = 'ok'
-            AND LOWER(COALESCE(nd_pdf.file_type, '')) LIKE '%%pdf%%'
+            SELECT 1 FROM notice_documents nd
+            WHERE nd.notice_id = n.id
+            AND nd.download_status = 'ok'
+            AND LOWER(COALESCE(nd.file_type, '')) LIKE '%%pdf%%'
         )
         ORDER BY n.publication_date DESC NULLS LAST
         LIMIT :lim
@@ -454,19 +402,12 @@ def batch_crawl_notices(
         "pdfs_with_text": 0,
         "skipped_non_pdf": 0,
         "skipped_existing": 0,
-        "no_workspace_id": 0,
         "errors": 0,
         "dry_run": False,
     }
 
-    for notice_id, portal_url in rows:
+    for notice_id, workspace_id in rows:
         stats["notices_processed"] += 1
-
-        # Extract real workspace UUID from portal URL
-        workspace_id = extract_workspace_id_from_url(portal_url)
-        if not workspace_id:
-            stats["no_workspace_id"] += 1
-            continue
 
         try:
             results = crawl_bosa_documents(
@@ -501,7 +442,6 @@ def batch_crawl_notices(
             if has_docs:
                 stats["workspaces_with_docs"] += 1
 
-            # Politeness between notices
             time.sleep(POLITENESS_DELAY)
 
         except Exception as e:
