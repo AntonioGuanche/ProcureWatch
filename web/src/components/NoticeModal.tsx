@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { getNotice, getNoticeLots, getNoticeDocuments, addFavorite, removeFavorite, generateSummary } from "../api";
-import type { Notice, NoticeLot, NoticeDocument, AISummaryResponse } from "../types";
+import { getNotice, getNoticeLots, getNoticeDocuments, addFavorite, removeFavorite, generateSummary, analyzeDocument } from "../api";
+import type { Notice, NoticeLot, NoticeDocument, AISummaryResponse, DocumentAnalysisResponse } from "../types";
 
 function fmtDate(s: string | null): string {
   if (!s) return "—";
@@ -18,6 +18,13 @@ function orgName(names: Record<string, string> | null): string {
   return names.fr || names.nl || names.en || names.de || Object.values(names)[0] || "—";
 }
 
+function isPdfDoc(doc: NoticeDocument): boolean {
+  const ft = (doc.file_type || "").toLowerCase();
+  if (ft.includes("pdf")) return true;
+  const url = (doc.url || "").toLowerCase();
+  return url.endsWith(".pdf") || url.includes(".pdf?");
+}
+
 const LANG_OPTIONS = [
   { value: "fr", label: "Français" },
   { value: "nl", label: "Nederlands" },
@@ -25,12 +32,186 @@ const LANG_OPTIONS = [
   { value: "de", label: "Deutsch" },
 ];
 
+const PME_SCORE_COLORS: Record<string, string> = {
+  facile: "#16a34a",
+  moyen: "#d97706",
+  difficile: "#dc2626",
+};
+
 interface Props {
   noticeId: string;
   isFavorited: boolean;
   onToggleFavorite: (noticeId: string, favorited: boolean) => void;
   onClose: () => void;
 }
+
+// ── Document Analysis Panel ─────────────────────────────────────
+
+function AnalysisPanel({ data }: { data: DocumentAnalysisResponse }) {
+  if (data.status === "no_text") {
+    return <div className="analysis-message analysis-warning">{data.message}</div>;
+  }
+  if (data.status === "error") {
+    return <div className="analysis-message analysis-error">{data.message}</div>;
+  }
+
+  const a = data.analysis;
+  if (!a) return null;
+
+  // Fallback: raw text
+  if (a.raw_text) {
+    return (
+      <div className="analysis-raw">
+        <pre>{a.raw_text}</pre>
+      </div>
+    );
+  }
+
+  return (
+    <div className="analysis-structured">
+      {/* Objet */}
+      {a.objet && (
+        <div className="analysis-block">
+          <h4>🏗️ Objet</h4>
+          <p>{a.objet}</p>
+        </div>
+      )}
+
+      {/* Lots */}
+      {a.lots && a.lots.length > 0 && (
+        <div className="analysis-block">
+          <h4>📦 Lots</h4>
+          <ul>{a.lots.map((lot, i) => <li key={i}>{lot}</li>)}</ul>
+        </div>
+      )}
+
+      {/* Critères d'attribution */}
+      {a.criteres_attribution && a.criteres_attribution.length > 0 && (
+        <div className="analysis-block">
+          <h4>⚖️ Critères d'attribution</h4>
+          <ul>{a.criteres_attribution.map((c, i) => <li key={i}>{c}</li>)}</ul>
+        </div>
+      )}
+
+      {/* Conditions de participation */}
+      {a.conditions_participation && (
+        <div className="analysis-block">
+          <h4>📋 Conditions de participation</h4>
+          <div className="analysis-conditions">
+            {a.conditions_participation.capacite_technique && (
+              <div className="condition-item">
+                <span className="condition-label">Capacité technique</span>
+                <span>{a.conditions_participation.capacite_technique}</span>
+              </div>
+            )}
+            {a.conditions_participation.capacite_financiere && (
+              <div className="condition-item">
+                <span className="condition-label">Capacité financière</span>
+                <span>{a.conditions_participation.capacite_financiere}</span>
+              </div>
+            )}
+            {a.conditions_participation.agreations && a.conditions_participation.agreations.length > 0 && (
+              <div className="condition-item">
+                <span className="condition-label">Agréations</span>
+                <span>{a.conditions_participation.agreations.join(", ")}</span>
+              </div>
+            )}
+            {a.conditions_participation.certifications && a.conditions_participation.certifications.length > 0 && (
+              <div className="condition-item">
+                <span className="condition-label">Certifications</span>
+                <span>{a.conditions_participation.certifications.join(", ")}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Budget */}
+      {a.budget && (a.budget.valeur_estimee || a.budget.cautionnement) && (
+        <div className="analysis-block">
+          <h4>💰 Budget</h4>
+          <div className="analysis-conditions">
+            {a.budget.valeur_estimee && (
+              <div className="condition-item">
+                <span className="condition-label">Valeur estimée</span>
+                <span>{a.budget.valeur_estimee}</span>
+              </div>
+            )}
+            {a.budget.cautionnement && (
+              <div className="condition-item">
+                <span className="condition-label">Cautionnement</span>
+                <span>{a.budget.cautionnement}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Calendrier */}
+      {a.calendrier && (a.calendrier.date_limite || a.calendrier.duree_marche || a.calendrier.delai_execution || a.calendrier.visite_obligatoire) && (
+        <div className="analysis-block">
+          <h4>📅 Calendrier</h4>
+          <div className="analysis-conditions">
+            {a.calendrier.date_limite && (
+              <div className="condition-item">
+                <span className="condition-label">Date limite</span>
+                <span>{a.calendrier.date_limite}</span>
+              </div>
+            )}
+            {a.calendrier.duree_marche && (
+              <div className="condition-item">
+                <span className="condition-label">Durée du marché</span>
+                <span>{a.calendrier.duree_marche}</span>
+              </div>
+            )}
+            {a.calendrier.delai_execution && (
+              <div className="condition-item">
+                <span className="condition-label">Délai d'exécution</span>
+                <span>{a.calendrier.delai_execution}</span>
+              </div>
+            )}
+            {a.calendrier.visite_obligatoire && (
+              <div className="condition-item">
+                <span className="condition-label">Visite obligatoire</span>
+                <span className="condition-highlight">{a.calendrier.visite_obligatoire}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Points d'attention */}
+      {a.points_attention && a.points_attention.length > 0 && (
+        <div className="analysis-block analysis-attention">
+          <h4>⚠️ Points d'attention</h4>
+          <ul>{a.points_attention.map((p, i) => <li key={i}>{p}</li>)}</ul>
+        </div>
+      )}
+
+      {/* Score PME */}
+      {a.score_accessibilite_pme && (
+        <div className="analysis-block">
+          <h4>🏢 Accessibilité PME</h4>
+          <span
+            className="pme-score-badge"
+            style={{ background: PME_SCORE_COLORS[a.score_accessibilite_pme.split("—")[0].trim()] || "#6b7280" }}
+          >
+            {a.score_accessibilite_pme}
+          </span>
+        </div>
+      )}
+
+      {/* Meta */}
+      {data.cached && (
+        <div className="analysis-meta">
+          <span className="ai-cached-badge">en cache</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Main Modal ──────────────────────────────────────────────────
 
 export function NoticeModal({ noticeId, isFavorited, onToggleFavorite, onClose }: Props) {
   const [notice, setNotice] = useState<Notice | null>(null);
@@ -45,10 +226,19 @@ export function NoticeModal({ noticeId, isFavorited, onToggleFavorite, onClose }
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [summaryError, setSummaryError] = useState<string | null>(null);
 
+  // Document Analysis state (per document)
+  const [analysisResults, setAnalysisResults] = useState<Record<string, DocumentAnalysisResponse>>({});
+  const [analysisLoading, setAnalysisLoading] = useState<Record<string, boolean>>({});
+  const [analysisErrors, setAnalysisErrors] = useState<Record<string, string>>({});
+  const [expandedDoc, setExpandedDoc] = useState<string | null>(null);
+
   useEffect(() => {
     setLoading(true);
     setSummaryData(null);
     setSummaryError(null);
+    setAnalysisResults({});
+    setAnalysisErrors({});
+    setExpandedDoc(null);
     Promise.all([
       getNotice(noticeId),
       getNoticeLots(noticeId).catch(() => ({ items: [], total: 0 })),
@@ -109,6 +299,35 @@ export function NoticeModal({ noticeId, isFavorited, onToggleFavorite, onClose }
     // If we already have a summary in a different language, regenerate
     if (summaryData && summaryData.lang !== lang) {
       setSummaryData(null);
+    }
+  };
+
+  const handleAnalyzeDoc = async (docId: string, force = false) => {
+    setAnalysisLoading((prev) => ({ ...prev, [docId]: true }));
+    setAnalysisErrors((prev) => ({ ...prev, [docId]: "" }));
+    setExpandedDoc(docId);
+    try {
+      const data = await analyzeDocument(noticeId, docId, summaryLang, force);
+      setAnalysisResults((prev) => ({ ...prev, [docId]: data }));
+    } catch (e) {
+      setAnalysisErrors((prev) => ({
+        ...prev,
+        [docId]: e instanceof Error ? e.message : "Erreur lors de l'analyse",
+      }));
+    } finally {
+      setAnalysisLoading((prev) => ({ ...prev, [docId]: false }));
+    }
+  };
+
+  const toggleDocExpand = (docId: string) => {
+    if (expandedDoc === docId) {
+      setExpandedDoc(null);
+    } else {
+      setExpandedDoc(docId);
+      // Auto-fetch cached analysis if not already loaded
+      if (!analysisResults[docId] && !analysisLoading[docId]) {
+        handleAnalyzeDoc(docId);
+      }
     }
   };
 
@@ -182,7 +401,7 @@ export function NoticeModal({ noticeId, isFavorited, onToggleFavorite, onClose }
               )}
               {notice.nuts_codes && notice.nuts_codes.length > 0 && (
                 <div className="meta-item">
-                  <span className="meta-label">Zones NUTS</span>
+                  <span className="meta-label">NUTS</span>
                   <span className="meta-value">{notice.nuts_codes.join(", ")}</span>
                 </div>
               )}
@@ -337,15 +556,87 @@ export function NoticeModal({ noticeId, isFavorited, onToggleFavorite, onClose }
                 <h3>Documents ({docs.length})</h3>
                 <div className="docs-list">
                   {docs.map((doc) => (
-                    <a key={doc.id} href={doc.url} target="_blank" rel="noopener noreferrer" className="doc-item">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
-                        <polyline points="14 2 14 8 20 8"/>
-                      </svg>
-                      <span>{doc.title || "Document"}</span>
-                      {doc.file_type && <span className="doc-type">{doc.file_type}</span>}
-                      {doc.language && <span className="doc-lang">{doc.language.toUpperCase()}</span>}
-                    </a>
+                    <div key={doc.id} className="doc-wrapper">
+                      <div className="doc-row">
+                        <a href={doc.url} target="_blank" rel="noopener noreferrer" className="doc-item">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                            <polyline points="14 2 14 8 20 8"/>
+                          </svg>
+                          <span>{doc.title || "Document"}</span>
+                          {doc.file_type && <span className="doc-type">{doc.file_type}</span>}
+                          {doc.language && <span className="doc-lang">{doc.language.toUpperCase()}</span>}
+                          {doc.has_ai_analysis && <span className="doc-analyzed-badge">✓ analysé</span>}
+                        </a>
+                        {isPdfDoc(doc) && (
+                          <button
+                            className="btn-sm btn-analyze"
+                            onClick={() => {
+                              if (analysisResults[doc.id] || doc.has_ai_analysis) {
+                                toggleDocExpand(doc.id);
+                              } else {
+                                handleAnalyzeDoc(doc.id);
+                              }
+                            }}
+                            disabled={analysisLoading[doc.id]}
+                            title="Analyser ce document avec l'IA"
+                          >
+                            {analysisLoading[doc.id] ? (
+                              <><svg className="spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg> Analyse…</>
+                            ) : analysisResults[doc.id] || doc.has_ai_analysis ? (
+                              <>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                                  <polyline points="14 2 14 8 20 8"/>
+                                  <line x1="16" y1="13" x2="8" y2="13"/>
+                                  <line x1="16" y1="17" x2="8" y2="17"/>
+                                </svg>
+                                {expandedDoc === doc.id ? "Masquer" : "Voir l'analyse"}
+                              </>
+                            ) : (
+                              <>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                                </svg>
+                                Analyser
+                              </>
+                            )}
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Analysis result panel */}
+                      {expandedDoc === doc.id && (
+                        <div className="doc-analysis-panel">
+                          {analysisLoading[doc.id] && (
+                            <div className="analysis-loading">
+                              <svg className="spin" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>
+                              <span>Téléchargement et analyse du document en cours…</span>
+                            </div>
+                          )}
+                          {analysisErrors[doc.id] && (
+                            <div className="analysis-message analysis-error">{analysisErrors[doc.id]}</div>
+                          )}
+                          {analysisResults[doc.id] && !analysisLoading[doc.id] && (
+                            <div className="analysis-result-container">
+                              <div className="analysis-result-header">
+                                <span>Analyse IA du document</span>
+                                {analysisResults[doc.id].status === "ok" && (
+                                  <button
+                                    className="btn-xs btn-outline"
+                                    onClick={() => handleAnalyzeDoc(doc.id, true)}
+                                    title="Regénérer l'analyse"
+                                  >
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
+                                  </button>
+                                )}
+                              </div>
+                              <AnalysisPanel data={analysisResults[doc.id]} />
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   ))}
                 </div>
               </div>

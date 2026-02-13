@@ -81,6 +81,50 @@ export interface AISummaryResponse {
   cached: boolean;
 }
 
+// ── Document AI Analysis (Phase 2) ─────────────────────────────────
+
+export interface DocumentAnalysisConditions {
+  capacite_technique: string | null;
+  capacite_financiere: string | null;
+  agreations: string[] | null;
+  certifications: string[] | null;
+}
+
+export interface DocumentAnalysisBudget {
+  valeur_estimee: string | null;
+  cautionnement: string | null;
+}
+
+export interface DocumentAnalysisCalendar {
+  date_limite: string | null;
+  duree_marche: string | null;
+  delai_execution: string | null;
+  visite_obligatoire: string | null;
+}
+
+export interface DocumentAnalysisResult {
+  objet: string | null;
+  lots: string[] | null;
+  criteres_attribution: string[] | null;
+  conditions_participation: DocumentAnalysisConditions | null;
+  budget: DocumentAnalysisBudget | null;
+  calendrier: DocumentAnalysisCalendar | null;
+  points_attention: string[] | null;
+  score_accessibilite_pme: string | null;
+  // fallback if JSON parsing fails
+  raw_text?: string;
+}
+
+export interface DocumentAnalysisResponse {
+  notice_id: string;
+  document_id: string;
+  status: "ok" | "no_text" | "error";
+  message?: string;
+  analysis?: DocumentAnalysisResult;
+  generated_at?: string | null;
+  cached?: boolean;
+}
+
 // ── Facets ──────────────────────────────────────────────────────────
 
 export interface FacetItem {
@@ -256,6 +300,9 @@ export interface NoticeDocument {
   url: string;
   file_type: string | null;
   language: string | null;
+  // Phase 2: AI analysis indicator
+  has_ai_analysis: boolean;
+  ai_analysis_generated_at: string | null;
 }
 
 // ── Favorites ───────────────────────────────────────────────────────

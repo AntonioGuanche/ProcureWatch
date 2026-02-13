@@ -59,6 +59,7 @@ import type {
   NoticeListResponse,
   NoticeSearchResponse,
   AISummaryResponse,
+  DocumentAnalysisResponse,
   FacetsResponse,
   DashboardOverview,
   DashboardTrends,
@@ -218,6 +219,19 @@ export function generateSummary(
   const params = new URLSearchParams({ lang });
   if (force) params.set("force", "true");
   return request(`/api/notices/${noticeId}/summary?${params}`, { method: "POST" });
+}
+
+// ── Document AI Analysis (Phase 2) ─────────────────────────────────
+
+export function analyzeDocument(
+  noticeId: string,
+  documentId: string,
+  lang = "fr",
+  force = false,
+): Promise<DocumentAnalysisResponse> {
+  const params = new URLSearchParams({ lang });
+  if (force) params.set("force", "true");
+  return request(`/api/notices/${noticeId}/documents/${documentId}/analyze?${params}`, { method: "POST" });
 }
 
 // ── Favorites ───────────────────────────────────────────────────────
