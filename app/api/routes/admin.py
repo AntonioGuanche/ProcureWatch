@@ -1842,3 +1842,88 @@ def bosa_explore_docs(
                 result[f"test4_xml_id_{xid[:8]}"] = {"error": str(e)}
 
     return result
+
+
+# ── Document Pipeline Diagnostics ────────────────────────────────
+
+
+@router.get(
+    "/document-stats",
+    tags=["admin"],
+    summary="Document pipeline statistics and sample notices with text",
+)
+def document_pipeline_stats(
+    db: Session = Depends(get_db),
+) -> dict:
+    """Show document pipeline stats: how many docs have text, sample notice IDs for testing."""
+    from sqlalchemy import text as sql_text
+
+    stats = {}
+
+    # Overall counts
+    rows = db.execute(sql_text("""
+        SELECT
+            n.source,
+            COUNT(DISTINCT nd.id) as total_docs,
+            COUNT(DISTINCT CASE WHEN nd.extracted_text IS NOT NULL AND LENGTH(nd.extracted_text) > 50 THEN nd.id END) as with_text,
+            COUNT(DISTINCT CASE WHEN nd.download_status = 'ok' THEN nd.id END) as downloaded,
+            COUNT(DISTINCT CASE WHEN nd.download_status = 'failed' THEN nd.id END) as failed
+        FROM notice_documents nd
+        JOIN notices n ON n.id = nd.notice_id
+        GROUP BY n.source
+    """)).fetchall()
+
+    stats["by_source"] = [
+        {"source": r[0], "total_docs": r[1], "with_text": r[2], "downloaded": r[3], "failed": r[4]}
+        for r in rows
+    ]
+
+    # Sample notices with extracted text (for Q&A testing)
+    samples = db.execute(sql_text("""
+        SELECT n.id, LEFT(n.title, 80) as title, n.source,
+               COUNT(nd.id) as doc_count,
+               SUM(CASE WHEN nd.extracted_text IS NOT NULL AND LENGTH(nd.extracted_text) > 50 THEN 1 ELSE 0 END) as docs_with_text,
+               MAX(LENGTH(nd.extracted_text)) as max_text_len
+        FROM notices n
+        JOIN notice_documents nd ON nd.notice_id = n.id
+        WHERE nd.extracted_text IS NOT NULL AND LENGTH(nd.extracted_text) > 50
+        GROUP BY n.id, n.title, n.source
+        ORDER BY docs_with_text DESC, max_text_len DESC
+        LIMIT 10
+    """)).fetchall()
+
+    stats["sample_notices_with_text"] = [
+        {
+            "notice_id": r[0],
+            "title": r[1],
+            "source": r[2],
+            "doc_count": r[3],
+            "docs_with_text": r[4],
+            "max_text_len": r[5],
+        }
+        for r in samples
+    ]
+
+    # TED doc URLs sample (to diagnose download failures)
+    ted_docs = db.execute(sql_text("""
+        SELECT nd.id, nd.url, nd.file_type, nd.download_status, nd.download_error, nd.extraction_status
+        FROM notice_documents nd
+        JOIN notices n ON n.id = nd.notice_id
+        WHERE n.source LIKE '%%TED%%'
+        ORDER BY nd.download_status NULLS FIRST
+        LIMIT 10
+    """)).fetchall()
+
+    stats["ted_doc_samples"] = [
+        {
+            "doc_id": r[0],
+            "url": r[1][:200] if r[1] else None,
+            "file_type": r[2],
+            "download_status": r[3],
+            "download_error": (r[4] or "")[:200],
+            "extraction_status": r[5],
+        }
+        for r in ted_docs
+    ]
+
+    return stats
