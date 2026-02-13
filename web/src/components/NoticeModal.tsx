@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getNotice, getNoticeLots, getNoticeDocuments, addFavorite, removeFavorite, generateSummary, analyzeDocument, askNoticeQuestion, uploadDocument } from "../api";
+import { getNotice, getNoticeLots, getNoticeDocuments, addFavorite, removeFavorite, generateSummary, analyzeDocument, askNoticeQuestion, uploadDocument, downloadDocument } from "../api";
 import type { Notice, NoticeLot, NoticeDocument, AISummaryResponse, DocumentAnalysisResponse, QAResponse } from "../types";
 
 function fmtDate(s: string | null): string {
@@ -241,6 +241,11 @@ export function NoticeModal({ noticeId, isFavorited, onToggleFavorite, onClose }
   // Upload state
   const [uploadLoading, setUploadLoading] = useState(false);
   const [uploadMessage, setUploadMessage] = useState<string | null>(null);
+  const [showUploadHelp, setShowUploadHelp] = useState(false);
+
+  // Per-doc download state
+  const [downloadLoading, setDownloadLoading] = useState<Record<string, boolean>>({});
+  const [downloadMessages, setDownloadMessages] = useState<Record<string, string>>({});
 
   useEffect(() => {
     setLoading(true);
@@ -253,6 +258,8 @@ export function NoticeModal({ noticeId, isFavorited, onToggleFavorite, onClose }
     setQaHistory([]);
     setQaError(null);
     setUploadMessage(null);
+    setDownloadLoading({});
+    setDownloadMessages({});
     Promise.all([
       getNotice(noticeId),
       getNoticeLots(noticeId).catch(() => ({ items: [], total: 0 })),
@@ -377,6 +384,25 @@ export function NoticeModal({ noticeId, isFavorited, onToggleFavorite, onClose }
     } finally {
       setUploadLoading(false);
       e.target.value = ""; // reset input
+    }
+  };
+
+  const handleDownloadDoc = async (docId: string) => {
+    setDownloadLoading((prev) => ({ ...prev, [docId]: true }));
+    setDownloadMessages((prev) => ({ ...prev, [docId]: "" }));
+    try {
+      const result = await downloadDocument(noticeId, docId);
+      setDownloadMessages((prev) => ({ ...prev, [docId]: result.message }));
+      // Refresh doc list to update download_status
+      const d = await getNoticeDocuments(noticeId).catch(() => ({ items: [], total: 0 }));
+      setDocs(d.items);
+    } catch (err) {
+      setDownloadMessages((prev) => ({
+        ...prev,
+        [docId]: err instanceof Error ? err.message : "Erreur de téléchargement",
+      }));
+    } finally {
+      setDownloadLoading((prev) => ({ ...prev, [docId]: false }));
     }
   };
 
@@ -603,30 +629,54 @@ export function NoticeModal({ noticeId, isFavorited, onToggleFavorite, onClose }
             <div className="notice-section">
               <div className="docs-header">
                 <h3>Documents ({docs.length})</h3>
-                <label className={`btn-sm btn-outline btn-upload ${uploadLoading ? "loading" : ""}`}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
-                  </svg>
-                  {uploadLoading ? "Upload…" : "Ajouter un PDF"}
-                  <input type="file" accept=".pdf" onChange={handleUpload} disabled={uploadLoading} style={{ display: "none" }} />
-                </label>
+                <div className="docs-header-actions">
+                  <div className="upload-help-wrapper">
+                    <button
+                      className="btn-icon-xs help-trigger"
+                      onClick={() => setShowUploadHelp(!showUploadHelp)}
+                      title="Aide"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    </button>
+                    {showUploadHelp && (
+                      <div className="upload-help-tooltip">
+                        Certains documents sont hébergés sur des plateformes protégées par une authentification.
+                        Si le téléchargement automatique échoue, vous pouvez récupérer le document manuellement
+                        puis l'ajouter ici pour bénéficier de l'analyse IA complète.
+                      </div>
+                    )}
+                  </div>
+                  <label className={`btn-sm btn-outline btn-upload ${uploadLoading ? "loading" : ""}`}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+                    </svg>
+                    {uploadLoading ? "Upload…" : "Ajouter un PDF"}
+                    <input type="file" accept=".pdf" onChange={handleUpload} disabled={uploadLoading} style={{ display: "none" }} />
+                  </label>
+                </div>
               </div>
               {uploadMessage && (
-                <div className={`upload-message ${uploadMessage.includes("Erreur") || uploadMessage.includes("erreur") ? "error" : "success"}`}>
+                <div className={`upload-message ${uploadMessage.includes("Erreur") || uploadMessage.includes("erreur") || uploadMessage.includes("Échec") ? "error" : "success"}`}>
                   {uploadMessage}
                 </div>
               )}
               {docs.length > 0 && (
                 <div className="docs-list">
-                  {docs.map((doc) => (
+                  {docs.map((doc) => {
+                    const isUploaded = doc.url?.startsWith("upload://");
+                    const isDownloaded = doc.download_status === "ok";
+                    const canDownload = !isUploaded && isPdfDoc(doc) && !isDownloaded;
+                    const downloadFailed = doc.download_status === "failed" || doc.download_status === "skipped";
+
+                    return (
                     <div key={doc.id} className="doc-wrapper">
                       <div className="doc-row">
                         <a
-                          href={doc.url?.startsWith("upload://") ? undefined : doc.url}
+                          href={isUploaded ? undefined : doc.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className={`doc-item ${doc.url?.startsWith("upload://") ? "doc-uploaded" : ""}`}
-                          onClick={doc.url?.startsWith("upload://") ? (e) => e.preventDefault() : undefined}
+                          className={`doc-item ${isUploaded ? "doc-uploaded" : ""}`}
+                          onClick={isUploaded ? (e) => e.preventDefault() : undefined}
                         >
                           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
@@ -635,10 +685,31 @@ export function NoticeModal({ noticeId, isFavorited, onToggleFavorite, onClose }
                           <span>{doc.title || "Document"}</span>
                           {doc.file_type && <span className="doc-type">{doc.file_type}</span>}
                           {doc.language && <span className="doc-lang">{doc.language.toUpperCase()}</span>}
-                          {doc.url?.startsWith("upload://") && <span className="doc-upload-badge">uploadé</span>}
+                          {isUploaded && <span className="doc-upload-badge">uploadé</span>}
+                          {isDownloaded && <span className="doc-downloaded-badge">✓ chargé</span>}
+                          {downloadFailed && <span className="doc-failed-badge">⚠ indisponible</span>}
                           {doc.has_ai_analysis && <span className="doc-analyzed-badge">✓ analysé</span>}
                         </a>
-                        {isPdfDoc(doc) && (
+                        <div className="doc-actions">
+                          {/* Download button */}
+                          {canDownload && (
+                            <button
+                              className="btn-sm btn-download"
+                              onClick={() => handleDownloadDoc(doc.id)}
+                              disabled={downloadLoading[doc.id]}
+                              title="Télécharger et extraire le texte"
+                            >
+                              {downloadLoading[doc.id] ? (
+                                <><svg className="spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg></>
+                              ) : (
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                                </svg>
+                              )}
+                            </button>
+                          )}
+                          {/* Analyze button */}
+                          {isPdfDoc(doc) && (isDownloaded || isUploaded) && (
                           <button
                             className="btn-sm btn-analyze"
                             onClick={() => {
@@ -673,7 +744,15 @@ export function NoticeModal({ noticeId, isFavorited, onToggleFavorite, onClose }
                             )}
                           </button>
                         )}
-                      </div>
+                        </div>{/* /doc-actions */}
+                      </div>{/* /doc-row */}
+
+                      {/* Download status message */}
+                      {downloadMessages[doc.id] && (
+                        <div className={`doc-download-message ${doc.download_status === "ok" ? "success" : "info"}`}>
+                          {downloadMessages[doc.id]}
+                        </div>
+                      )}
 
                       {/* Analysis result panel */}
                       {expandedDoc === doc.id && (
@@ -707,7 +786,8 @@ export function NoticeModal({ noticeId, isFavorited, onToggleFavorite, onClose }
                         </div>
                       )}
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

@@ -300,6 +300,10 @@ export interface NoticeDocument {
   url: string;
   file_type: string | null;
   language: string | null;
+  // Download pipeline status
+  download_status: string | null;   // ok | failed | skipped | null
+  extraction_status: string | null; // ok | skipped | failed | null
+  file_size: number | null;
   // Phase 2: AI analysis indicator
   has_ai_analysis: boolean;
   ai_analysis_generated_at: string | null;
@@ -334,6 +338,17 @@ export interface UploadResponse {
   file_size?: number;
   text_length?: number;
   has_text?: boolean;
+  message: string;
+}
+
+export interface DownloadResponse {
+  status: "ok" | "already_done" | "blocked" | "skipped" | "failed";
+  document_id: string;
+  download_status?: string;
+  extraction_status?: string;
+  text_length?: number;
+  has_text?: boolean;
+  file_size?: number;
   message: string;
 }
 

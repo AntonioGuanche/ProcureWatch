@@ -247,6 +247,18 @@ export function askNoticeQuestion(
   });
 }
 
+// ── On-demand Document Download ────────────────────────────────────
+
+export function downloadDocument(
+  noticeId: string,
+  documentId: string,
+  force = false,
+): Promise<import("./types").DownloadResponse> {
+  const params = new URLSearchParams();
+  if (force) params.set("force", "true");
+  return request(`/api/notices/${noticeId}/documents/${documentId}/download?${params}`, { method: "POST" });
+}
+
 // ── Document Upload (Phase 3) ──────────────────────────────────────
 
 export async function uploadDocument(

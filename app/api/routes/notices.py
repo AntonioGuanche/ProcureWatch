@@ -799,3 +799,131 @@ async def upload_notice_document(
             else "Document uploadé mais aucun texte extractible (PDF scanné ?)."
         ),
     }
+
+
+# ── On-demand document download ──────────────────────────────────
+
+
+@router.post(
+    "/{notice_id}/documents/{document_id}/download",
+    summary="Download & extract text from a document on demand",
+    description=(
+        "Triggers server-side download of a document and extracts text.\n"
+        "Uses the appropriate method for BOSA (portal) or TED (links.pdf) documents.\n"
+        "Returns immediately if text is already available."
+    ),
+)
+async def download_notice_document(
+    notice_id: str,
+    document_id: str,
+    force: bool = Query(False, description="Re-download even if already done"),
+    request: Request = None,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_optional_user),
+):
+    """Download a single document on-demand and extract its text."""
+    import logging
+
+    logger = logging.getLogger(__name__)
+
+    # Auth: JWT or admin key
+    if not current_user:
+        from app.core.config import settings as _settings
+        admin_key = request.headers.get("X-Admin-Key") if request else None
+        if admin_key and _settings.admin_api_key and admin_key == _settings.admin_api_key:
+            pass  # admin OK
+        else:
+            raise HTTPException(status_code=401, detail="Authentification requise")
+
+    notice = get_notice_by_id(db, notice_id)
+    if not notice:
+        raise HTTPException(status_code=404, detail="Notice not found")
+
+    doc = get_document_by_notice_and_id(db, notice_id, document_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    # Already downloaded and has text (unless force)
+    if not force and doc.download_status == "ok" and doc.extracted_text:
+        return {
+            "status": "already_done",
+            "document_id": doc.id,
+            "download_status": doc.download_status,
+            "extraction_status": doc.extraction_status,
+            "text_length": len(doc.extracted_text or ""),
+            "has_text": bool(doc.extracted_text and len(doc.extracted_text.strip()) > 20),
+            "message": f"Document déjà téléchargé ({len(doc.extracted_text or '')} caractères).",
+        }
+
+    # Cannot download upload:// or empty URL documents
+    url = doc.url or ""
+    if url.startswith("upload://") or not url.strip():
+        raise HTTPException(
+            status_code=422,
+            detail="Ce document ne peut pas être téléchargé (uploadé manuellement ou pas d'URL).",
+        )
+
+    # Skip known blocked domains
+    blocked = ("cloud.3p.eu",)
+    if any(d in url.lower() for d in blocked):
+        return {
+            "status": "blocked",
+            "document_id": doc.id,
+            "download_status": "skipped",
+            "message": (
+                "Ce document est hébergé sur une plateforme protégée (reCAPTCHA). "
+                "Téléchargez-le manuellement et utilisez « Ajouter un PDF »."
+            ),
+        }
+
+    # Perform download + text extraction
+    try:
+        from app.services.document_analysis import _download_and_extract_text
+
+        logger.info("On-demand download for document %s (%s)", doc.id, url[:100])
+
+        if force:
+            # Reset status for re-download
+            doc.download_status = None
+            doc.extraction_status = None
+            doc.extracted_text = None
+
+        text = _download_and_extract_text(doc)
+        db.commit()
+
+        if doc.download_status == "skipped":
+            return {
+                "status": "skipped",
+                "document_id": doc.id,
+                "download_status": doc.download_status,
+                "extraction_status": doc.extraction_status,
+                "message": doc.download_error or "Document ignoré (pas un PDF téléchargeable).",
+            }
+
+        if doc.download_status == "failed":
+            return {
+                "status": "failed",
+                "document_id": doc.id,
+                "download_status": doc.download_status,
+                "message": f"Échec du téléchargement : {doc.download_error or 'erreur inconnue'}",
+            }
+
+        return {
+            "status": "ok",
+            "document_id": doc.id,
+            "download_status": doc.download_status,
+            "extraction_status": doc.extraction_status,
+            "text_length": len(text or ""),
+            "has_text": bool(text and len(text.strip()) > 20),
+            "file_size": doc.file_size,
+            "message": (
+                f"Document téléchargé et analysé ({len(text or '')} caractères extraits)."
+                if text
+                else "Document téléchargé mais aucun texte extractible."
+            ),
+        }
+
+    except Exception as e:
+        logger.exception("On-demand download failed for document %s: %s", doc.id, e)
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Erreur de téléchargement : {str(e)[:500]}")
