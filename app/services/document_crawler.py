@@ -505,7 +505,7 @@ def batch_crawl_notices(
 
     # Fetch eligible notice + portal URL pairs
     fetch_sql = f"""
-        SELECT DISTINCT n.id, nd_html.url
+        SELECT n.id, nd_html.url
         FROM notices n
         JOIN notice_documents nd_html ON nd_html.notice_id = n.id
             AND (
