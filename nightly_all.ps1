@@ -1,9 +1,8 @@
 # =============================================================================
-# ProcureWatch - Nightly All-in-One v5
-# v5: fixed TED links.pdf extraction, smart batch download, Q&A fallback, user upload
-#     Added Step 8: TED document backfill (links.pdf from raw_data)
-# v3: added BOSA document crawl (Step 7) - PDF download + text extraction
-# v2: higher timeouts, retry on connection errors, skip BOSA XML loop
+# ProcureWatch - Nightly All-in-One v6
+# v6: removed PDF download steps (7+9). Downloads now on-demand via UI.
+#     Kept: import, backfill, enrichment, doc cataloging, watchlists.
+# v5: fixed TED links.pdf extraction, smart batch download, Q&A fallback
 # Usage: powershell -ExecutionPolicy Bypass -File .\nightly_all.ps1
 # =============================================================================
 
@@ -40,9 +39,9 @@ function Show-Elapsed {
 # =====================================================================
 # STEP 1 - Daily import (BOSA + TED, split to avoid timeout)
 # =====================================================================
-Write-Host "`n========== STEP 1/10 - Daily Import (BOSA + TED, 3 jours) ==========" -ForegroundColor Cyan
+Write-Host "`n========== STEP 1/8 - Daily Import (BOSA + TED, 3 jours) ==========" -ForegroundColor Cyan
 
-$urlBosa = "$BASE/bulk-import?sources=BOSA" + "&page_size=250&max_pages=20" + "&run_backfill=false&run_matcher=false"
+$urlBosa = "$BASE/bulk-import?sources=BOSA" + "&page_size=250&max_pages=30" + "&run_backfill=false&run_matcher=false"
 $r = Call-Api "POST" $urlBosa 900
 if ($r -and $r.sources.bosa) {
     $b = $r.sources.bosa
@@ -50,7 +49,7 @@ if ($r -and $r.sources.bosa) {
 }
 Show-Elapsed
 
-$urlTed = "$BASE/bulk-import?sources=TED" + "&ted_days_back=3&page_size=250&max_pages=20" + "&run_backfill=false&run_matcher=false"
+$urlTed = "$BASE/bulk-import?sources=TED" + "&ted_days_back=3&page_size=250&max_pages=30" + "&run_backfill=false&run_matcher=false"
 $r = Call-Api "POST" $urlTed 900
 if ($r -and $r.sources.ted) {
     $t = $r.sources.ted
@@ -59,9 +58,9 @@ if ($r -and $r.sources.ted) {
 Show-Elapsed
 
 # =====================================================================
-# STEP 2 - Backfill enrichment (smaller batches)
+# STEP 2 - Backfill enrichment (raw_data -> structured fields)
 # =====================================================================
-Write-Host "`n========== STEP 2/10 - Backfill (raw_data -> champs) ==========" -ForegroundColor Cyan
+Write-Host "`n========== STEP 2/8 - Backfill (raw_data -> champs) ==========" -ForegroundColor Cyan
 
 $bfTotal = 0
 for ($bfPass = 1; $bfPass -le 3; $bfPass++) {
@@ -84,7 +83,7 @@ Show-Elapsed
 # =====================================================================
 # STEP 3 - TED CAN enrich (loop 500/batch with retry)
 # =====================================================================
-Write-Host "`n========== STEP 3/10 - TED CAN Enrich (boucle auto) ==========" -ForegroundColor Cyan
+Write-Host "`n========== STEP 3/8 - TED CAN Enrich (boucle auto) ==========" -ForegroundColor Cyan
 
 $urlTedDry = "$BASE/ted-can-enrich?limit=500" + "&dry_run=true"
 $dry = Call-Api "POST" $urlTedDry
@@ -123,10 +122,9 @@ do {
 Write-Host "  TED CAN enrich total: $tedTotal" -ForegroundColor Cyan
 
 # =====================================================================
-# STEP 4 - BOSA enrich awards (XML) - ONE pass only
-# v1 showed only 7/5000 have XML - looping re-scans same skipped rows
+# STEP 4 - BOSA enrich Awards (XML) - ONE pass only
 # =====================================================================
-Write-Host "`n========== STEP 4/10 - BOSA Enrich Awards (XML - 1 pass) ==========" -ForegroundColor Cyan
+Write-Host "`n========== STEP 4/8 - BOSA Enrich Awards (XML - 1 pass) ==========" -ForegroundColor Cyan
 
 $urlBosaXml = "$BASE/bosa-enrich-awards?limit=50000" + "&batch_size=1000&dry_run=false"
 $r = Call-Api "POST" $urlBosaXml 900
@@ -137,9 +135,8 @@ Show-Elapsed
 
 # =====================================================================
 # STEP 5 - BOSA enrich awards via API (main worker, with retry)
-# This is the heavy step: ~39K CANs, ~500/pass, ~4min/pass
 # =====================================================================
-Write-Host "`n========== STEP 5/10 - BOSA Enrich via API (boucle auto) ==========" -ForegroundColor Cyan
+Write-Host "`n========== STEP 5/8 - BOSA Enrich via API (boucle auto) ==========" -ForegroundColor Cyan
 
 $urlBosaApiDry = "$BASE/bosa-enrich-awards-via-api?limit=1" + "&dry_run=true"
 $dry = Call-Api "POST" $urlBosaApiDry
@@ -180,7 +177,7 @@ do {
 # =====================================================================
 # STEP 6 - Merge + cleanup orphan CANs
 # =====================================================================
-Write-Host "`n========== STEP 6/10 - Merge and Cleanup Orphan CANs ==========" -ForegroundColor Cyan
+Write-Host "`n========== STEP 6/8 - Merge and Cleanup Orphan CANs ==========" -ForegroundColor Cyan
 
 $mergeTotal = 0
 $mergePass = 0
@@ -213,85 +210,25 @@ if ($dry -and $dry.deleted -and $dry.deleted -gt 0) {
 Show-Elapsed
 
 # =====================================================================
-# STEP 7 - BOSA Document Crawl (PDF download + text extraction)
-# ~1 sec/notice, 1000/pass, loop until done or 3 consecutive failures
-# Endpoint max is 1000/call — we loop to process up to 5000/night
+# STEP 7 - TED Document Backfill (catalog URLs from raw_data)
+# Creates notice_documents records from TED raw_data links.pdf URLs.
+# NO download — just cataloging so docs appear in the UI.
 # =====================================================================
-Write-Host "`n========== STEP 7/10 - BOSA Document Crawl (PDFs) ==========" -ForegroundColor Cyan
+Write-Host "`n========== STEP 7/8 - TED Document Backfill (catalogage) ==========" -ForegroundColor Cyan
 
-$urlCrawlDry = "$BASE/crawl-portal-documents?limit=1000&dry_run=true"
-$dry = Call-Api "POST" $urlCrawlDry
-if ($dry) {
-    Write-Host "  Eligible: $($dry.total_eligible) BOSA notices without PDFs" -ForegroundColor Yellow
-}
-
-$crawlTotal = 0
-$crawlPdfs = 0
-$crawlText = 0
-$crawlErrors = 0
-$crawlFails = 0
-$crawlPass = 0
-$maxCrawlPasses = 5   # 5 x 1000 = 5000 notices max per night
-
-do {
-    $crawlPass++
-    Write-Host "`n  Pass $crawlPass/$maxCrawlPasses..." -ForegroundColor Yellow
-    $urlCrawl = "$BASE/crawl-portal-documents?limit=1000&source=BOSA_EPROC&download=true&dry_run=false"
-    $r = Call-Api "POST" $urlCrawl 900 2
-    if (-not $r) {
-        $crawlFails++
-        if ($crawlFails -ge 3) { Write-Host "  3 consecutive failures, stopping crawl" -ForegroundColor Red; break }
-        Write-Host "  Will retry after 15s pause..." -ForegroundColor Yellow
-        Start-Sleep -Seconds 15
-        continue
-    }
-    $crawlFails = 0
-
-    $processed = if ($r.notices_processed) { $r.notices_processed } else { 0 }
-    $pdfs = if ($r.pdfs_downloaded) { $r.pdfs_downloaded } else { 0 }
-    $withText = if ($r.pdfs_with_text) { $r.pdfs_with_text } else { 0 }
-    $errs = if ($r.errors) { $r.errors } else { 0 }
-    $crawlTotal += $processed
-    $crawlPdfs += $pdfs
-    $crawlText += $withText
-    $crawlErrors += $errs
-
-    Write-Host "  Processed: $processed | PDFs: $pdfs | With text: $withText | Errors: $errs | Running total: $crawlTotal" -ForegroundColor Green
-    Show-Elapsed
-
-    # Stop if no more eligible notices
-    if ($processed -eq 0) { Write-Host "  No more notices to crawl, done." -ForegroundColor Green; break }
-    # Stop if pass yielded nothing useful (all skipped or all errors)
-    if ($pdfs -eq 0 -and $errs -eq 0) { Write-Host "  No PDFs found this pass, done." -ForegroundColor Green; break }
-    Start-Sleep -Seconds 5
-} while ($crawlPass -lt $maxCrawlPasses)
-
-Write-Host "  Document crawl total: $crawlTotal notices, $crawlPdfs PDFs, $crawlText with text" -ForegroundColor Cyan
-Show-Elapsed
-
-# =====================================================================
-# STEP 8 - TED Document Backfill (extract URLs from raw_data)
-# One-time catch-up: creates notice_documents records from TED raw_data
-# for links.pdf URLs that were previously missed.
-# Runs in chunks of 2000 to avoid OOM. Skips if already caught up.
-# =====================================================================
-Write-Host "`n========== STEP 8/10 - TED Document Backfill (links.pdf) ==========" -ForegroundColor Cyan
-
+$backfillCreated = 0
+$backfillProcessed = 0
 $backfillDry = Call-Api "POST" "$BASE/backfill-ted-documents?dry_run=true"
 if ($backfillDry) {
-    $tedTotal = $backfillDry.ted_notices_total
+    $tedBfTotal = $backfillDry.ted_notices_total
     $tedPdfs = $backfillDry.ted_pdf_documents
-    Write-Host "  TED notices: $tedTotal | Already have PDF docs: $tedPdfs" -ForegroundColor Yellow
+    Write-Host "  TED notices: $tedBfTotal | Already have PDF docs: $tedPdfs" -ForegroundColor Yellow
 
-    # Estimate how many still need backfill: if ted_pdf_documents << ted_notices_total
-    # Each backfilled notice creates ~4 docs including PDF link
-    $needsBackfill = $tedTotal - [math]::Floor($tedPdfs / 1)
+    $needsBackfill = $tedBfTotal - [math]::Floor($tedPdfs / 1)
     if ($needsBackfill -gt 100) {
         Write-Host "  Running backfill..." -ForegroundColor Yellow
         $backfillPass = 0
-        $maxBackfillPasses = 50  # 50 x 2000 = 100k notices max per night
-        $backfillCreated = 0
-        $backfillProcessed = 0
+        $maxBackfillPasses = 50
 
         do {
             $backfillPass++
@@ -322,61 +259,9 @@ if ($backfillDry) {
 Show-Elapsed
 
 # =====================================================================
-# STEP 9 - TED Document Download + Text Extraction
-# Downloads TED PDF documents (from links.pdf URLs after backfill).
-# Smart: skips HTML pages, cloud.3p.eu (reCAPTCHA), marks non-PDFs as skipped.
+# STEP 8 - Watchlist matcher + Rescore
 # =====================================================================
-Write-Host "`n========== STEP 9/10 - TED Document Download (smart) ==========" -ForegroundColor Cyan
-
-$urlTedDocDry = "$BASE/batch-download-documents?source=TED_EU&limit=500&dry_run=true"
-$dry = Call-Api "POST" $urlTedDocDry
-if ($dry) {
-    Write-Host "  Eligible: $($dry.total_eligible) TED documents to process" -ForegroundColor Yellow
-}
-
-$tedDocTotal = 0
-$tedDocDownloaded = 0
-$tedDocExtracted = 0
-$tedDocFails = 0
-$tedDocPass = 0
-$maxTedDocPasses = 3   # 3 x 500 = 1500 docs max per night
-
-do {
-    $tedDocPass++
-    Write-Host "`n  Pass $tedDocPass/$maxTedDocPasses..." -ForegroundColor Yellow
-    $urlTedDoc = "$BASE/batch-download-documents?source=TED_EU&limit=500&dry_run=false"
-    $r = Call-Api "POST" $urlTedDoc 900 2
-    if (-not $r) {
-        $tedDocFails++
-        if ($tedDocFails -ge 3) { Write-Host "  3 consecutive failures, stopping TED docs" -ForegroundColor Red; break }
-        Write-Host "  Will retry after 15s pause..." -ForegroundColor Yellow
-        Start-Sleep -Seconds 15
-        continue
-    }
-    $tedDocFails = 0
-
-    $attempted = if ($r.attempted) { $r.attempted } else { 0 }
-    $downloaded = if ($r.downloaded) { $r.downloaded } else { 0 }
-    $extracted = if ($r.extracted) { $r.extracted } else { 0 }
-    $skipped = if ($r.skipped_not_pdf) { $r.skipped_not_pdf } else { 0 }
-    $tedDocTotal += $attempted
-    $tedDocDownloaded += $downloaded
-    $tedDocExtracted += $extracted
-
-    Write-Host "  Attempted: $attempted | Downloaded: $downloaded | Extracted: $extracted | Skipped: $skipped" -ForegroundColor Green
-    Show-Elapsed
-
-    if ($attempted -eq 0) { Write-Host "  No more TED docs to process, done." -ForegroundColor Green; break }
-    Start-Sleep -Seconds 3
-} while ($tedDocPass -lt $maxTedDocPasses)
-
-Write-Host "  TED docs total: $tedDocTotal attempted, $tedDocDownloaded downloaded, $tedDocExtracted with text" -ForegroundColor Cyan
-Show-Elapsed
-
-# =====================================================================
-# STEP 10 - Watchlist matcher + Rescore
-# =====================================================================
-Write-Host "`n========== STEP 10/10 - Watchlist Matcher + Rescore ==========" -ForegroundColor Cyan
+Write-Host "`n========== STEP 8/8 - Watchlist Matcher + Rescore ==========" -ForegroundColor Cyan
 
 $r = Call-Api "POST" "$BASE/match-watchlists" 900 2
 if ($r) {
@@ -395,10 +280,10 @@ Show-Elapsed
 # =====================================================================
 $elapsed = [math]::Round(((Get-Date) - $startTime).TotalMinutes, 1)
 Write-Host "`n========== NIGHTLY ALL-IN-ONE COMPLETE - ${elapsed} min ==========" -ForegroundColor Green
-Write-Host "  Backfill:     $bfTotal enriched" -ForegroundColor White
-Write-Host "  TED enrich:   $tedTotal notices updated" -ForegroundColor White
-Write-Host "  BOSA API:     $bosaApiTotal notices enriched" -ForegroundColor White
-Write-Host "  CANs merged:  $mergeTotal" -ForegroundColor White
-Write-Host "  BOSA docs:    $crawlPdfs PDFs ($crawlText with text) from $crawlTotal notices" -ForegroundColor White
-Write-Host "  TED docs:     $tedDocDownloaded downloaded ($tedDocExtracted with text)" -ForegroundColor White
-Write-Host "  Watchlists:   matched + rescored" -ForegroundColor White
+Write-Host "  Backfill:        $bfTotal enriched" -ForegroundColor White
+Write-Host "  TED enrich:      $tedTotal notices updated" -ForegroundColor White
+Write-Host "  BOSA API:        $bosaApiTotal notices enriched" -ForegroundColor White
+Write-Host "  CANs merged:     $mergeTotal" -ForegroundColor White
+Write-Host "  TED doc catalog: $backfillCreated new records" -ForegroundColor White
+Write-Host "  Watchlists:      matched + rescored" -ForegroundColor White
+Write-Host "  PDF downloads:   on-demand via UI (not nightly)" -ForegroundColor DarkGray
