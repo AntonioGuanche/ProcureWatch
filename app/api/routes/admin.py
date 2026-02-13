@@ -1720,3 +1720,192 @@ def crawl_single_notice(
         "workspace_id": workspace_id,
         "documents": results,
     }
+
+
+# ── Phase 2b: BOSA API Document Explorer ─────────────────────────
+
+
+@router.post(
+    "/bosa-explore-docs/{notice_id}",
+    tags=["admin"],
+    summary="Explore BOSA API to find documents for a notice",
+)
+def bosa_explore_docs(
+    notice_id: str,
+    db: Session = Depends(get_db),
+) -> dict:
+    """Diagnostic: try multiple approaches to find documents via official BOSA API."""
+    from app.connectors.bosa.client import _get_client
+    from app.connectors.bosa.official_client import OfficialEProcurementClient
+    from app.models.notice import ProcurementNotice
+    import requests as req
+    import re
+
+    notice = db.query(ProcurementNotice).filter(
+        ProcurementNotice.id == notice_id
+    ).first()
+    if not notice:
+        return {"error": "Notice not found"}
+
+    result = {
+        "notice_id": notice_id,
+        "source_id": notice.source_id,
+        "publication_workspace_id": notice.publication_workspace_id,
+        "dossier_id": notice.dossier_id,
+        "reference_number": notice.reference_number,
+        "title": notice.title[:100] if notice.title else None,
+        "tests": [],
+    }
+
+    # Get the official BOSA client
+    try:
+        client, provider = _get_client()
+        if not isinstance(client, OfficialEProcurementClient):
+            return {**result, "error": f"Client is {provider}, not official"}
+    except Exception as e:
+        return {**result, "error": f"Client init failed: {e}"}
+
+    dos_base = client.dos_base_url.rstrip("/")
+    result["dos_base_url"] = dos_base
+
+    # Get OAuth token
+    try:
+        token = client.get_access_token()
+        result["has_token"] = True
+    except Exception as e:
+        return {**result, "error": f"Token failed: {e}"}
+
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/json",
+    }
+
+    ids_to_try = set()
+    if notice.publication_workspace_id:
+        ids_to_try.add(notice.publication_workspace_id)
+    if notice.source_id:
+        ids_to_try.add(notice.source_id)
+
+    # Also check notice_documents for portal URLs
+    from sqlalchemy import text as sql_text
+    portal_rows = db.execute(
+        sql_text("SELECT url FROM notice_documents WHERE notice_id = :nid"),
+        {"nid": notice_id},
+    ).fetchall()
+    for (url,) in portal_rows:
+        match = re.search(
+            r"publication-workspaces/([0-9a-f-]{36})",
+            url, re.IGNORECASE,
+        )
+        if match:
+            ids_to_try.add(match.group(1))
+    result["portal_urls"] = [r[0] for r in portal_rows]
+
+    for ws_id in ids_to_try:
+        test = {"workspace_id": ws_id, "endpoints": []}
+
+        # Test 1: GET /publication-workspaces/{id} (workspace detail)
+        try:
+            url1 = f"{dos_base}/publication-workspaces/{ws_id}"
+            resp1 = req.get(url1, headers=headers, timeout=15)
+            ws_detail = {
+                "endpoint": f"GET /publication-workspaces/{ws_id}",
+                "status": resp1.status_code,
+            }
+            if resp1.status_code == 200:
+                data = resp1.json()
+                ws_detail["keys"] = list(data.keys())[:20]
+                # Look for the REAL workspace ID in the response
+                if "id" in data and data["id"] != ws_id:
+                    ws_detail["real_id"] = data["id"]
+                    ids_to_try.add(data["id"])
+                # Check for document-related fields
+                for k in ("documents", "attachments", "files", "versions"):
+                    if k in data:
+                        val = data[k]
+                        ws_detail[f"has_{k}"] = True
+                        if isinstance(val, list):
+                            ws_detail[f"{k}_count"] = len(val)
+                # Extract workspace UUID from XML if present
+                versions = data.get("versions", [])
+                if versions:
+                    notice_data = versions[0].get("notice", {})
+                    xml = notice_data.get("xmlContent", "")
+                    xml_match = re.search(
+                        r"publication-workspaces/([0-9a-f-]{36})",
+                        xml, re.IGNORECASE,
+                    )
+                    if xml_match:
+                        ws_detail["xml_workspace_id"] = xml_match.group(1)
+            elif resp1.status_code in (401, 403, 404):
+                ws_detail["body"] = resp1.text[:200]
+            test["endpoints"].append(ws_detail)
+        except Exception as e:
+            test["endpoints"].append({"endpoint": "workspace detail", "error": str(e)})
+
+        # Test 2: GET /publication-workspaces/{id}/documents (document listing)
+        for doc_params in [
+            "?full=false&type=WORKSPACE&type=ESPD_REQUEST&type=SDI",
+            "?full=false",
+            "",
+        ]:
+            try:
+                url2 = f"{dos_base}/publication-workspaces/{ws_id}/documents{doc_params}"
+                resp2 = req.get(url2, headers=headers, timeout=15)
+                doc_test = {
+                    "endpoint": f"GET .../documents{doc_params}",
+                    "status": resp2.status_code,
+                }
+                if resp2.status_code == 200:
+                    data2 = resp2.json()
+                    if isinstance(data2, list):
+                        doc_test["count"] = len(data2)
+                        if data2:
+                            doc_test["first_keys"] = list(data2[0].keys())[:15]
+                            titles = [d.get("titles", [{}])[0].get("text", "?") for d in data2[:3]]
+                            doc_test["sample_titles"] = titles
+                    else:
+                        doc_test["type"] = type(data2).__name__
+                        doc_test["keys"] = list(data2.keys())[:10] if isinstance(data2, dict) else None
+                else:
+                    doc_test["body"] = resp2.text[:300]
+                test["endpoints"].append(doc_test)
+                if resp2.status_code == 200:
+                    break  # Found working params, no need to try others
+            except Exception as e:
+                test["endpoints"].append({"endpoint": f"documents{doc_params}", "error": str(e)})
+
+        result["tests"].append(test)
+
+    # If we found XML workspace IDs, try those too
+    xml_ids = set()
+    for t in result["tests"]:
+        for ep in t["endpoints"]:
+            xid = ep.get("xml_workspace_id")
+            if xid and xid not in ids_to_try:
+                xml_ids.add(xid)
+
+    for xid in xml_ids:
+        test = {"workspace_id": xid, "source": "from_xml", "endpoints": []}
+        try:
+            url_x = f"{dos_base}/publication-workspaces/{xid}/documents?full=false&type=WORKSPACE&type=ESPD_REQUEST&type=SDI"
+            resp_x = req.get(url_x, headers=headers, timeout=15)
+            doc_test = {
+                "endpoint": f"GET .../documents (XML workspace ID)",
+                "status": resp_x.status_code,
+            }
+            if resp_x.status_code == 200:
+                data_x = resp_x.json()
+                if isinstance(data_x, list):
+                    doc_test["count"] = len(data_x)
+                    if data_x:
+                        titles = [d.get("titles", [{}])[0].get("text", "?") for d in data_x[:5]]
+                        doc_test["sample_titles"] = titles
+            else:
+                doc_test["body"] = resp_x.text[:300]
+            test["endpoints"].append(doc_test)
+        except Exception as e:
+            test["endpoints"].append({"error": str(e)})
+        result["tests"].append(test)
+
+    return result
