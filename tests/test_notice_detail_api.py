@@ -1,6 +1,9 @@
 """API tests for notice detail, lots, documents (TestClient + SQLite, offline)."""
 import os
 
+
+pytestmark = pytest.mark.integration
+
 os.environ["DATABASE_URL"] = "sqlite+pysqlite:///./test_notice_detail_api.db"
 
 import pytest

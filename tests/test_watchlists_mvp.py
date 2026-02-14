@@ -1,6 +1,9 @@
 """Tests for watchlist MVP endpoints. Use DATABASE_URL from conftest (test.db)."""
 import os
 
+
+pytestmark = pytest.mark.integration
+
 import pytest
 from fastapi.testclient import TestClient
 

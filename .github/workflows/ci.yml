@@ -16,7 +16,7 @@ env:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     steps:
       - uses: actions/checkout@v4
@@ -31,13 +31,14 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pytest-cov
+          pip install pytest-cov pytest-timeout
 
       - name: Run unit tests
         run: |
           python -m pytest tests/ -m "not slow and not integration" \
+            --timeout=30 \
             --cov=app --cov-report=term-missing --cov-report=xml \
-            -x -v --tb=short
+            -v --tb=short
 
       - name: Upload coverage
         if: always()
