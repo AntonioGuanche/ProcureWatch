@@ -1,6 +1,8 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import type { WatchlistCreate, WatchlistUpdate, Watchlist } from "../types";
 import { ChipInput } from "../components/ChipInput";
+import { SearchableChipSelect } from "../components/SearchableChipSelect";
+import { searchCpvCodes, searchNutsCodes } from "../api";
 import { useAuth } from "../auth";
 
 interface WatchlistFormProps {
@@ -20,6 +22,21 @@ export function WatchlistForm({ initial, onSubmit, onCancel }: WatchlistFormProp
   const [valueMin, setValueMin] = useState<string>(initial?.value_min != null ? String(initial.value_min) : "");
   const [valueMax, setValueMax] = useState<string>(initial?.value_max != null ? String(initial.value_max) : "");
   const [notifyEmail, setNotifyEmail] = useState(initial?.notify_email ?? user?.email ?? "");
+  // CPV search: return trimmed prefixes (45000000 → 45, 45210000 → 4521)
+  const fetchCpvOptions = useCallback(async (q: string) => {
+    const results = await searchCpvCodes(q, 15);
+    return results.map((r) => {
+      const prefix = r.code.replace(/-/g, "").replace(/0+$/, "") || r.code.slice(0, 2);
+      return { code: prefix.length < 2 ? r.code.slice(0, 2) : prefix, label: r.label };
+    });
+  }, []);
+
+  // NUTS search: filtered by selected countries
+  const fetchNutsOptions = useCallback(
+    (q: string) => searchNutsCodes(q, countries),
+    [countries],
+  );
+
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -68,12 +85,24 @@ export function WatchlistForm({ initial, onSubmit, onCancel }: WatchlistFormProp
 
       <div className="form-row">
         <ChipInput label="Mots-clés" values={keywords} onChange={setKeywords} placeholder="Tapez puis Entrée (ex: construction)" />
-        <ChipInput label="Préfixes CPV" values={cpvPrefixes} onChange={setCpvPrefixes} placeholder="ex: 45, 72" />
+        <SearchableChipSelect
+          label="Préfixes CPV"
+          values={cpvPrefixes}
+          onChange={setCpvPrefixes}
+          fetchOptions={fetchCpvOptions}
+          placeholder="Rechercher un code CPV…"
+        />
       </div>
 
       <div className="form-row">
         <ChipInput label="Pays (ISO2)" values={countries} onChange={setCountries} placeholder="ex: BE, FR" />
-        <ChipInput label="Préfixes NUTS" values={nutsPrefixes} onChange={setNutsPrefixes} placeholder="ex: BE1, BE100" />
+        <SearchableChipSelect
+          label="Préfixes NUTS"
+          values={nutsPrefixes}
+          onChange={setNutsPrefixes}
+          fetchOptions={fetchNutsOptions}
+          placeholder="Rechercher une région…"
+        />
       </div>
 
       <div className="form-row">

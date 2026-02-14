@@ -759,3 +759,19 @@ def cpv_search(q: str = Query("", max_length=60), limit: int = Query(15, le=30))
     results = search_cpv(q, limit)
     logger.info("cpv-search q=%r → %d results", q, len(results))
     return results
+
+
+@router.get("/nuts-search")
+def nuts_search(
+    q: str = Query("", max_length=60),
+    country: str = Query("", max_length=200, description="Comma-separated ISO2 country codes to filter by"),
+    limit: int = Query(20, le=50),
+):
+    """
+    Search NUTS codes by code prefix or label keyword.
+    Filter by country codes (e.g. country=BE,FR).
+    """
+    from app.services.nuts_reference import search_nuts
+    countries = [c.strip() for c in country.split(",") if c.strip()] if country else None
+    results = search_nuts(q, countries=countries, limit=limit)
+    return results

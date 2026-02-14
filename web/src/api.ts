@@ -466,3 +466,16 @@ export interface TranslationExpansion {
 export function getTranslationExpansion(q: string): Promise<TranslationExpansion> {
   return request(`/api/translate/expand?q=${encodeURIComponent(q)}`);
 }
+
+// ── Reference search (CPV / NUTS) ────────────────────────────────
+
+export interface RefOption { code: string; label: string; }
+
+export function searchCpvCodes(q: string, limit = 20): Promise<RefOption[]> {
+  return request(`/api/public/cpv-search?q=${encodeURIComponent(q)}&limit=${limit}`);
+}
+
+export function searchNutsCodes(q: string, countries: string[] = [], limit = 25): Promise<RefOption[]> {
+  const countryParam = countries.length > 0 ? `&country=${countries.join(",")}` : "";
+  return request(`/api/public/nuts-search?q=${encodeURIComponent(q)}&limit=${limit}${countryParam}`);
+}

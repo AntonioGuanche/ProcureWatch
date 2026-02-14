@@ -1441,6 +1441,54 @@ label {
   padding: .1rem 0;
 }
 
+/* Searchable chip dropdown */
+.chip-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  max-height: 220px;
+  overflow-y: auto;
+  background: white;
+  border: 1px solid var(--gray-300);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 12px rgba(0,0,0,.1);
+  margin-top: 2px;
+}
+.chip-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .45rem .65rem;
+  font-size: .82rem;
+  cursor: pointer;
+  transition: background .1s;
+}
+.chip-dropdown-item:hover,
+.chip-dropdown-item.highlighted {
+  background: var(--gray-50, #f8f9fa);
+}
+.chip-dropdown-code {
+  font-weight: 600;
+  color: var(--navy, #1e3a5f);
+  min-width: 60px;
+  font-family: monospace;
+  font-size: .8rem;
+}
+.chip-dropdown-label {
+  color: var(--gray-700, #374151);
+}
+.chip-dropdown-loading,
+.chip-dropdown-empty {
+  color: var(--gray-400);
+  font-style: italic;
+  cursor: default;
+  padding: .5rem .65rem;
+}
+.chip-dropdown-loading:hover,
+.chip-dropdown-empty:hover { background: transparent; }
+
 /* ══ Filter badges on detail page ══════════════════════════════════════ */
 
 .filter-badge {
