@@ -43,7 +43,7 @@ def db(db_engine):
 
 def test_import_runs_summary_empty(db):
     """Summary endpoint returns empty when no runs exist."""
-    from app.api.routes.admin_import_import import import_runs_summary
+    from app.api.routes.admin_import import import_runs_summary
 
     # Simulate by calling the query logic directly
     rows = db.execute(text("""
@@ -61,7 +61,7 @@ def test_import_runs_summary_empty(db):
 
 def test_save_and_list_import_run(db):
     """Save an import run and verify it can be listed."""
-    from app.api.routes.admin_import_import import _save_import_run
+    from app.api.routes.admin_import import _save_import_run
     from datetime import datetime, timezone
 
     now = datetime.now(timezone.utc)
@@ -86,7 +86,7 @@ def test_save_and_list_import_run(db):
 
 def test_fetch_page_bosa_extracts_publications():
     """_fetch_page correctly extracts publications list from BOSA response."""
-    from app.api.routes.admin_import_import import _fetch_page
+    from app.api.routes.admin_import import _fetch_page
 
     fake_result = {"json": {"publications": [{"id": "1"}, {"id": "2"}]}}
     with patch("app.connectors.bosa.client.search_publications", return_value=fake_result):
@@ -96,7 +96,7 @@ def test_fetch_page_bosa_extracts_publications():
 
 def test_fetch_page_ted_extracts_notices():
     """_fetch_page correctly extracts notices list from TED response."""
-    from app.api.routes.admin_import_import import _fetch_page
+    from app.api.routes.admin_import import _fetch_page
 
     fake_result = {"notices": [{"id": "a"}, {"id": "b"}, {"id": "c"}]}
     with patch("app.connectors.ted.client.search_ted_notices", return_value=fake_result):
