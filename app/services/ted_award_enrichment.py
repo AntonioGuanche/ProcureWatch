@@ -177,6 +177,14 @@ def enrich_ted_can_batch(
             item = result_map.get(pub_number)
 
             if not item:
+                # TED doesn't have this notice — NULL out to stop retry
+                db.execute(text("""
+                    UPDATE notices
+                    SET award_winner_name = NULL
+                    WHERE source = 'TED_EU'
+                      AND source_id = :sid
+                      AND LENGTH(COALESCE(award_winner_name, '')) <= 3
+                """), {"sid": pub_number})
                 stats["not_found"] += 1
                 continue
 
@@ -189,7 +197,17 @@ def enrich_ted_can_batch(
                 500,
             )
 
-            if _is_country_code_only(new_winner):
+            if not new_winner or _is_country_code_only(new_winner):
+                # TED has no better info than the country code we already have.
+                # Set award_winner_name = NULL to remove from candidate pool
+                # (filter requires IS NOT NULL AND LENGTH <= 3).
+                db.execute(text("""
+                    UPDATE notices
+                    SET award_winner_name = NULL
+                    WHERE source = 'TED_EU'
+                      AND source_id = :sid
+                      AND LENGTH(COALESCE(award_winner_name, '')) <= 3
+                """), {"sid": pub_number})
                 stats["still_country_only"] += 1
                 continue
 
