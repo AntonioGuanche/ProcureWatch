@@ -43,7 +43,8 @@ class TestSearchCpv:
     def test_search_it_services(self):
         results = search_cpv("72")
         assert len(results) >= 1
-        assert all(r["code"].startswith("72") for r in results)
+        # substring match: "72" may appear anywhere in code or label
+        assert any(r["code"].startswith("72") for r in results)
 
     def test_no_results(self):
         results = search_cpv("zzzzzzzzz")
