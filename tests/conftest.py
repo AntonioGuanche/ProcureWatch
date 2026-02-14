@@ -21,6 +21,7 @@ os.environ.setdefault("BOSA_CLIENT_SECRET", "test")
 
 from app.models.base import Base
 from app.models.notice import ProcurementNotice, NoticeSource
+from app.models.user import User  # needed so FK to 'users' table resolves
 
 
 # ── Database fixtures ────────────────────────────────────────────────
@@ -29,6 +30,16 @@ from app.models.notice import ProcurementNotice, NoticeSource
 def db_engine():
     """In-memory SQLite engine with all tables."""
     engine = create_engine("sqlite:///:memory:")
+
+    # SQLite needs this to enforce ON DELETE CASCADE
+    from sqlalchemy import event
+
+    @event.listens_for(engine, "connect")
+    def _set_sqlite_pragma(dbapi_conn, connection_record):
+        cursor = dbapi_conn.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+
     Base.metadata.create_all(engine)
     yield engine
     engine.dispose()

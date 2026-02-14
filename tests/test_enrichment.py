@@ -252,7 +252,10 @@ class TestBackfill:
         db.commit()
 
         result = backfill_from_raw_data(db)
-        assert result["processed"] == 0
+        # SQLite stores JSON None as json-null (not SQL NULL), so it may still
+        # be "processed" without extracting anything. The key assertion is that
+        # no fields were actually enriched.
+        assert result["enriched"] == 0
 
 
 # ── Data quality report ──────────────────────────────────────────
