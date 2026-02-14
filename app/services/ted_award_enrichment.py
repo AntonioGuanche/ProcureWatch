@@ -114,7 +114,20 @@ def enrich_ted_can_batch(
         "api_calls": 0,
     }
 
-    # -- 1. Find DISTINCT source_ids with country-code winners --
+    # -- 1a. Count TOTAL remaining (no LIMIT) for monitoring --
+    total_remaining = db.execute(text("""
+        SELECT COUNT(DISTINCT source_id)
+        FROM notices
+        WHERE source = 'TED_EU'
+          AND award_winner_name IS NOT NULL
+          AND award_winner_name != ''
+          AND LENGTH(award_winner_name) <= 3
+          AND source_id IS NOT NULL
+    """)).scalar() or 0
+
+    logger.info("[TED enrich] Total remaining distinct source_ids: %d", total_remaining)
+
+    # -- 1b. Find DISTINCT source_ids with country-code winners --
     rows = db.execute(text("""
         SELECT DISTINCT source_id
         FROM notices
@@ -129,6 +142,7 @@ def enrich_ted_can_batch(
     distinct_ids = [r[0] for r in rows if r[0]]
     stats["total_candidates"] = len(distinct_ids)
     stats["distinct_source_ids"] = len(distinct_ids)
+    stats["total_remaining_before"] = total_remaining
 
     if not distinct_ids:
         logger.info("[TED enrich] No candidates found with country-code-only winners")
@@ -240,10 +254,36 @@ def enrich_ted_can_batch(
             stats["not_found"], stats["still_country_only"],
         )
 
+    # Count remaining AFTER processing
+    remaining_after = db.execute(text("""
+        SELECT COUNT(DISTINCT source_id)
+        FROM notices
+        WHERE source = 'TED_EU'
+          AND award_winner_name IS NOT NULL
+          AND award_winner_name != ''
+          AND LENGTH(award_winner_name) <= 3
+          AND source_id IS NOT NULL
+    """)).scalar() or 0
+    stats["total_remaining_after"] = remaining_after
+
+    # Verification: check one of the enriched source_ids
+    if distinct_ids and stats["enriched"] > 0:
+        sample_sid = distinct_ids[0]
+        check = db.execute(text("""
+            SELECT id, source_id, award_winner_name, LENGTH(award_winner_name)
+            FROM notices
+            WHERE source = 'TED_EU' AND source_id = :sid
+            LIMIT 5
+        """), {"sid": sample_sid}).fetchall()
+        stats["verification_sample"] = [
+            {"id": r[0], "source_id": r[1], "winner": r[2], "len": r[3]}
+            for r in check
+        ]
+
     logger.info(
         "[TED enrich] Done: %d distinct IDs, %d enriched, %d rows updated, "
-        "%d still country-only, %d not found, %d API calls",
+        "remaining: %d -> %d, %d API calls",
         stats["total_candidates"], stats["enriched"], stats["rows_updated"],
-        stats["still_country_only"], stats["not_found"], stats["api_calls"],
+        total_remaining, remaining_after, stats["api_calls"],
     )
     return stats
