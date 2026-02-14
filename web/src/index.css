@@ -355,7 +355,29 @@ label {
   padding-top: .65rem;
   border-top: 1px solid var(--gray-100);
   font-size: .85rem;
+  flex-wrap: wrap;
 }
+
+.filter-group-inline {
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+}
+.filter-label-sm {
+  font-size: .78rem;
+  color: var(--gray-500);
+  white-space: nowrap;
+}
+.filter-input-sm {
+  padding: .3rem .45rem;
+  font-size: .8rem;
+  border: 1px solid var(--gray-300);
+  border-radius: var(--radius);
+  width: auto;
+}
+.filter-input-sm[type="date"] { width: 130px; }
+.filter-input-num { width: 90px; }
+.filter-input-num::placeholder { color: var(--gray-400); }
 
 /* Translation expansion indicator */
 .translation-bar {
@@ -608,7 +630,8 @@ label {
 
 .wl-form .form-group { margin-bottom: .75rem; }
 .wl-form input[type="text"],
-.wl-form input[type="email"] { width: 100%; }
+.wl-form input[type="email"],
+.wl-form input[type="number"] { width: 100%; }
 
 .form-group { margin-bottom: .75rem; }
 .form-group input:not([type="checkbox"]),

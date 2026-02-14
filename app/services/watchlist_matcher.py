@@ -135,6 +135,12 @@ def _build_match_query(
             if country_conditions:
                 query = query.filter(or_(*country_conditions))
 
+    # Value range filter
+    if getattr(watchlist, "value_min", None) is not None:
+        query = query.filter(Notice.estimated_value >= watchlist.value_min)
+    if getattr(watchlist, "value_max", None) is not None:
+        query = query.filter(Notice.estimated_value <= watchlist.value_max)
+
     return query
 
 
@@ -152,6 +158,12 @@ def _build_explanation(watchlist: Watchlist) -> str:
     countries = _parse_csv(watchlist.countries)
     if countries:
         parts.append(f"countries: {', '.join(countries)}")
+    vmin = getattr(watchlist, "value_min", None)
+    vmax = getattr(watchlist, "value_max", None)
+    if vmin is not None or vmax is not None:
+        vmin_s = f"{vmin:,.0f}€" if vmin else "0€"
+        vmax_s = f"{vmax:,.0f}€" if vmax else "∞"
+        parts.append(f"value: {vmin_s}–{vmax_s}")
     return ", ".join(parts) if parts else "all notices"
 
 

@@ -43,6 +43,8 @@ class Watchlist(Base):
     enabled: Mapped[bool] = mapped_column(default=True, server_default="true", nullable=False)
     notify_email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, comment="Email for alerts")
     nuts_prefixes: Mapped[Optional[str]] = mapped_column(String(500), nullable=True, comment="Comma-separated NUTS prefixes")
+    value_min: Mapped[Optional[float]] = mapped_column(nullable=True, comment="Minimum estimated value (EUR)")
+    value_max: Mapped[Optional[float]] = mapped_column(nullable=True, comment="Maximum estimated value (EUR)")
     last_refresh_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         default=func.now(),

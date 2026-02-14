@@ -20,6 +20,8 @@ class WatchlistBase(BaseModel):
         default_factory=lambda: list(DEFAULT_SOURCES),
         description="Source identifiers to filter by (TED, BOSA, or both)",
     )
+    value_min: Optional[float] = Field(None, ge=0, description="Minimum estimated value (EUR)")
+    value_max: Optional[float] = Field(None, ge=0, description="Maximum estimated value (EUR)")
     enabled: bool = Field(True, description="Whether this watchlist is active for alerts")
     notify_email: Optional[str] = Field(None, max_length=255, description="Email address for alert notifications")
 
@@ -61,6 +63,8 @@ class WatchlistUpdate(BaseModel):
     cpv_prefixes: Optional[list[str]] = None
     nuts_prefixes: Optional[list[str]] = None
     sources: Optional[list[str]] = None
+    value_min: Optional[float] = Field(None, ge=0)
+    value_max: Optional[float] = Field(None, ge=0)
     enabled: Optional[bool] = None
     notify_email: Optional[str] = Field(None, max_length=255)
 

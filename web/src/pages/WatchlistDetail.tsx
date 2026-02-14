@@ -168,6 +168,9 @@ export function WatchlistDetail() {
     watchlist.cpv_prefixes.length > 0 ? `CPV: ${watchlist.cpv_prefixes.join(", ")}` : "",
     watchlist.countries.length > 0 ? `Pays: ${watchlist.countries.join(", ")}` : "",
     watchlist.nuts_prefixes.length > 0 ? `NUTS: ${watchlist.nuts_prefixes.join(", ")}` : "",
+    (watchlist.value_min != null || watchlist.value_max != null)
+      ? `Valeur: ${watchlist.value_min != null ? watchlist.value_min.toLocaleString("fr-BE") + " €" : "0 €"} – ${watchlist.value_max != null ? watchlist.value_max.toLocaleString("fr-BE") + " €" : "∞"}`
+      : "",
   ].filter(Boolean);
 
   const totalPages = Math.ceil(total / pageSize);

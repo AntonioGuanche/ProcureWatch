@@ -57,6 +57,8 @@ def create_watchlist(
     cpv_prefixes: list[str] | None = None,
     nuts_prefixes: list[str] | None = None,
     sources: list[str] | None = None,
+    value_min: float | None = None,
+    value_max: float | None = None,
     enabled: bool = True,
     notify_email: str | None = None,
     user_id: str | None = None,
@@ -69,6 +71,8 @@ def create_watchlist(
         cpv_prefixes=_join_array(cpv_prefixes or []),
         nuts_prefixes=_join_array(nuts_prefixes or []),
         sources=_join_sources_json(sources),
+        value_min=value_min,
+        value_max=value_max,
         enabled=enabled,
         notify_email=notify_email,
         user_id=user_id,
@@ -111,6 +115,8 @@ def update_watchlist(
     cpv_prefixes: Optional[list[str]] = None,
     nuts_prefixes: Optional[list[str]] = None,
     sources: Optional[list[str]] = None,
+    value_min: Optional[float] = None,
+    value_max: Optional[float] = None,
     enabled: Optional[bool] = None,
     notify_email: Optional[str] = None,
 ) -> Optional[Watchlist]:
@@ -130,6 +136,10 @@ def update_watchlist(
         wl.nuts_prefixes = _join_array(nuts_prefixes)
     if sources is not None:
         wl.sources = _join_sources_json(sources)
+    if value_min is not None:
+        wl.value_min = value_min if value_min > 0 else None
+    if value_max is not None:
+        wl.value_max = value_max if value_max > 0 else None
     if enabled is not None:
         wl.enabled = enabled
     if notify_email is not None:
@@ -459,6 +469,13 @@ def _build_watchlist_query(db: Session, watchlist: Watchlist):
     query, _ = _match_keywords_sql(query, keywords)
     query, _ = _match_countries_sql(query, countries)
     query, _ = _match_cpv_prefixes_sql(query, cpv_prefixes)
+
+    # Value range filter
+    if getattr(watchlist, "value_min", None) is not None:
+        query = query.filter(Notice.estimated_value >= watchlist.value_min)
+    if getattr(watchlist, "value_max", None) is not None:
+        query = query.filter(Notice.estimated_value <= watchlist.value_max)
+
     return query
 
 

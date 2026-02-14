@@ -226,6 +226,8 @@ export interface Watchlist {
   cpv_prefixes: string[];
   nuts_prefixes: string[];
   sources: string[];
+  value_min: number | null;
+  value_max: number | null;
   enabled: boolean;
   notify_email: string | null;
   last_refresh_at: string | null;
@@ -247,6 +249,8 @@ export interface WatchlistCreate {
   cpv_prefixes?: string[];
   nuts_prefixes?: string[];
   sources?: string[];
+  value_min?: number | null;
+  value_max?: number | null;
   enabled?: boolean;
   notify_email?: string | null;
 }
@@ -258,6 +262,8 @@ export interface WatchlistUpdate {
   cpv_prefixes?: string[];
   nuts_prefixes?: string[];
   sources?: string[];
+  value_min?: number | null;
+  value_max?: number | null;
   enabled?: boolean;
   notify_email?: string | null;
 }

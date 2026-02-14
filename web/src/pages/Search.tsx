@@ -58,6 +58,10 @@ export function Search() {
   const [cpv, setCpv] = useState("");
   const [nuts, setNuts] = useState("");
   const [source, setSource] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [valueMin, setValueMin] = useState("");
+  const [valueMax, setValueMax] = useState("");
   const [activeOnly, setActiveOnly] = useState(false);
   const [sort, setSort] = useState("date_desc");
   const [page, setPage] = useState(1);
@@ -106,6 +110,10 @@ export function Search() {
       if (cpv) params.cpv = cpv;
       if (nuts) params.nuts = nuts;
       if (source) params.source = source;
+      if (dateFrom) params.date_from = dateFrom;
+      if (dateTo) params.date_to = dateTo;
+      if (valueMin) params.value_min = parseFloat(valueMin);
+      if (valueMax) params.value_max = parseFloat(valueMax);
       if (activeOnly) params.active_only = true;
       const data = await searchNotices(params);
       setResults(data);
@@ -114,7 +122,7 @@ export function Search() {
     } finally {
       setLoading(false);
     }
-  }, [q, cpv, nuts, source, activeOnly, sort, pageSize]);
+  }, [q, cpv, nuts, source, dateFrom, dateTo, valueMin, valueMax, activeOnly, sort, pageSize]);
 
   useEffect(() => { doSearch(1); }, []);
 
@@ -189,9 +197,23 @@ export function Search() {
         </div>
 
         <div className="filter-row-secondary">
+          <div className="filter-group-inline">
+            <label className="filter-label-sm">Du</label>
+            <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="filter-input-sm" />
+            <label className="filter-label-sm">Au</label>
+            <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="filter-input-sm" />
+          </div>
+          <div className="filter-group-inline">
+            <label className="filter-label-sm">Min €</label>
+            <input type="number" value={valueMin} onChange={(e) => setValueMin(e.target.value)}
+              placeholder="0" min="0" step="1000" className="filter-input-sm filter-input-num" />
+            <label className="filter-label-sm">Max €</label>
+            <input type="number" value={valueMax} onChange={(e) => setValueMax(e.target.value)}
+              placeholder="∞" min="0" step="1000" className="filter-input-sm filter-input-num" />
+          </div>
           <label className="checkbox-label">
             <input type="checkbox" checked={activeOnly} onChange={(e) => setActiveOnly(e.target.checked)} />
-            Opportunités ouvertes uniquement
+            Ouvertes uniquement
           </label>
           {results && <span className="results-count">{results.total.toLocaleString("fr-BE")} résultat{results.total !== 1 ? "s" : ""}</span>}
         </div>

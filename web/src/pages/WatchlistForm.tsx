@@ -17,6 +17,8 @@ export function WatchlistForm({ initial, onSubmit, onCancel }: WatchlistFormProp
   const [cpvPrefixes, setCpvPrefixes] = useState<string[]>(initial?.cpv_prefixes ?? []);
   const [countries, setCountries] = useState<string[]>(initial?.countries ?? []);
   const [nutsPrefixes, setNutsPrefixes] = useState<string[]>(initial?.nuts_prefixes ?? []);
+  const [valueMin, setValueMin] = useState<string>(initial?.value_min != null ? String(initial.value_min) : "");
+  const [valueMax, setValueMax] = useState<string>(initial?.value_max != null ? String(initial.value_max) : "");
   const [notifyEmail, setNotifyEmail] = useState(initial?.notify_email ?? user?.email ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -34,6 +36,8 @@ export function WatchlistForm({ initial, onSubmit, onCancel }: WatchlistFormProp
       cpv_prefixes: cpvPrefixes,
       countries,
       nuts_prefixes: nutsPrefixes,
+      value_min: valueMin ? parseFloat(valueMin) : null,
+      value_max: valueMax ? parseFloat(valueMax) : null,
       notify_email: notifyEmail.trim() || null,
     };
 
@@ -70,6 +74,19 @@ export function WatchlistForm({ initial, onSubmit, onCancel }: WatchlistFormProp
       <div className="form-row">
         <ChipInput label="Pays (ISO2)" values={countries} onChange={setCountries} placeholder="ex: BE, FR" />
         <ChipInput label="Préfixes NUTS" values={nutsPrefixes} onChange={setNutsPrefixes} placeholder="ex: BE1, BE100" />
+      </div>
+
+      <div className="form-row">
+        <div className="form-group">
+          <label>Valeur min (€)</label>
+          <input type="number" value={valueMin} onChange={(e) => setValueMin(e.target.value)}
+            placeholder="ex: 10000" min="0" step="1000" />
+        </div>
+        <div className="form-group">
+          <label>Valeur max (€)</label>
+          <input type="number" value={valueMax} onChange={(e) => setValueMax(e.target.value)}
+            placeholder="ex: 500000" min="0" step="1000" />
+        </div>
       </div>
 
       <div className="form-group">
