@@ -1,13 +1,11 @@
 """Tests for searchable text building."""
 import json
 import os
-
-
-pytestmark = pytest.mark.integration
-
 os.environ["DATABASE_URL"] = "sqlite+pysqlite:///./test_searchable_text.db"
 
 import pytest
+
+pytestmark = pytest.mark.integration
 
 from app.models.base import Base
 from app.models.notice import Notice

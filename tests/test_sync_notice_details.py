@@ -1,15 +1,13 @@
 """Ingest tests for sync_notice_details: mock get_publication_detail, verify DB upserts (offline)."""
 import os
-
-
-pytestmark = pytest.mark.integration
-
 os.environ["DATABASE_URL"] = "sqlite+pysqlite:///./test_sync_notice_details.db"
 
 import json
 from unittest.mock import patch
 
 import pytest
+
+pytestmark = pytest.mark.integration
 
 from app.db.session import SessionLocal, engine
 from app.models.base import Base

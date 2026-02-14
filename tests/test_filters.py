@@ -5,14 +5,12 @@ import os
 os.environ["DATABASE_URL"] = "sqlite+pysqlite:///./test.db"
 
 import pytest
+
+pytestmark = pytest.mark.integration
 from fastapi.testclient import TestClient
 
 from app.main import app
 from app.db.session import engine, Base
-
-pytestmark = pytest.mark.integration
-
-
 # Create tables for tests
 @pytest.fixture(scope="function")
 def db_setup():
