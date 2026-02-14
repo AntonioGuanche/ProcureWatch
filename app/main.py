@@ -16,6 +16,7 @@ from app.api.routes import watchlists_mvp as watchlists
 from app.api.routes.admin_digest import router as admin_digest_router
 from app.api.routes.billing import router as billing_router
 from app.api.routes.intelligence import router as intelligence_router
+from app.api.routes.translation import router as translation_router
 
 # Setup logging
 setup_logging()
@@ -89,6 +90,7 @@ app.include_router(favorites.router, prefix="/api")
 app.include_router(admin_digest_router, prefix="/api")
 app.include_router(billing_router, prefix="/api")
 app.include_router(intelligence_router, prefix="/api")
+app.include_router(translation_router, prefix="/api")
 
 # Public endpoints (no auth)
 from app.api.routes import public as public_routes

@@ -357,6 +357,18 @@ label {
   font-size: .85rem;
 }
 
+/* Translation expansion indicator */
+.translation-bar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: .4rem;
+  margin-top: .5rem; padding: .4rem .6rem;
+  background: #f0f4ff; border-radius: 6px; font-size: .78rem;
+}
+.translation-label { color: var(--gray-600); font-weight: 500; margin-right: .2rem; white-space: nowrap; }
+.translation-tag {
+  display: inline-block; padding: .1rem .45rem;
+  background: #dbe4ff; color: #364fc7; border-radius: 3px; font-size: .75rem;
+}
+
 .checkbox-label {
   display: inline-flex;
   align-items: center;

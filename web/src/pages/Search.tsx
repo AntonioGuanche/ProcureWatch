@@ -1,5 +1,5 @@
-import { useEffect, useState, useCallback } from "react";
-import { searchNotices, getFacets, getFavoriteIds, addFavorite, removeFavorite, type SearchParams } from "../api";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { searchNotices, getFacets, getFavoriteIds, addFavorite, removeFavorite, getTranslationExpansion, type SearchParams, type TranslationExpansion } from "../api";
 import type { NoticeSearchResponse, FacetsResponse } from "../types";
 import { NoticeModal } from "../components/NoticeModal";
 
@@ -76,6 +76,24 @@ export function Search() {
     getFacets().then(setFacets).catch(() => {});
     getFavoriteIds().then((r) => setFavIds(new Set(r.notice_ids))).catch(() => {});
   }, []);
+
+  // Translation preview — debounced
+  const [translations, setTranslations] = useState<TranslationExpansion | null>(null);
+  const translationTimer = useRef<ReturnType<typeof setTimeout>>();
+  useEffect(() => {
+    clearTimeout(translationTimer.current);
+    const trimmed = q.trim();
+    if (!trimmed || trimmed.length < 2) { setTranslations(null); return; }
+    translationTimer.current = setTimeout(() => {
+      getTranslationExpansion(trimmed)
+        .then((t) => {
+          if (t.expanded_count > t.original_count) setTranslations(t);
+          else setTranslations(null);
+        })
+        .catch(() => setTranslations(null));
+    }, 400);
+    return () => clearTimeout(translationTimer.current);
+  }, [q]);
 
   const doSearch = useCallback(async (p: number, sortOverride?: string) => {
     const effectiveSort = sortOverride ?? sort;
@@ -177,6 +195,17 @@ export function Search() {
           </label>
           {results && <span className="results-count">{results.total.toLocaleString("fr-BE")} résultat{results.total !== 1 ? "s" : ""}</span>}
         </div>
+
+        {translations && (
+          <div className="translation-bar">
+            <span className="translation-label">🌐 Recherche étendue :</span>
+            {translations.expanded
+              .filter((t) => !translations.original.map(o => o.toLowerCase()).includes(t.toLowerCase()))
+              .map((t) => (
+                <span key={t} className="translation-tag">{t}</span>
+              ))}
+          </div>
+        )}
       </form>
 
       {error && <div className="alert alert-error">{error}</div>}

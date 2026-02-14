@@ -14,6 +14,7 @@ from app.models.notice_lot import NoticeLot
 from app.models.watchlist import Watchlist
 from app.models.watchlist_match import WatchlistMatch
 from app.models.import_run import ImportRun
+from app.models.translation_cache import TranslationCache
 
 __all__ = [
     "Base",
@@ -28,4 +29,5 @@ __all__ = [
     "Watchlist",
     "ImportRun",
     "WatchlistMatch",
+    "TranslationCache",
 ]

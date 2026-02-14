@@ -452,3 +452,17 @@ export function getCpvAnalysis(
   const cpv = cpvGroups.join(",");
   return request(`/api/intelligence/cpv-analysis?cpv=${cpv}&months=${months}&top_limit=${topLimit}`);
 }
+
+// ── Translation ─────────────────────────────────────────────────────
+
+export interface TranslationExpansion {
+  original: string[];
+  expanded: string[];
+  tsquery: string;
+  original_count: number;
+  expanded_count: number;
+}
+
+export function getTranslationExpansion(q: string): Promise<TranslationExpansion> {
+  return request(`/api/translate/expand?q=${encodeURIComponent(q)}`);
+}

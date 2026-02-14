@@ -89,14 +89,19 @@ class WatchlistService:
         notice_sources = _notice_sources_for_watchlist(source_ids)
         cutoff = watchlist.last_refresh_at.date() if watchlist.last_refresh_at else None
 
+        # Expand keywords with FR/NL/EN translations for multilingual matching
+        original_keywords = list(keywords)  # keep originals for matched_on display
+        from app.services.translation_service import expand_keywords_list
+        expanded_keywords = expand_keywords_list(keywords) if keywords else []
+
         query = self.db.query(ProcurementNotice).filter(ProcurementNotice.source.in_(notice_sources))
 
         if cutoff is not None:
             query = query.filter(ProcurementNotice.publication_date >= cutoff)
 
         keyword_conditions = []
-        if keywords:
-            for k in keywords:
+        if expanded_keywords:
+            for k in expanded_keywords:
                 if not k:
                     continue
                 pattern = f"%{k}%"
@@ -137,10 +142,10 @@ class WatchlistService:
             if notice.id in existing_match_ids:
                 continue
             keywords_matched = []
-            if keywords:
+            if expanded_keywords:
                 title_lower = (notice.title or "").lower()
                 desc_lower = (notice.description or "").lower()
-                for k in keywords:
+                for k in expanded_keywords:
                     if k.lower() in title_lower or k.lower() in desc_lower:
                         keywords_matched.append(k)
             cpv_matched = []
@@ -151,7 +156,7 @@ class WatchlistService:
                         cpv_matched.append(p)
                         break
             # Include if (keywords matched) OR (cpv matched) or both
-            if not ((keywords and keywords_matched) or (cpv_prefixes and cpv_matched)):
+            if not ((expanded_keywords and keywords_matched) or (cpv_prefixes and cpv_matched)):
                 continue
 
             matched_on = _build_matched_on(keywords_matched, cpv_matched)

@@ -25,16 +25,26 @@ def _is_postgres(db: Session) -> bool:
     return db.bind.dialect.name == "postgresql"
 
 
-def _parse_tsquery(raw: str) -> str:
+def _parse_tsquery(raw: str, expand_translations: bool = True) -> str:
     """
     Convert user input to a safe PostgreSQL tsquery string.
-    'construction bâtiment'  →  'construction & bâtiment'
-    'route OR pont'          →  'route | pont'
-    '"travaux publics"'      →  kept as phrase (tsquery handles it)
+    When expand_translations is True, each term is expanded with FR/NL/EN
+    translations using OR groups.
+
+    'nettoyage bâtiment'  →  '(nettoyage:* | schoonmaak:* | cleaning:*) & (bâtiment:* | gebouw:* | building:*)'
+    'route OR pont'       →  '(route:* | weg:* | road:*) | (pont:* | brug:* | bridge:*)'
     """
     raw = raw.strip()
     if not raw:
         return ""
+
+    if expand_translations:
+        from app.services.translation_service import expand_tsquery_terms
+        expanded = expand_tsquery_terms(raw)
+        if expanded:
+            return expanded
+
+    # Fallback: original logic without translation
     raw = re.sub(r"\bOR\b", "|", raw, flags=re.IGNORECASE)
     tokens = raw.split()
     result = []
