@@ -202,6 +202,7 @@ class TestBulkImportAll:
         db = MagicMock()
 
         with patch("app.services.bulk_import.bulk_import_source") as mock_source, \
+             patch("app.services.bosa_award_enrichment.enrich_bosa_can_batch", return_value={"enriched": 0}), \
              patch("app.services.enrichment_service.backfill_from_raw_data", return_value={"enriched": 5}), \
              patch("app.services.enrichment_service.refresh_search_vectors", return_value=10), \
              patch("app.services.watchlist_matcher.run_watchlist_matcher", return_value={"total_new_matches": 2}):
@@ -224,6 +225,7 @@ class TestBulkImportAll:
         db = MagicMock()
 
         with patch("app.services.bulk_import.bulk_import_source") as mock_source, \
+             patch("app.services.bosa_award_enrichment.enrich_bosa_can_batch", return_value={"enriched": 0}), \
              patch("app.services.enrichment_service.backfill_from_raw_data") as mock_bf:
 
             mock_source.return_value = {"total_created": 0, "total_updated": 0}
