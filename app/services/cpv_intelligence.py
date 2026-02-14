@@ -170,7 +170,7 @@ def get_volume_value(
         SELECT
             TO_CHAR(publication_date, 'YYYY-MM') AS month,
             COUNT(*) AS notice_count,
-            COUNT(CASE WHEN award_winner_name IS NOT NULL THEN 1 END) AS awarded_count,
+            COUNT(CASE WHEN award_winner_name IS NOT NULL AND award_winner_name != '—' THEN 1 END) AS awarded_count,
             COALESCE(SUM(estimated_value), 0) AS total_estimated,
             COALESCE(SUM(award_value), 0) AS total_awarded,
             COALESCE(AVG(estimated_value) FILTER (WHERE estimated_value IS NOT NULL), 0) AS avg_estimated,
@@ -188,7 +188,7 @@ def get_volume_value(
         SELECT
             EXTRACT(YEAR FROM publication_date)::INTEGER AS year,
             COUNT(*) AS notice_count,
-            COUNT(CASE WHEN award_winner_name IS NOT NULL THEN 1 END) AS awarded_count,
+            COUNT(CASE WHEN award_winner_name IS NOT NULL AND award_winner_name != '—' THEN 1 END) AS awarded_count,
             COALESCE(SUM(estimated_value), 0) AS total_estimated,
             COALESCE(SUM(award_value), 0) AS total_awarded
         FROM notices
@@ -203,7 +203,7 @@ def get_volume_value(
     totals = db.execute(text(f"""
         SELECT
             COUNT(*) AS total_notices,
-            COUNT(CASE WHEN award_winner_name IS NOT NULL THEN 1 END) AS total_awarded,
+            COUNT(CASE WHEN award_winner_name IS NOT NULL AND award_winner_name != '—' THEN 1 END) AS total_awarded,
             COALESCE(SUM(estimated_value), 0) AS sum_estimated,
             COALESCE(SUM(award_value), 0) AS sum_awarded,
             COALESCE(AVG(estimated_value) FILTER (WHERE estimated_value IS NOT NULL), 0) AS avg_estimated,
@@ -315,7 +315,7 @@ def get_top_winners(
             FROM notices
             WHERE {cpv_clause}
               AND cpv_main_code IS NOT NULL
-              AND award_winner_name IS NOT NULL
+              AND award_winner_name IS NOT NULL AND award_winner_name != '—'
               AND TRIM(award_winner_name) != ''
         )
         SELECT
@@ -695,7 +695,7 @@ def get_single_bid_contracts(
         WHERE {cpv_clause}
           AND cpv_main_code IS NOT NULL
           AND number_tenders_received = 1
-          AND award_winner_name IS NOT NULL
+          AND award_winner_name IS NOT NULL AND award_winner_name != '—'
     """), _cpv_params(cpv_groups)).scalar() or 0
 
     # Recent examples
@@ -707,7 +707,7 @@ def get_single_bid_contracts(
         WHERE {cpv_clause}
           AND cpv_main_code IS NOT NULL
           AND number_tenders_received = 1
-          AND award_winner_name IS NOT NULL
+          AND award_winner_name IS NOT NULL AND award_winner_name != '—'
         ORDER BY COALESCE(award_date, publication_date) DESC NULLS LAST
         LIMIT :limit
     """), params).mappings().all()

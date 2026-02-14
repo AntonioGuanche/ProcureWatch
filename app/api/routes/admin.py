@@ -950,13 +950,20 @@ def bosa_enrich_awards(
 
                 xml_content = extract_xml_from_raw_data(raw_data)
                 if not xml_content:
+                    # Mark as processed to prevent infinite re-query
+                    batch_updates.append((notice_id, {"award_winner_name": "—"}))
                     skipped += 1
                     continue
 
                 parsed = parse_award_data(xml_content)
                 fields = build_notice_fields(parsed)
 
+                # Always ensure award_winner_name is set to exit eligibility
+                if "award_winner_name" not in fields:
+                    fields["award_winner_name"] = "—"
+
                 if not fields:
+                    batch_updates.append((notice_id, {"award_winner_name": "—"}))
                     skipped += 1
                     continue
 

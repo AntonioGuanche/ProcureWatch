@@ -114,16 +114,22 @@ def enrich_bosa_can_batch(
                 if existing_xml:
                     parsed = parse_award_data(existing_xml)
                     fields = build_notice_fields(parsed)
+                    # Always set award_winner_name to prevent re-processing
+                    if "award_winner_name" not in fields:
+                        fields["award_winner_name"] = "—"
                     if fields:
                         _update_notice_fields(db, notice_id, fields)
                         stats["enriched"] += 1
                     else:
+                        # No fields at all — mark as processed anyway
+                        _update_notice_fields(db, notice_id, {"award_winner_name": "—"})
                         stats["skipped_no_fields"] += 1
                     stats["already_has_xml"] += 1
                     continue
 
                 # Step 2: Fetch workspace detail via API
                 if not source_id or workspace_client is None:
+                    _update_notice_fields(db, notice_id, {"award_winner_name": "—"})
                     stats["skipped_no_xml"] += 1
                     continue
 
@@ -131,19 +137,26 @@ def enrich_bosa_can_batch(
                 workspace_data = workspace_client.get_publication_workspace(source_id)
 
                 if not workspace_data:
+                    _update_notice_fields(db, notice_id, {"award_winner_name": "—"})
                     stats["api_errors"] += 1
                     continue
 
                 # Step 3: Extract + parse XML
                 xml_content = extract_xml_from_raw_data(workspace_data)
                 if not xml_content:
+                    _update_notice_fields(db, notice_id, {"award_winner_name": "—"})
                     stats["skipped_no_xml"] += 1
                     continue
 
                 parsed = parse_award_data(xml_content)
                 fields = build_notice_fields(parsed)
 
+                # Always set award_winner_name to prevent re-processing
+                if "award_winner_name" not in fields:
+                    fields["award_winner_name"] = "—"
+
                 if not fields:
+                    _update_notice_fields(db, notice_id, {"award_winner_name": "—"})
                     stats["skipped_no_fields"] += 1
                     continue
 
