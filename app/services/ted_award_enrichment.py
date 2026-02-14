@@ -6,6 +6,9 @@ with expanded search fields to get the actual company name.
 
 v3: Batch API calls + SQL UPDATE to fix ALL duplicates of same source_id.
     Fixes infinite loop where only 1 of N duplicate rows was updated per pass.
+v4: NULL out winner when TED has no better info — prevents retry loops.
+v5: Replace LENGTH <= 3 filter with regex ^[A-Z]{2,3}$ to avoid false positives
+    on legitimate short company names ("3P", "O2O", "IT1").
 """
 import json
 import logging
@@ -115,13 +118,15 @@ def enrich_ted_can_batch(
     }
 
     # -- 1a. Count TOTAL remaining (no LIMIT) for monitoring --
+    # Use regex to target ISO 3166-1 alpha-2/3 country codes only (e.g. "BEL", "FR")
+    # This avoids false positives on legitimate short company names ("3P", "O2O", "IT1")
     total_remaining = db.execute(text("""
         SELECT COUNT(DISTINCT source_id)
         FROM notices
         WHERE source = 'TED_EU'
           AND award_winner_name IS NOT NULL
           AND award_winner_name != ''
-          AND LENGTH(award_winner_name) <= 3
+          AND award_winner_name ~ '^[A-Z]{2,3}$'
           AND source_id IS NOT NULL
     """)).scalar() or 0
 
@@ -134,7 +139,7 @@ def enrich_ted_can_batch(
         WHERE source = 'TED_EU'
           AND award_winner_name IS NOT NULL
           AND award_winner_name != ''
-          AND LENGTH(award_winner_name) <= 3
+          AND award_winner_name ~ '^[A-Z]{2,3}$'
           AND source_id IS NOT NULL
         LIMIT :limit
     """), {"limit": limit}).fetchall()
@@ -183,7 +188,7 @@ def enrich_ted_can_batch(
                     SET award_winner_name = NULL
                     WHERE source = 'TED_EU'
                       AND source_id = :sid
-                      AND LENGTH(COALESCE(award_winner_name, '')) <= 3
+                      AND COALESCE(award_winner_name, '') ~ '^[A-Z]{2,3}$'
                 """), {"sid": pub_number})
                 stats["not_found"] += 1
                 continue
@@ -200,13 +205,13 @@ def enrich_ted_can_batch(
             if not new_winner or _is_country_code_only(new_winner):
                 # TED has no better info than the country code we already have.
                 # Set award_winner_name = NULL to remove from candidate pool
-                # (filter requires IS NOT NULL AND LENGTH <= 3).
+                # (filter requires IS NOT NULL AND matches country code regex).
                 db.execute(text("""
                     UPDATE notices
                     SET award_winner_name = NULL
                     WHERE source = 'TED_EU'
                       AND source_id = :sid
-                      AND LENGTH(COALESCE(award_winner_name, '')) <= 3
+                      AND COALESCE(award_winner_name, '') ~ '^[A-Z]{2,3}$'
                 """), {"sid": pub_number})
                 stats["still_country_only"] += 1
                 continue
@@ -257,7 +262,7 @@ def enrich_ted_can_batch(
                 SET {set_clauses}, raw_data = CAST(:raw_data_json AS jsonb)
                 WHERE source = 'TED_EU'
                   AND source_id = :sid
-                  AND LENGTH(COALESCE(award_winner_name, '')) <= 3
+                  AND COALESCE(award_winner_name, '') ~ '^[A-Z]{2,3}$'
             """), updates)
 
             rows_affected = result.rowcount
@@ -279,7 +284,7 @@ def enrich_ted_can_batch(
         WHERE source = 'TED_EU'
           AND award_winner_name IS NOT NULL
           AND award_winner_name != ''
-          AND LENGTH(award_winner_name) <= 3
+          AND award_winner_name ~ '^[A-Z]{2,3}$'
           AND source_id IS NOT NULL
     """)).scalar() or 0
     stats["total_remaining_after"] = remaining_after

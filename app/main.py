@@ -39,7 +39,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Configure CORS for Lovable frontend + local/production
+# Configure CORS for frontend origins
 _cors_origins = [
     "http://localhost:3000",
     "http://localhost:5173",
@@ -47,21 +47,22 @@ _cors_origins = [
     "https://lovable.app",
     "https://lovable.dev",
     "https://procurewatch.app",
+    "https://app.procurewatch.eu",
+    "https://procurewatch.eu",
+    "https://www.procurewatch.eu",
 ]
-# Check if wildcard allowed (e.g. ALLOWED_ORIGINS=* from Railway)
-if "*" in settings.allowed_origins_list:
-    _cors_origins_final = ["*"]
-else:
-    _cors_origins_final = _cors_origins + [
-        o for o in settings.allowed_origins_list if o not in ["**", ""]
-    ]
+# If env allows all origins (e.g. ALLOWED_ORIGINS=*), use regex-based approach
+# NOTE: allow_origins=["*"] + allow_credentials=True is invalid per CORS spec.
+#       We use explicit origins + regex instead to stay spec-compliant.
+_extra = [o for o in settings.allowed_origins_list if o not in ["*", "**", ""]]
+_cors_origins_final = _cors_origins + _extra
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins_final,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    allow_origin_regex=r"https://.*\.lovable\.(app|dev)",
+    allow_origin_regex=r"https://.*\.(lovable\.(app|dev)|procurewatch\.(eu|app)|railway\.app)",
 )
 
 # Security headers middleware
