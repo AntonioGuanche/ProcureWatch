@@ -1,31 +1,38 @@
 #!/usr/bin/env python3
 """
-Railway cron: daily import + watchlist matching + email digests.
+Railway cron: full nightly pipeline + email digests.
 
 Usage (Railway cron service):
     python scripts/cron_daily.py
 
-Schedule: 0 6 * * * (daily at 06:00 UTC = 07:00 CET)
+Schedule: 0 4 * * * (daily at 04:00 UTC = 05:00 CET)
+  → Pipeline finishes ~04:30, digest emails sent at end.
 
-This script:
-  1. Runs Alembic migrations (idempotent)
-  2. Imports latest notices from TED + BOSA (last 3 days)
-  3. Runs watchlist matcher for all enabled watchlists
-  4. Sends email digests for watchlists with new matches
+This script runs ALL nightly steps in-process:
+  1. Alembic migrations (idempotent)
+  2. Import BOSA + TED (3 days, up to 7500 notices)
+  3. Backfill (raw_data → structured fields, optimized)
+  4. TED CAN enrich (batch API, ~30s/500 notices)
+  5. BOSA enrich awards (XML + API, capped at 20 min)
+  6. Merge + cleanup orphan CANs
+  7. TED document backfill (catalog URLs)
+  8. Watchlist matcher + rescore + email digests
 
 Railway cron setup:
-  1. Create a new service in Railway (same repo)
+  1. Use existing procurewatch-api cron service
   2. Set start command: python scripts/cron_daily.py
-  3. Set schedule: 0 6 * * * (daily at 06:00 UTC)
+  3. Set schedule: 0 4 * * * (daily at 04:00 UTC)
   4. Attach the same Postgres database
-  5. Copy env vars from web service (DATABASE_URL, EMAIL_MODE, RESEND_API_KEY, etc.)
+  5. Copy env vars from web service
+  6. Set CRON_TIMEOUT_SECONDS=3600 (1 hour)
 """
 import logging
 import os
 import signal
 import subprocess
 import sys
-from datetime import datetime, timedelta, timezone
+import time as _time
+from datetime import datetime, timezone
 from pathlib import Path
 
 # ── Project root on path ───────────────────────────────────────────
@@ -42,16 +49,13 @@ logging.basicConfig(
 )
 logger = logging.getLogger("cron_daily")
 
-# ── Global timeout (5 min) ─────────────────────────────────────────
-TIMEOUT_SECONDS = int(os.environ.get("CRON_TIMEOUT_SECONDS", "300"))
-
+# ── Global timeout (default 1 hour) ──────────────────────────────
+TIMEOUT_SECONDS = int(os.environ.get("CRON_TIMEOUT_SECONDS", "3600"))
 
 def _timeout_handler(signum, frame):
     logger.error(f"TIMEOUT: cron exceeded {TIMEOUT_SECONDS}s — aborting")
     sys.exit(2)
 
-
-# signal.alarm is Unix-only; skip gracefully on Windows
 if hasattr(signal, "SIGALRM"):
     signal.signal(signal.SIGALRM, _timeout_handler)
     signal.alarm(TIMEOUT_SECONDS)
@@ -60,7 +64,7 @@ if hasattr(signal, "SIGALRM"):
 # ── Load all SQLAlchemy models (FK resolution) ─────────────────────
 def _load_models():
     """Import every model so SQLAlchemy sees all tables/FKs before any query."""
-    import app.models  # noqa: F401  — Base, Notice, Watchlist, etc.
+    import app.models  # noqa: F401
     import app.models.user  # noqa: F401
     import app.models.user_favorite  # noqa: F401
     import app.models.notice  # noqa: F401
@@ -74,190 +78,286 @@ def _load_models():
     import app.models.import_run  # noqa: F401
 
 
-# ── Step 1: Alembic migrations ─────────────────────────────────────
+def _elapsed(start: datetime) -> str:
+    """Return elapsed time since start as string."""
+    secs = (datetime.now(timezone.utc) - start).total_seconds()
+    return f"{secs / 60:.1f}min"
+
+
+# ═════════════════════════════════════════════════════════════════════
+# STEP 1: Alembic migrations
+# ═════════════════════════════════════════════════════════════════════
 def step_migrate() -> bool:
-    """Run Alembic migrations (idempotent)."""
-    logger.info("Step 1/3: Running database migrations...")
+    logger.info("=" * 60)
+    logger.info("STEP 1/8: Database migrations")
     result = subprocess.run(
         [sys.executable, "-m", "alembic", "upgrade", "head"],
-        cwd=PROJECT_ROOT,
-        capture_output=True,
-        text=True,
+        cwd=PROJECT_ROOT, capture_output=True, text=True,
     )
     if result.returncode != 0:
         logger.warning(f"Migration warning: {result.stderr[:500]}")
     else:
-        logger.info("Migrations OK.")
-    return True  # non-blocking
+        logger.info("  Migrations OK.")
+    return True
 
 
-# ── Step 2: Import notices (TED + BOSA) ────────────────────────────
-def step_import() -> dict:
-    """Import latest notices from TED + BOSA."""
-    logger.info("Step 2/3: Importing latest notices...")
+# ═════════════════════════════════════════════════════════════════════
+# STEP 2: Import BOSA + TED
+# ═════════════════════════════════════════════════════════════════════
+def step_import(db) -> dict:
+    logger.info("=" * 60)
+    logger.info("STEP 2/8: Import BOSA + TED (3 days)")
+    from app.services.bulk_import import bulk_import_all
 
-    _load_models()
-
-    sources = os.environ.get("IMPORT_SOURCES", "BOSA,TED")
-    days_back = int(os.environ.get("IMPORT_DAYS_BACK", "3"))
-    page_size = int(os.environ.get("IMPORT_PAGE_SIZE", "100"))
-    max_pages = int(os.environ.get("IMPORT_MAX_PAGES", "10"))
-
-    from app.connectors.ted_connector import search_ted_notices
-    from app.connectors.bosa.client import search_publications
-    from app.db.session import SessionLocal
-    from app.services.notice_service import NoticeService
-
-    db = SessionLocal()
-    stats = {"sources": {}, "total_created": 0, "total_updated": 0, "total_errors": 0}
-
-    try:
-        svc = NoticeService(db)
-        since = (datetime.now(timezone.utc) - timedelta(days=days_back)).strftime("%Y%m%d")
-
-        for source in [s.strip().upper() for s in sources.split(",") if s.strip()]:
-            source_stats = {"created": 0, "updated": 0, "errors": 0, "pages": 0}
-
-            try:
-                if source == "TED":
-                    page = 1
-                    while page <= max_pages:
-                        try:
-                            result = search_ted_notices(
-                                term=f"PD >= {since}",
-                                page=page,
-                                page_size=page_size,
-                            )
-                            # Notices are in result["json"]["notices"] or result["notices"]
-                            notices = (
-                                result.get("notices")
-                                or (result.get("json") or {}).get("notices")
-                                or []
-                            )
-                            if not notices:
-                                break
-
-                            import_result = _sync_import(
-                                svc.import_from_ted_search, notices
-                            )
-                            source_stats["created"] += import_result.get("created", 0)
-                            source_stats["updated"] += import_result.get("updated", 0)
-                            source_stats["errors"] += len(import_result.get("errors", []))
-                            source_stats["pages"] = page
-                            page += 1
-                        except Exception as e:
-                            logger.error(f"TED page {page} error: {e}")
-                            source_stats["errors"] += 1
-                            break
-
-                elif source == "BOSA":
-                    page = 1
-                    while page <= max_pages:
-                        try:
-                            result = search_publications(
-                                term="",
-                                page=page,
-                                page_size=page_size,
-                            )
-                            # Items are in result["json"]["publications"|"items"|"results"|"data"]
-                            payload = result.get("json") or {}
-                            notices = []
-                            if isinstance(payload, dict):
-                                for key in ("publications", "items", "results", "data"):
-                                    candidate = payload.get(key)
-                                    if isinstance(candidate, list):
-                                        notices = candidate
-                                        break
-                            if not notices:
-                                break
-
-                            import_result = _sync_import(
-                                svc.import_from_eproc_search, notices
-                            )
-                            source_stats["created"] += import_result.get("created", 0)
-                            source_stats["updated"] += import_result.get("updated", 0)
-                            source_stats["errors"] += len(import_result.get("errors", []))
-                            source_stats["pages"] = page
-                            page += 1
-                        except Exception as e:
-                            logger.error(f"BOSA page {page} error: {e}")
-                            source_stats["errors"] += 1
-                            break
-
-                logger.info(
-                    f"  {source}: +{source_stats['created']} created, "
-                    f"~{source_stats['updated']} updated, "
-                    f"!{source_stats['errors']} errors "
-                    f"({source_stats['pages']} pages)"
-                )
-
-            except Exception as e:
-                logger.error(f"  {source} connector failed: {e}")
-                source_stats["errors"] += 1
-
-            stats["sources"][source] = source_stats
-            stats["total_created"] += source_stats["created"]
-            stats["total_updated"] += source_stats["updated"]
-            stats["total_errors"] += source_stats["errors"]
-
-    finally:
-        db.close()
-
-    logger.info(
-        f"Import done: +{stats['total_created']} created, "
-        f"~{stats['total_updated']} updated, "
-        f"!{stats['total_errors']} errors"
+    result = bulk_import_all(
+        db,
+        sources="BOSA,TED",
+        term="*",
+        ted_days_back=3,
+        page_size=250,
+        max_pages=30,
+        fetch_details=False,
+        run_backfill=False,   # We do it separately in step 3
+        run_matcher=False,    # We do it in step 9
     )
-    return stats
+    for src_name, src_data in result.get("sources", {}).items():
+        logger.info(
+            "  %s: api=%s created=%s updated=%s",
+            src_name.upper(),
+            src_data.get("api_total_count", "?"),
+            src_data.get("total_created", 0),
+            src_data.get("total_updated", 0),
+        )
+    return result
 
 
-def _sync_import(async_import_fn, items: list) -> dict:
-    """Run an async import method (import_from_ted_search / import_from_eproc_search)
-    synchronously from the cron script."""
-    import asyncio
+# ═════════════════════════════════════════════════════════════════════
+# STEP 3: Backfill (raw_data → structured fields)
+# ═════════════════════════════════════════════════════════════════════
+def step_backfill(db) -> dict:
+    logger.info("=" * 60)
+    logger.info("STEP 3/8: Backfill (raw_data → structured fields)")
+    from app.services.enrichment_service import backfill_from_raw_data, refresh_search_vectors
 
-    loop = asyncio.new_event_loop()
-    try:
-        return loop.run_until_complete(async_import_fn(items))
-    finally:
-        loop.close()
+    total_enriched = 0
+    for pass_num in range(1, 4):  # max 3 passes
+        result = backfill_from_raw_data(db, limit=10000)
+        enriched = result.get("enriched", 0)
+        total_enriched += enriched
+        logger.info(
+            "  Pass %d: enriched=%d processed=%d",
+            pass_num, enriched, result.get("processed", 0),
+        )
+        if enriched == 0:
+            break
+
+    if total_enriched > 0:
+        rows = refresh_search_vectors(db)
+        logger.info("  Search vectors refreshed (%d rows)", rows)
+
+    return {"total_enriched": total_enriched}
 
 
-# ── Step 3: Watchlist matching + email digests ──────────────────────
-def step_watchlists() -> dict:
-    """Run watchlist matching + send email digests."""
-    logger.info("Step 3/3: Running watchlist matcher + email digests...")
+# ═════════════════════════════════════════════════════════════════════
+# STEP 4: TED CAN enrich (batch API)
+# ═════════════════════════════════════════════════════════════════════
+def step_ted_can_enrich(db) -> dict:
+    logger.info("=" * 60)
+    logger.info("STEP 4/8: TED CAN Enrich (batch)")
+    from app.services.ted_award_enrichment import enrich_ted_can_batch
 
-    _load_models()
+    total_enriched = 0
+    pass_num = 0
 
-    from app.db.session import SessionLocal
+    while True:
+        pass_num += 1
+        result = enrich_ted_can_batch(
+            db, limit=500, api_delay_ms=300, dry_run=False,
+        )
+        enriched = result.get("enriched", 0)
+        candidates = result.get("total_candidates", 0)
+        total_enriched += enriched
+        logger.info(
+            "  Pass %d: candidates=%d enriched=%d total=%d",
+            pass_num, candidates, enriched, total_enriched,
+        )
+        if candidates == 0 or enriched == 0:
+            break
+        if candidates < 500:
+            break
+        _time.sleep(1)
+
+    return {"total_enriched": total_enriched, "passes": pass_num}
+
+
+# ═════════════════════════════════════════════════════════════════════
+# STEP 5: BOSA enrich awards (XML + API, capped at 20 min)
+# ═════════════════════════════════════════════════════════════════════
+def step_bosa_enrich(db) -> dict:
+    logger.info("=" * 60)
+    logger.info("STEP 5/8: BOSA Enrich Awards (XML + API, max 20 min)")
+    from app.services.bosa_award_enrichment import enrich_bosa_can_batch
+
+    total_enriched = 0
+    pass_num = 0
+    step_start = datetime.now(timezone.utc)
+    max_duration_seconds = 20 * 60  # cap at 20 min
+
+    while True:
+        elapsed = (datetime.now(timezone.utc) - step_start).total_seconds()
+        if elapsed > max_duration_seconds:
+            logger.info("  Time cap reached (20 min), stopping.")
+            break
+
+        pass_num += 1
+        result = enrich_bosa_can_batch(
+            db, limit=500, batch_size=50, api_delay_ms=300,
+        )
+        enriched = result.get("enriched", 0)
+        total_enriched += enriched
+        logger.info(
+            "  Pass %d: enriched=%d (xml=%d, api errors=%d) total=%d [%s]",
+            pass_num, enriched,
+            result.get("already_has_xml", 0),
+            result.get("api_errors", 0),
+            total_enriched, _elapsed(step_start),
+        )
+        if enriched == 0 or result.get("total_eligible", 0) == 0:
+            break
+        _time.sleep(3)
+
+    return {"total_enriched": total_enriched, "passes": pass_num}
+
+
+# ═════════════════════════════════════════════════════════════════════
+# STEP 6: Merge + cleanup orphan CANs
+# ═════════════════════════════════════════════════════════════════════
+def step_merge_cleanup(db) -> dict:
+    logger.info("=" * 60)
+    logger.info("STEP 6/8: Merge + Cleanup Orphan CANs")
+    from app.services.enrichment_service import merge_orphan_cans, cleanup_orphan_cans
+
+    # Merge
+    total_merged = 0
+    for pass_num in range(1, 11):
+        result = merge_orphan_cans(db, limit=5000, dry_run=False)
+        merged = result.get("merged", 0)
+        total_merged += merged
+        logger.info("  Merge pass %d: merged=%d", pass_num, merged)
+        if merged == 0 or result.get("total_scanned", 0) < 5000:
+            break
+
+    # Cleanup
+    dry = cleanup_orphan_cans(db, limit=50000, dry_run=True)
+    deleted = 0
+    if dry.get("deleted", 0) > 0:
+        result = cleanup_orphan_cans(db, limit=50000, dry_run=False)
+        deleted = result.get("deleted", 0)
+        logger.info("  Cleaned up %d orphan CANs", deleted)
+    else:
+        logger.info("  No orphan CANs to clean up.")
+
+    return {"merged": total_merged, "cleaned": deleted}
+
+
+# ═════════════════════════════════════════════════════════════════════
+# STEP 7: TED Document Backfill (catalog URLs from raw_data)
+# ═════════════════════════════════════════════════════════════════════
+def step_ted_doc_backfill(db) -> dict:
+    logger.info("=" * 60)
+    logger.info("STEP 7/8: TED Document Backfill (URL cataloging)")
+    from app.services.document_extraction import backfill_documents_for_all
+
+    total_created = 0
+    total_processed = 0
+
+    for pass_num in range(1, 51):  # max 50 passes × 2000
+        result = backfill_documents_for_all(
+            db, source="TED_EU", replace=False, batch_size=10, limit=2000,
+        )
+        processed = result.get("processed", 0)
+        created = result.get("documents_created", 0)
+        total_processed += processed
+        total_created += created
+        logger.info(
+            "  Pass %d: +%d notices, +%d docs",
+            pass_num, processed, created,
+        )
+        if processed < 2000:
+            logger.info("  Backfill complete.")
+            break
+        _time.sleep(1)
+
+    return {"processed": total_processed, "created": total_created}
+
+
+# ═════════════════════════════════════════════════════════════════════
+# STEP 8: Watchlist matcher + rescore + email digests
+# ═════════════════════════════════════════════════════════════════════
+def step_watchlists(db) -> dict:
+    logger.info("=" * 60)
+    logger.info("STEP 8/8: Watchlist Matcher + Rescore + Email Digests")
     from app.services.watchlist_matcher import run_watchlist_matcher
 
-    db = SessionLocal()
+    results = run_watchlist_matcher(db)
+    logger.info(
+        "  Matcher: watchlists=%d new_matches=%d emails=%d",
+        results.get("watchlists_processed", 0),
+        results.get("total_new_matches", 0),
+        results.get("emails_sent", 0),
+    )
+
+    # Rescore all existing matches
     try:
-        results = run_watchlist_matcher(db)
-        logger.info(
-            f"Watchlists: {results['watchlists_processed']} processed, "
-            f"{results['total_new_matches']} new matches, "
-            f"{results['emails_sent']} emails sent"
-        )
-        for detail in results.get("details", []):
-            name = detail.get("watchlist_name", "?")
-            new = detail.get("new_matches", 0)
-            sent = "✉️" if detail.get("email_sent") else ""
-            err = f" ⚠️ {detail['email_error']}" if detail.get("email_error") else ""
-            if new > 0 or err:
-                logger.info(f"  {name}: {new} matches {sent}{err}")
-        return results
-    finally:
-        db.close()
+        from app.models.watchlist_match import WatchlistMatch
+        from app.models.watchlist import Watchlist
+        from app.models.notice import ProcurementNotice as Notice
+        from app.models.user import User
+        from app.services.relevance_scoring import calculate_relevance_score
+
+        total_matches = db.query(WatchlistMatch).count()
+        if total_matches > 0:
+            wl_ids = [r[0] for r in db.query(WatchlistMatch.watchlist_id).distinct().all()]
+            watchlists = {wl.id: wl for wl in db.query(Watchlist).filter(Watchlist.id.in_(wl_ids)).all()}
+            user_ids = {wl.user_id for wl in watchlists.values() if wl.user_id}
+            users = {u.id: u for u in db.query(User).filter(User.id.in_(user_ids)).all()} if user_ids else {}
+
+            updated = 0
+            offset = 0
+            while offset < total_matches:
+                matches = db.query(WatchlistMatch).order_by(WatchlistMatch.id).offset(offset).limit(500).all()
+                if not matches:
+                    break
+                notice_ids = [m.notice_id for m in matches]
+                notice_map = {n.id: n for n in db.query(Notice).filter(Notice.id.in_(notice_ids)).all()}
+                for match in matches:
+                    wl = watchlists.get(match.watchlist_id)
+                    notice = notice_map.get(match.notice_id)
+                    if wl and notice:
+                        user = users.get(wl.user_id) if wl.user_id else None
+                        score, explanation = calculate_relevance_score(notice, wl, user=user)
+                        match.relevance_score = score
+                        match.matched_on = explanation
+                        updated += 1
+                db.commit()
+                offset += 500
+            logger.info("  Rescore: updated=%d/%d", updated, total_matches)
+        else:
+            logger.info("  Rescore: no matches to score.")
+    except Exception as e:
+        logger.warning("  Rescore error: %s", e)
+
+    return results
 
 
-# ── Main entry point ───────────────────────────────────────────────
+# ═════════════════════════════════════════════════════════════════════
+# Main entry point
+# ═════════════════════════════════════════════════════════════════════
 def main() -> int:
     start = datetime.now(timezone.utc)
     logger.info("=" * 60)
-    logger.info(f"ProcureWatch daily cron started at {start.isoformat()}")
+    logger.info("ProcureWatch NIGHTLY PIPELINE started at %s", start.isoformat())
+    logger.info("Timeout: %ds", TIMEOUT_SECONDS)
     logger.info("=" * 60)
 
     exit_code = 0
@@ -268,28 +368,71 @@ def main() -> int:
     except Exception as e:
         logger.error(f"Migration failed (non-blocking): {e}")
 
-    # Step 2: Import
-    try:
-        import_stats = step_import()
-    except Exception as e:
-        logger.error(f"Import failed: {e}")
-        import_stats = {"error": str(e)}
-        exit_code = 1
+    # Load models once
+    _load_models()
 
-    # Step 3: Watchlist matching + emails
+    from app.db.session import SessionLocal
+    db = SessionLocal()
+
     try:
-        wl_stats = step_watchlists()
-    except Exception as e:
-        logger.error(f"Watchlist matcher failed: {e}")
-        wl_stats = {"error": str(e)}
-        exit_code = 1
+        # Step 2: Import
+        try:
+            step_import(db)
+        except Exception as e:
+            logger.error(f"Import failed: {e}")
+            exit_code = 1
+
+        # Step 3: Backfill
+        try:
+            step_backfill(db)
+        except Exception as e:
+            logger.error(f"Backfill failed: {e}")
+
+        # Step 4: TED CAN enrich
+        try:
+            step_ted_can_enrich(db)
+        except Exception as e:
+            logger.error(f"TED CAN enrich failed: {e}")
+
+        # Step 5: BOSA enrich (XML + API)
+        try:
+            step_bosa_enrich(db)
+        except Exception as e:
+            logger.error(f"BOSA enrich failed: {e}")
+
+        # Step 6: Merge + cleanup
+        try:
+            step_merge_cleanup(db)
+        except Exception as e:
+            logger.error(f"Merge/cleanup failed: {e}")
+
+        # Step 7: TED doc backfill
+        try:
+            step_ted_doc_backfill(db)
+        except Exception as e:
+            logger.error(f"TED doc backfill failed: {e}")
+
+        # Step 8: Watchlists + digests (always runs, even if earlier steps failed)
+        try:
+            step_watchlists(db)
+        except Exception as e:
+            logger.error(f"Watchlist/digest failed: {e}")
+            exit_code = 1
+
+    finally:
+        db.close()
 
     # Cancel timeout
     if hasattr(signal, "SIGALRM"):
         signal.alarm(0)
 
     elapsed = (datetime.now(timezone.utc) - start).total_seconds()
-    logger.info(f"Cron complete in {elapsed:.1f}s (exit={exit_code})")
+    logger.info("=" * 60)
+    logger.info(
+        "NIGHTLY PIPELINE COMPLETE in %s (exit=%d)",
+        _elapsed(start), exit_code,
+    )
+    logger.info("=" * 60)
     return exit_code
 
 
