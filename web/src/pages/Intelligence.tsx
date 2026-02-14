@@ -266,7 +266,6 @@ export function Intelligence() {
                       <th>Autorité</th>
                       <th>Publications</th>
                       <th>Appels</th>
-                      <th>Attributions</th>
                       <th>En cours</th>
                     </tr>
                   </thead>
@@ -277,7 +276,6 @@ export function Intelligence() {
                         <td className="name">{b.name}</td>
                         <td>{b.notice_count}</td>
                         <td>{b.cn_count || "—"}</td>
-                        <td>{b.can_count || "—"}</td>
                         <td>
                           {b.active_count > 0
                             ? <span className="tag tag-success small">{b.active_count}</span>
@@ -459,7 +457,7 @@ export function Intelligence() {
           </Section>
 
           {/* ── 10. Opportunités en cours ────────────────────────────── */}
-          <Section title="Opportunités en cours" icon="🚀" className="intel-half">
+          <Section title="Opportunités en cours" icon="🚀">
             <p className="intel-insight">
               <strong>{d.active_opportunities.total_active}</strong> marchés ouverts dans {selected.length > 1 ? "ces secteurs" : "ce secteur"}.
             </p>
@@ -470,8 +468,9 @@ export function Intelligence() {
                     <tr>
                       <th>Marché</th>
                       <th>Acheteur</th>
-                      <th>Valeur est.</th>
+                      <th>Montant</th>
                       <th>Reste</th>
+                      <th>Source</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -485,6 +484,7 @@ export function Intelligence() {
                             {deadlineDays(n.days_left)}
                           </span>
                         </td>
+                        <td><span className={`tag tag-${n.source === "BOSA_EPROC" ? "bosa" : "ted"}`}>{n.source === "BOSA_EPROC" ? "BOSA" : "TED"}</span></td>
                       </tr>
                     ))}
                   </tbody>
