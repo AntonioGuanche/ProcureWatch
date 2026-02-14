@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import {
-  BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  BarChart, Bar, PieChart, Pie, Cell,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
 import { getCpvGroups, getCpvAnalysis } from "../api";
 import { NoticeModal } from "../components/NoticeModal";
@@ -209,26 +209,8 @@ export function Intelligence() {
                     <XAxis dataKey="month" tick={{ fontSize: 11 }} interval={Math.max(0, Math.floor(d.volume_value.monthly.length / 12) - 1)} />
                     <YAxis tick={{ fontSize: 11 }} />
                     <Tooltip formatter={(v: number) => v.toLocaleString("fr-BE")} />
-                    <Bar dataKey="count" fill="#3b5bdb" name="Publiés" radius={[2, 2, 0, 0]} />
-                    <Bar dataKey="awarded" fill="#2b8a3e" name="Attribués" radius={[2, 2, 0, 0]} />
+                    <Bar dataKey="count" fill="#3b5bdb" name="Publications" radius={[2, 2, 0, 0]} />
                   </BarChart>
-                </ResponsiveContainer>
-              </div>
-            )}
-
-            {d.volume_value.yearly.length > 0 && (
-              <div className="intel-chart-wrap">
-                <h4>Évolution annuelle</h4>
-                <ResponsiveContainer width="100%" height={240}>
-                  <LineChart data={d.volume_value.yearly}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e9ecef" />
-                    <XAxis dataKey="year" tick={{ fontSize: 12 }} />
-                    <YAxis tick={{ fontSize: 11 }} />
-                    <Tooltip formatter={(v: number) => v.toLocaleString("fr-BE")} />
-                    <Legend />
-                    <Line type="monotone" dataKey="count" stroke="#3b5bdb" strokeWidth={2} name="Publiés" dot={{ r: 4 }} />
-                    <Line type="monotone" dataKey="awarded" stroke="#2b8a3e" strokeWidth={2} name="Attribués" dot={{ r: 4 }} />
-                  </LineChart>
                 </ResponsiveContainer>
               </div>
             )}
@@ -472,30 +454,7 @@ export function Intelligence() {
             )}
           </Section>
 
-          {/* ── 10. Délai d'attribution ──────────────────────────────── */}
-          <Section title="Délai d'attribution" icon="⏱️" className="intel-half">
-            {d.award_timeline.total_with_data > 0 ? (
-              <div className="intel-kpi-row small">
-                <div className="kpi-card">
-                  <div className="kpi-value">{d.award_timeline.avg_days ?? "—"}<small>j</small></div>
-                  <div className="kpi-label">Délai moyen</div>
-                </div>
-                <div className="kpi-card">
-                  <div className="kpi-value">{d.award_timeline.median_days ?? "—"}<small>j</small></div>
-                  <div className="kpi-label">Délai médian</div>
-                </div>
-                <div className="kpi-card">
-                  <div className="kpi-value">{d.award_timeline.p25_days ?? "—"} — {d.award_timeline.p75_days ?? "—"}<small>j</small></div>
-                  <div className="kpi-label">Intervalle 25-75%</div>
-                </div>
-              </div>
-            ) : <p className="intel-empty">Pas assez de données</p>}
-            <p className="intel-footnote">
-              Basé sur {d.award_timeline.total_with_data} marchés avec dates de publication et d'attribution.
-            </p>
-          </Section>
-
-          {/* ── 11. Opportunités en cours ────────────────────────────── */}
+          {/* ── 10. Opportunités en cours ────────────────────────────── */}
           <Section title="Opportunités en cours" icon="🚀" className="intel-half">
             <p className="intel-insight">
               <strong>{d.active_opportunities.total_active}</strong> marchés ouverts dans {selected.length > 1 ? "ces secteurs" : "ce secteur"}.

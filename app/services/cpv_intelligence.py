@@ -252,29 +252,24 @@ def get_volume_value(
 # ---------------------------------------------------------------------------
 
 # SQL expression to normalize company names across ALL EU jurisdictions.
-# Steps: UPPER → TRIM → strip legal suffixes (pan-EU) → normalize punctuation.
-#
-# Covers: BE (NV, SA, BVBA, BV, SRL, SPRL, VZW, ASBL, CVBA, SC, SCRL)
-#         NL (BV, NV, VOF, CV)
-#         DE (AG, GMBH, KG, OHG, EG, UG, MBH, GBMH, EWIV)
-#         FR (SA, SAS, SARL, SCI, SNC, EURL, SCM, GIE)
-#         IT (SPA, SRL, SNC, SAS, SCARL)
-#         ES (SA, SL, SLU, SC, SAU)
-#         PT (LDA, SA)
-#         LU (SA, SARL, ASBL)
-#         UK/IE (LTD, PLC, LLP, INC, CIC)
-#         PL (SA, ZOO, SP)   RO (SA, SRL)   CZ (SRO, AS)
-#         SE/DK/FI (AB, AS, APS, OY, OYJ)
-#         Generic (SE, EEIG, GEIE, CO, CORP)
-_LEGAL_SUFFIXES = (
-    "NV|N\\.V\\.|N\\.V|SA|S\\.A\\.|S\\.A|BVBA|B\\.V\\.B\\.A\\.|BV|B\\.V\\.|B\\.V"
-    "|SRL|S\\.R\\.L\\.|SPRL|S\\.P\\.R\\.L\\.|VZW|V\\.Z\\.W\\.|ASBL|A\\.S\\.B\\.L\\."
-    "|CVBA|C\\.V\\.B\\.A\\.|CV|SC|SCRL|S\\.C\\.R\\.L\\."
-    "|AG|GMBH|G\\.M\\.B\\.H\\.|KG|OHG|EG|UG|MBH|EWIV"
-    "|SAS|SARL|S\\.A\\.R\\.L\\.|SCI|SNC|EURL|SCM|GIE"
-    "|SPA|S\\.P\\.A\\.|SCARL"
-    "|SL|SLU|SAU"
-    "|LDA|LTD|PLC|LLP|INC|CIC|CORP|CO"
+# Two-pass approach:
+#   Pass 1: strip dotted abbreviations (N.V., B.V., S.A., etc.)
+#   Pass 2: strip plain word suffixes using \\y (PostgreSQL word boundary)
+#   Note: \\b is POSIX backspace in PostgreSQL — use \\y instead.
+
+_SUFFIXES_DOTTED = (
+    "N\\.V\\.|B\\.V\\.|S\\.A\\.|S\\.R\\.L\\.|S\\.P\\.R\\.L\\."
+    "|B\\.V\\.B\\.A\\.|V\\.Z\\.W\\.|A\\.S\\.B\\.L\\.|C\\.V\\.B\\.A\\."
+    "|G\\.M\\.B\\.H\\.|S\\.A\\.R\\.L\\.|S\\.P\\.A\\.|S\\.C\\.R\\.L\\."
+)
+
+_SUFFIXES_PLAIN = (
+    "NV|SA|BV|BVBA|SRL|SPRL|VZW|ASBL|CVBA|CV|SC|SCRL"
+    "|AG|GMBH|KG|OHG|EG|UG|MBH|EWIV"
+    "|SAS|SARL|SCI|SNC|EURL|SCM|GIE"
+    "|SPA|SCARL"
+    "|SL|SLU|SAU|LDA"
+    "|LTD|PLC|LLP|INC|CIC|CORP|CO"
     "|ZOO|SP|SRO|AS|APS|AB|OY|OYJ"
     "|SE|EEIG|GEIE|VOF"
 )
@@ -284,11 +279,13 @@ TRIM(BOTH ' ' FROM
   REGEXP_REPLACE(
     REGEXP_REPLACE(
       REGEXP_REPLACE(
-        UPPER(TRIM(award_winner_name)),
-        '\\s*\\b({_LEGAL_SUFFIXES})\\b\\.?\\s*$',
-        '', 'i'
+        REGEXP_REPLACE(
+          UPPER(TRIM(award_winner_name)),
+          '\\s*({_SUFFIXES_DOTTED})\\s*$', '', 'i'
+        ),
+        '\\s+({_SUFFIXES_PLAIN})\\y\\.?\\s*$', '', 'i'
       ),
-      '[.,:;\\-/]+$', ''
+      '[.,:;\\-/\\s]+$', ''
     ),
     '\\s+', ' ', 'g'
   )
