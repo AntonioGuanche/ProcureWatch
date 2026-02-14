@@ -24,17 +24,10 @@ function eur(v: number | null | undefined): string {
   return `${v.toFixed(0)}€`;
 }
 
-function pct(v: number): string { return `${v.toFixed(1)}%`; }
-
 function deadlineDays(d: number | null): string {
   if (d == null) return "—";
   if (d < 1) return "< 1j";
   return `${Math.round(d)}j`;
-}
-
-function orgName(names: Record<string, string> | null): string {
-  if (!names) return "—";
-  return names.fr || names.nl || names.en || Object.values(names)[0] || "—";
 }
 
 /* ── Section wrapper ─────────────────────────────────────────────── */
@@ -537,8 +530,8 @@ export function Intelligence() {
         <NoticeModal
           noticeId={selectedNoticeId}
           onClose={() => setSelectedNoticeId(null)}
-          isFavorite={false}
-          onFavoriteToggle={() => {}}
+          isFavorited={false}
+          onToggleFavorite={() => {}}
         />
       )}
     </div>
