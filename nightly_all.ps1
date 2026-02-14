@@ -229,6 +229,7 @@ if ($backfillDry) {
         Write-Host "  Running backfill..." -ForegroundColor Yellow
         $backfillPass = 0
         $maxBackfillPasses = 50
+        $dryStreak = 0
 
         do {
             $backfillPass++
@@ -247,6 +248,16 @@ if ($backfillDry) {
             if ($processed -lt 2000) {
                 Write-Host "  Backfill complete! No more notices to process." -ForegroundColor Green
                 break
+            }
+            # Early exit: stop if 0 docs created for 3 consecutive passes
+            if ($created -eq 0) {
+                $dryStreak++
+                if ($dryStreak -ge 3) {
+                    Write-Host "  Early exit: 0 docs created for $dryStreak consecutive passes ($backfillProcessed notices scanned)." -ForegroundColor Yellow
+                    break
+                }
+            } else {
+                $dryStreak = 0
             }
             Start-Sleep -Seconds 2
         } while ($backfillPass -lt $maxBackfillPasses)

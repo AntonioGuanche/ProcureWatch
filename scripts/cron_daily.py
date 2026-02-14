@@ -270,6 +270,7 @@ def step_ted_doc_backfill(db) -> dict:
 
     total_created = 0
     total_processed = 0
+    dry_streak = 0  # consecutive passes with 0 docs created
 
     for pass_num in range(1, 51):  # max 50 passes × 2000
         result = backfill_documents_for_all(
@@ -284,8 +285,19 @@ def step_ted_doc_backfill(db) -> dict:
             pass_num, processed, created,
         )
         if processed < 2000:
-            logger.info("  Backfill complete.")
+            logger.info("  Backfill complete (all notices processed).")
             break
+        # Early exit: stop if no new docs for 3 consecutive passes
+        if created == 0:
+            dry_streak += 1
+            if dry_streak >= 3:
+                logger.info(
+                    "  Early exit: 0 docs created for %d consecutive passes (%d notices scanned).",
+                    dry_streak, total_processed,
+                )
+                break
+        else:
+            dry_streak = 0
         _time.sleep(1)
 
     return {"processed": total_processed, "created": total_created}
