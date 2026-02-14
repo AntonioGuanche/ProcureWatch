@@ -1122,6 +1122,67 @@ def ted_can_enrich(
     )
 
 
+@router.post("/ted-can-enrich-debug", tags=["admin"])
+def ted_can_enrich_debug(
+    db: Session = Depends(get_db),
+) -> dict:
+    """Debug: pick 1 candidate, UPDATE it, verify if it persists."""
+    # 1. Pick ONE candidate
+    row = db.execute(text(
+        "SELECT id, source_id, award_winner_name "
+        "FROM notices "
+        "WHERE source = 'TED_EU' "
+        "  AND award_winner_name IS NOT NULL "
+        "  AND LENGTH(award_winner_name) <= 3 "
+        "  AND source_id IS NOT NULL "
+        "LIMIT 1"
+    )).fetchone()
+
+    if not row:
+        return {"error": "No candidates found"}
+
+    notice_id, source_id, old_winner = row[0], row[1], row[2]
+
+    # 2. Count all rows with this source_id
+    dupes = db.execute(text(
+        "SELECT id, award_winner_name FROM notices WHERE source_id = :sid ORDER BY id"
+    ), {"sid": source_id}).fetchall()
+
+    # 3. Direct UPDATE with a test value
+    test_name = f"TEST_{source_id}"
+    result = db.execute(text(
+        "UPDATE notices "
+        "SET award_winner_name = :name "
+        "WHERE source = 'TED_EU' "
+        "  AND source_id = :sid "
+        "  AND LENGTH(COALESCE(award_winner_name, '')) <= 3"
+    ), {"name": test_name, "sid": source_id})
+    rows_affected = result.rowcount
+
+    # 4. Check BEFORE commit
+    before_commit = db.execute(text(
+        "SELECT id, award_winner_name FROM notices WHERE source_id = :sid ORDER BY id"
+    ), {"sid": source_id}).fetchall()
+
+    # 5. Commit
+    db.commit()
+
+    # 6. Check AFTER commit
+    after_commit = db.execute(text(
+        "SELECT id, award_winner_name FROM notices WHERE source_id = :sid ORDER BY id"
+    ), {"sid": source_id}).fetchall()
+
+    return {
+        "target": {"id": notice_id, "source_id": source_id, "old_winner": old_winner},
+        "duplicates_count": len(dupes),
+        "duplicates_before_update": [{"id": r[0][:8], "winner": r[1]} for r in dupes],
+        "update_rowcount": rows_affected,
+        "test_value": test_name,
+        "before_commit": [{"id": r[0][:8], "winner": r[1]} for r in before_commit],
+        "after_commit": [{"id": r[0][:8], "winner": r[1]} for r in after_commit],
+    }
+
+
 @router.get("/bosa-can-formats")
 def bosa_can_formats(
     limit: int = Query(500, ge=10, le=5000),
