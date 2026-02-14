@@ -253,7 +253,14 @@ export function Intelligence() {
                     {d.top_winners.map((w: CpvWinner, i: number) => (
                       <tr key={w.name}>
                         <td className="rank">{i + 1}</td>
-                        <td className="name">{w.name}</td>
+                        <td className="name">
+                          {w.name}
+                          {(w.name_variants ?? 1) > 1 && (
+                            <span className="merge-badge" title={`${w.name_variants} variantes de nom fusionnées`}>
+                              ×{w.name_variants}
+                            </span>
+                          )}
+                        </td>
                         <td>{w.contracts_won}</td>
                         <td>{eur(w.total_value_eur)}</td>
                         <td>{eur(w.avg_value_eur)}</td>

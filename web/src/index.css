@@ -2995,6 +2995,14 @@ label {
 .intel-table.clickable tbody tr { cursor: pointer; transition: background .1s; }
 .intel-table.clickable tbody tr:hover { background: var(--blue-light); }
 
+/* Merge indicator for grouped company names */
+.merge-badge {
+  display: inline-block; margin-left: .4rem; padding: 0 .35rem;
+  font-size: .68rem; font-weight: 600; color: var(--gray-500);
+  background: var(--gray-100); border-radius: 3px; vertical-align: middle;
+  cursor: help;
+}
+
 /* Source tags */
 .tag-bosa { background: #e8f5e9; color: #2e7d32; }
 .tag-ted { background: #e3f2fd; color: #1565c0; }

@@ -423,6 +423,7 @@ export interface CpvWinner {
   avg_value_eur: number;
   first_award: string | null;
   last_award: string | null;
+  name_variants?: number;
 }
 
 export interface CpvBuyer {

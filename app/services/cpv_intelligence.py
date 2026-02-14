@@ -248,42 +248,104 @@ def get_volume_value(
 
 
 # ---------------------------------------------------------------------------
-# 2. Top entreprises (award winners)
+# 2. Top entreprises (award winners) — with name normalization
 # ---------------------------------------------------------------------------
+
+# SQL expression to normalize company names across ALL EU jurisdictions.
+# Steps: UPPER → TRIM → strip legal suffixes (pan-EU) → normalize punctuation.
+#
+# Covers: BE (NV, SA, BVBA, BV, SRL, SPRL, VZW, ASBL, CVBA, SC, SCRL)
+#         NL (BV, NV, VOF, CV)
+#         DE (AG, GMBH, KG, OHG, EG, UG, MBH, GBMH, EWIV)
+#         FR (SA, SAS, SARL, SCI, SNC, EURL, SCM, GIE)
+#         IT (SPA, SRL, SNC, SAS, SCARL)
+#         ES (SA, SL, SLU, SC, SAU)
+#         PT (LDA, SA)
+#         LU (SA, SARL, ASBL)
+#         UK/IE (LTD, PLC, LLP, INC, CIC)
+#         PL (SA, ZOO, SP)   RO (SA, SRL)   CZ (SRO, AS)
+#         SE/DK/FI (AB, AS, APS, OY, OYJ)
+#         Generic (SE, EEIG, GEIE, CO, CORP)
+_LEGAL_SUFFIXES = (
+    "NV|N\\.V\\.|N\\.V|SA|S\\.A\\.|S\\.A|BVBA|B\\.V\\.B\\.A\\.|BV|B\\.V\\.|B\\.V"
+    "|SRL|S\\.R\\.L\\.|SPRL|S\\.P\\.R\\.L\\.|VZW|V\\.Z\\.W\\.|ASBL|A\\.S\\.B\\.L\\."
+    "|CVBA|C\\.V\\.B\\.A\\.|CV|SC|SCRL|S\\.C\\.R\\.L\\."
+    "|AG|GMBH|G\\.M\\.B\\.H\\.|KG|OHG|EG|UG|MBH|EWIV"
+    "|SAS|SARL|S\\.A\\.R\\.L\\.|SCI|SNC|EURL|SCM|GIE"
+    "|SPA|S\\.P\\.A\\.|SCARL"
+    "|SL|SLU|SAU"
+    "|LDA|LTD|PLC|LLP|INC|CIC|CORP|CO"
+    "|ZOO|SP|SRO|AS|APS|AB|OY|OYJ"
+    "|SE|EEIG|GEIE|VOF"
+)
+
+_NORM_SQL = f"""
+TRIM(BOTH ' ' FROM
+  REGEXP_REPLACE(
+    REGEXP_REPLACE(
+      REGEXP_REPLACE(
+        UPPER(TRIM(award_winner_name)),
+        '\\s*\\b({_LEGAL_SUFFIXES})\\b\\.?\\s*$',
+        '', 'i'
+      ),
+      '[.,:;\\-/]+$', ''
+    ),
+    '\\s+', ' ', 'g'
+  )
+)
+"""
+
 
 def get_top_winners(
     db: Session, cpv_groups: list[str], limit: int = 20,
 ) -> list[dict[str, Any]]:
-    """Top companies by contracts won in this CPV group."""
+    """Top companies by contracts won, with fuzzy name grouping.
+
+    Company names like "Krinkels NV", "Krinkels nv", "Krinkels"
+    are grouped together. The most frequently used original name
+    is displayed via MODE().
+    """
     cpv_clause = _cpv_filter_clause(cpv_groups)
     params = {**_cpv_params(cpv_groups), "limit": limit}
 
     rows = db.execute(text(f"""
+        WITH norm AS (
+            SELECT
+                award_winner_name,
+                {_NORM_SQL} AS norm_name,
+                award_value,
+                award_date
+            FROM notices
+            WHERE {cpv_clause}
+              AND cpv_main_code IS NOT NULL
+              AND award_winner_name IS NOT NULL
+              AND TRIM(award_winner_name) != ''
+        )
         SELECT
-            award_winner_name,
+            MODE() WITHIN GROUP (ORDER BY award_winner_name) AS display_name,
+            norm_name,
             COUNT(*) AS contracts_won,
             COALESCE(SUM(award_value), 0) AS total_value,
             COALESCE(AVG(award_value) FILTER (WHERE award_value IS NOT NULL), 0) AS avg_value,
             MIN(award_date) AS first_award,
-            MAX(award_date) AS last_award
-        FROM notices
-        WHERE {cpv_clause}
-          AND cpv_main_code IS NOT NULL
-          AND award_winner_name IS NOT NULL
-          AND award_winner_name != ''
-        GROUP BY award_winner_name
-        ORDER BY contracts_won DESC
+            MAX(award_date) AS last_award,
+            COUNT(DISTINCT award_winner_name) AS name_variants
+        FROM norm
+        WHERE norm_name != ''
+        GROUP BY norm_name
+        ORDER BY contracts_won DESC, total_value DESC
         LIMIT :limit
     """), params).mappings().all()
 
     return [
         {
-            "name": r["award_winner_name"],
+            "name": r["display_name"],
             "contracts_won": r["contracts_won"],
             "total_value_eur": float(r["total_value"]),
             "avg_value_eur": round(float(r["avg_value"]), 2),
             "first_award": str(r["first_award"]) if r["first_award"] else None,
             "last_award": str(r["last_award"]) if r["last_award"] else None,
+            "name_variants": r["name_variants"],
         }
         for r in rows
     ]
