@@ -2872,3 +2872,141 @@ label {
   .docs-header { flex-direction: column; align-items: flex-start; gap: .4rem; }
   .upload-help-tooltip { right: auto; left: 0; width: 240px; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   Intelligence — CPV Sector Analytics Dashboard
+   ═══════════════════════════════════════════════════════════════════ */
+
+.intel-page { max-width: 1200px; }
+.intel-header { margin-bottom: 1.5rem; }
+.intel-header h1 { font-size: 1.6rem; font-weight: 700; color: var(--navy); }
+
+/* ── Controls ────────────────────────────────────────────────────── */
+
+.intel-controls {
+  display: grid; grid-template-columns: 1fr 200px; gap: 1.5rem;
+  margin-bottom: 2rem; padding: 1.25rem; background: white;
+  border-radius: var(--radius); border: 1px solid var(--gray-200);
+}
+.intel-cpv-selector label,
+.intel-period label { font-weight: 600; font-size: .85rem; display: block; margin-bottom: .4rem; }
+.intel-cpv-selector .input { width: 100%; margin-bottom: .5rem; }
+.intel-selected-chips { display: flex; flex-wrap: wrap; gap: .4rem; margin-bottom: .5rem; }
+.chip { display: inline-flex; align-items: center; padding: .2rem .6rem; border-radius: 20px; font-size: .78rem; cursor: pointer; transition: all .15s; }
+.chip-active { background: var(--blue); color: white; }
+.chip-active:hover { background: var(--red); }
+
+.intel-cpv-list {
+  max-height: 240px; overflow-y: auto; border: 1px solid var(--gray-200);
+  border-radius: var(--radius-sm); background: var(--gray-50);
+}
+.intel-cpv-item {
+  display: flex; align-items: center; gap: .5rem; width: 100%;
+  padding: .4rem .6rem; border: none; background: none; cursor: pointer;
+  font-size: .82rem; text-align: left; transition: background .1s;
+}
+.intel-cpv-item:hover { background: var(--blue-light); }
+.intel-cpv-item.selected { background: var(--blue-light); font-weight: 600; }
+.intel-cpv-item .cpv-code { font-family: monospace; color: var(--gray-600); min-width: 2.5em; }
+.intel-cpv-item .cpv-label { flex: 1; }
+.intel-cpv-empty { padding: 1rem; text-align: center; color: var(--gray-500); font-size: .85rem; }
+
+.intel-period { display: flex; flex-direction: column; gap: .5rem; }
+.intel-period .input { width: 100%; }
+.intel-period .btn { margin-top: auto; }
+
+/* ── Loading & Error ──────────────────────────────────────────────── */
+
+.intel-loading {
+  display: flex; align-items: center; gap: 1rem; justify-content: center;
+  padding: 3rem; color: var(--gray-600); font-size: .95rem;
+}
+.intel-loading .spinner {
+  width: 24px; height: 24px; border: 3px solid var(--gray-200);
+  border-top-color: var(--blue); border-radius: 50%; animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.intel-error {
+  padding: .75rem 1rem; background: var(--red-light); color: var(--red);
+  border-radius: var(--radius); margin-bottom: 1rem; font-size: .9rem;
+}
+
+/* ── Results grid ──────────────────────────────────────────────────── */
+
+.intel-results { display: flex; flex-direction: column; gap: 1.5rem; }
+
+.intel-section {
+  background: white; border-radius: var(--radius); border: 1px solid var(--gray-200);
+  padding: 1.25rem; overflow: hidden;
+}
+.intel-section-title {
+  font-size: 1.05rem; font-weight: 700; color: var(--navy);
+  margin-bottom: 1rem; display: flex; align-items: center; gap: .5rem;
+}
+.intel-section-title span { font-size: 1.2rem; }
+
+/* Half-width sections side by side */
+@media (min-width: 768px) {
+  .intel-results { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+  .intel-section:not(.intel-half) { grid-column: 1 / -1; }
+}
+
+/* ── KPI cards ────────────────────────────────────────────────────── */
+
+.intel-kpi-row {
+  display: flex; gap: .75rem; flex-wrap: wrap; margin-bottom: 1rem;
+}
+.intel-kpi-row .kpi-card {
+  flex: 1 1 120px; min-width: 100px; padding: .75rem; text-align: center;
+  background: var(--gray-50); border-radius: var(--radius-sm);
+  border: 1px solid var(--gray-200);
+}
+.intel-kpi-row .kpi-card.accent { background: var(--blue-light); border-color: var(--blue); }
+.kpi-value { font-size: 1.3rem; font-weight: 700; color: var(--navy); line-height: 1.2; }
+.kpi-value small { font-size: .7em; font-weight: 500; opacity: .7; }
+.kpi-label { font-size: .75rem; color: var(--gray-600); margin-top: .2rem; }
+.intel-kpi-row.small .kpi-card { flex: 1 1 100px; min-width: 80px; padding: .6rem; }
+.intel-kpi-row.small .kpi-value { font-size: 1.1rem; }
+
+/* ── Charts ──────────────────────────────────────────────────────── */
+
+.intel-chart-wrap { margin: .75rem 0; }
+.intel-chart-wrap h4 { font-size: .85rem; font-weight: 600; color: var(--gray-700); margin-bottom: .5rem; }
+.intel-distrib-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+@media (max-width: 768px) { .intel-distrib-grid { grid-template-columns: 1fr; } }
+
+/* ── Tables ─────────────────────────────────────────────────────── */
+
+.intel-table-wrap { overflow-x: auto; }
+.intel-table-wrap.compact { max-height: 320px; overflow-y: auto; }
+.intel-table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+.intel-table th {
+  text-align: left; padding: .5rem .6rem; font-weight: 600; color: var(--gray-700);
+  border-bottom: 2px solid var(--gray-200); white-space: nowrap; position: sticky; top: 0; background: white;
+}
+.intel-table td { padding: .45rem .6rem; border-bottom: 1px solid var(--gray-100); }
+.intel-table td.rank { font-weight: 700; color: var(--blue); width: 2rem; }
+.intel-table td.name { max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.intel-table td.code { font-family: monospace; color: var(--gray-600); font-size: .78rem; }
+.intel-table.clickable tbody tr { cursor: pointer; transition: background .1s; }
+.intel-table.clickable tbody tr:hover { background: var(--blue-light); }
+
+/* Source tags */
+.tag-bosa { background: #e8f5e9; color: #2e7d32; }
+.tag-ted { background: #e3f2fd; color: #1565c0; }
+
+/* ── Text elements ───────────────────────────────────────────────── */
+
+.intel-insight { font-size: .9rem; color: var(--gray-700); margin-bottom: .75rem; line-height: 1.5; }
+.intel-insight strong { color: var(--navy); }
+.intel-footnote { font-size: .78rem; color: var(--gray-500); margin-top: .5rem; }
+.intel-empty { color: var(--gray-500); font-size: .85rem; font-style: italic; }
+
+/* ── Responsive ──────────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+  .intel-controls { grid-template-columns: 1fr; }
+  .intel-kpi-row .kpi-card { flex: 1 1 80px; min-width: 80px; padding: .5rem; }
+  .kpi-value { font-size: 1rem; }
+  .intel-table td.name { max-width: 180px; }
+}

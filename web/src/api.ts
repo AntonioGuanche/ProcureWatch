@@ -68,6 +68,8 @@ import type {
   DashboardHealth,
   RefreshSummary,
   Watchlist,
+  CpvGroupOption,
+  CpvAnalysisResponse,
 } from "./types";
 
 // ── Search & Facets ─────────────────────────────────────────────────
@@ -434,4 +436,19 @@ export function getAdminUsers(): Promise<Array<{ id: string; email: string; name
 
 export function adminSetPlan(userId: string, plan: string): Promise<{ status: string; email: string; old_plan: string; new_plan: string }> {
   return request(`/api/admin/users/${userId}/plan?plan=${plan}`, { method: "PUT" });
+}
+
+// ── Intelligence (CPV analytics) ──────────────────────────────────
+
+export function getCpvGroups(): Promise<{ groups: CpvGroupOption[]; total: number }> {
+  return request("/api/intelligence/cpv-groups");
+}
+
+export function getCpvAnalysis(
+  cpvGroups: string[],
+  months: number = 24,
+  topLimit: number = 20,
+): Promise<CpvAnalysisResponse> {
+  const cpv = cpvGroups.join(",");
+  return request(`/api/intelligence/cpv-analysis?cpv=${cpv}&months=${months}&top_limit=${topLimit}`);
 }

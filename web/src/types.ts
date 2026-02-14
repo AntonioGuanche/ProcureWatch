@@ -380,3 +380,151 @@ export interface FavoriteListResponse {
 export interface FavoriteIdsResponse {
   notice_ids: string[];
 }
+
+// ── CPV Intelligence ──────────────────────────────────────────────
+
+export interface CpvGroupOption {
+  code: string;
+  label: string;
+}
+
+export interface CpvVolumeTotals {
+  total_notices: number;
+  total_awarded: number;
+  sum_estimated_eur: number;
+  sum_awarded_eur: number;
+  avg_estimated_eur: number;
+  avg_awarded_eur: number;
+}
+
+export interface CpvMonthlyPoint {
+  month: string;
+  count: number;
+  awarded: number;
+  total_estimated: number;
+  total_awarded: number;
+  avg_estimated: number;
+  avg_awarded: number;
+}
+
+export interface CpvYearlyPoint {
+  year: number;
+  count: number;
+  awarded: number;
+  total_estimated: number;
+  total_awarded: number;
+}
+
+export interface CpvWinner {
+  name: string;
+  contracts_won: number;
+  total_value_eur: number;
+  avg_value_eur: number;
+  first_award: string | null;
+  last_award: string | null;
+}
+
+export interface CpvBuyer {
+  name: string;
+  notice_count: number;
+  awarded_count: number;
+  total_estimated_eur: number;
+  total_awarded_eur: number;
+}
+
+export interface CompetitionBucket {
+  label: string;
+  count: number;
+  pct: number;
+}
+
+export interface CpvCompetition {
+  total_with_data: number;
+  avg_tenders: number;
+  median_tenders: number;
+  min_tenders: number | null;
+  max_tenders: number | null;
+  distribution: CompetitionBucket[];
+}
+
+export interface CpvProcedureType {
+  type: string;
+  count: number;
+  pct: number;
+}
+
+export interface CpvGeoItem {
+  nuts_code: string;
+  label: string;
+  count: number;
+}
+
+export interface CpvSeasonalityPoint {
+  month: number;
+  month_name: string;
+  total: number;
+  avg_per_year: number;
+}
+
+export interface ValueBucket {
+  label: string;
+  count: number;
+  pct: number;
+}
+
+export interface CpvValueDistribution {
+  estimated: { total_with_value: number; buckets: ValueBucket[] };
+  awarded: { total_with_value: number; buckets: ValueBucket[] };
+}
+
+export interface SingleBidContract {
+  id: string;
+  title: string;
+  winner: string;
+  award_value_eur: number | null;
+  estimated_value_eur: number | null;
+  award_date: string | null;
+  source: string;
+}
+
+export interface CpvAwardTimeline {
+  total_with_data: number;
+  avg_days: number | null;
+  median_days: number | null;
+  min_days: number | null;
+  max_days: number | null;
+  p25_days: number | null;
+  p75_days: number | null;
+}
+
+export interface ActiveOpportunity {
+  id: string;
+  title: string;
+  source: string;
+  deadline: string | null;
+  days_left: number | null;
+  estimated_value_eur: number | null;
+  cpv_code: string | null;
+  buyer: string | null;
+  url: string | null;
+}
+
+export interface CpvAnalysisResponse {
+  cpv_groups: CpvGroupOption[];
+  generated_at: string;
+  volume_value: {
+    totals: CpvVolumeTotals;
+    monthly: CpvMonthlyPoint[];
+    yearly: CpvYearlyPoint[];
+  };
+  top_winners: CpvWinner[];
+  top_buyers: CpvBuyer[];
+  competition: CpvCompetition;
+  procedure_types: CpvProcedureType[];
+  geography: CpvGeoItem[];
+  seasonality: CpvSeasonalityPoint[];
+  value_distribution: CpvValueDistribution;
+  single_bid_contracts: { total_single_bid: number; recent: SingleBidContract[] };
+  award_timeline: CpvAwardTimeline;
+  active_opportunities: { total_active: number; notices: ActiveOpportunity[] };
+}
