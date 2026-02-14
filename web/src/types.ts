@@ -386,6 +386,7 @@ export interface FavoriteIdsResponse {
 export interface CpvGroupOption {
   code: string;
   label: string;
+  count?: number;
 }
 
 export interface CpvVolumeTotals {

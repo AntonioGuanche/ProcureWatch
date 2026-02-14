@@ -8,7 +8,7 @@ from app.core.auth import rate_limit_public
 from app.db.session import get_db
 from app.services.cpv_intelligence import (
     get_full_cpv_analysis,
-    list_cpv_groups,
+    list_cpv_groups_from_db,
     cpv_group_label,
     get_volume_value,
     get_top_winners,
@@ -25,9 +25,9 @@ router = APIRouter(
 
 
 @router.get("/cpv-groups")
-def get_cpv_group_list() -> dict[str, Any]:
-    """List available CPV groups (3-digit) with French labels for the selector."""
-    groups = list_cpv_groups()
+def get_cpv_group_list(db: Session = Depends(get_db)) -> dict[str, Any]:
+    """List ALL CPV groups (3-digit) found in the database, with counts and labels."""
+    groups = list_cpv_groups_from_db(db)
     return {"groups": groups, "total": len(groups)}
 
 

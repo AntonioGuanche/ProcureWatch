@@ -2877,7 +2877,7 @@ label {
    Intelligence — CPV Sector Analytics Dashboard
    ═══════════════════════════════════════════════════════════════════ */
 
-.intel-page { max-width: 1200px; }
+.intel-page { max-width: 1200px; margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--gray-200); }
 .intel-header { margin-bottom: 1.5rem; }
 .intel-header h1 { font-size: 1.6rem; font-weight: 700; color: var(--navy); }
 
@@ -2909,6 +2909,10 @@ label {
 .intel-cpv-item.selected { background: var(--blue-light); font-weight: 600; }
 .intel-cpv-item .cpv-code { font-family: monospace; color: var(--gray-600); min-width: 2.5em; }
 .intel-cpv-item .cpv-label { flex: 1; }
+.intel-cpv-item .cpv-count {
+  font-size: .75rem; color: var(--gray-500); font-variant-numeric: tabular-nums;
+  min-width: 3.5em; text-align: right;
+}
 .intel-cpv-empty { padding: 1rem; text-align: center; color: var(--gray-500); font-size: .85rem; }
 
 .intel-period { display: flex; flex-direction: column; gap: .5rem; }

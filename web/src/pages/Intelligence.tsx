@@ -91,7 +91,7 @@ export function Intelligence() {
   const d = data; // alias for convenience
 
   return (
-    <div className="page intel-page">
+    <div className="intel-page">
       <div className="intel-header">
         <h1>Intelligence sectorielle</h1>
         <p className="page-subtitle">
@@ -131,6 +131,7 @@ export function Intelligence() {
               >
                 <span className="cpv-code">{g.code}</span>
                 <span className="cpv-label">{g.label}</span>
+                {g.count != null && <span className="cpv-count">{g.count.toLocaleString("fr-BE")}</span>}
               </button>
             ))}
             {filtered.length === 0 && (

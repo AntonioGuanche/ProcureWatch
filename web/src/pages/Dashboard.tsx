@@ -4,6 +4,7 @@ import { listFavorites, listWatchlists, getDashboardOverview, removeFavorite } f
 import { useAuth } from "../auth";
 import type { FavoriteItem, Watchlist, DashboardOverview } from "../types";
 import { NoticeModal } from "../components/NoticeModal";
+import { Intelligence } from "./Intelligence";
 
 
 function orgName(names: Record<string, string> | null): string {
@@ -179,6 +180,9 @@ export function Dashboard() {
           Rechercher des marchés publics →
         </Link>
       </div>
+
+      {/* Intelligence sectorielle */}
+      <Intelligence />
 
       {/* Modal */}
       {selectedId && (

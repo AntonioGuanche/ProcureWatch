@@ -35,17 +35,99 @@ for _code, _label in CPV_REFERENCE:
     if _group not in _CPV_GROUP_LABELS:
         _CPV_GROUP_LABELS[_group] = _label
 
+# Division-level labels (2 digits) for fallback when 3-digit group is unknown
+_CPV_DIVISION_LABELS: dict[str, str] = {
+    "03": "Agriculture & sylviculture",
+    "09": "Pétrole, combustibles & électricité",
+    "14": "Exploitation minière",
+    "15": "Produits alimentaires & boissons",
+    "16": "Machines agricoles",
+    "18": "Vêtements & textiles",
+    "19": "Cuir & textiles",
+    "22": "Imprimés & produits connexes",
+    "24": "Produits chimiques",
+    "30": "Machines de bureau & matériel informatique",
+    "31": "Machines & appareils électriques",
+    "32": "Équipements radio, TV & communication",
+    "33": "Matériel médical & pharmaceutique",
+    "34": "Équipements de transport",
+    "35": "Équipements de sécurité & défense",
+    "37": "Instruments de musique & sport",
+    "38": "Équipements de laboratoire & optiques",
+    "39": "Meubles & aménagements",
+    "41": "Eaux collectées & épurées",
+    "42": "Machines industrielles",
+    "43": "Machines pour l'exploitation minière",
+    "44": "Matériaux de construction",
+    "45": "Travaux de construction",
+    "48": "Logiciels & systèmes d'information",
+    "50": "Réparation & entretien",
+    "51": "Services d'installation",
+    "55": "Hôtellerie & restauration",
+    "60": "Services de transport",
+    "63": "Services auxiliaires de transport",
+    "64": "Services postaux & télécommunications",
+    "65": "Services publics (eau, énergie)",
+    "66": "Services financiers & assurance",
+    "70": "Services immobiliers",
+    "71": "Architecture & ingénierie",
+    "72": "Services informatiques",
+    "73": "Recherche & développement",
+    "75": "Administration publique & défense",
+    "76": "Services liés au pétrole & gaz",
+    "77": "Services agricoles & horticoles",
+    "79": "Services aux entreprises",
+    "80": "Enseignement & formation",
+    "85": "Santé & services sociaux",
+    "90": "Assainissement & environnement",
+    "92": "Loisirs, culture & sport",
+    "98": "Autres services communautaires",
+}
+
 
 def cpv_group_label(group_code: str) -> str:
     """Return French label for a 3-digit CPV group code."""
-    return _CPV_GROUP_LABELS.get(group_code, f"CPV {group_code}xx")
+    if group_code in _CPV_GROUP_LABELS:
+        return _CPV_GROUP_LABELS[group_code]
+    # Fallback: use division label
+    div = group_code[:2]
+    if div in _CPV_DIVISION_LABELS:
+        return f"{_CPV_DIVISION_LABELS[div]} ({group_code})"
+    return f"CPV {group_code}xx"
 
 
 def list_cpv_groups() -> list[dict[str, str]]:
-    """Return all known CPV groups with labels for the selector UI."""
+    """Return all known CPV groups with labels for the selector UI (static)."""
     return [
         {"code": code, "label": label}
         for code, label in sorted(_CPV_GROUP_LABELS.items())
+    ]
+
+
+def list_cpv_groups_from_db(db: Session) -> list[dict[str, Any]]:
+    """Query the DB for ALL distinct 3-digit CPV group prefixes with counts.
+
+    This ensures every CPV code present in the data is selectable,
+    not just the ones in the static reference list.
+    """
+    rows = db.execute(text("""
+        SELECT
+            SUBSTRING(cpv_main_code FROM 1 FOR 3) AS grp,
+            COUNT(*) AS cnt
+        FROM notices
+        WHERE cpv_main_code IS NOT NULL
+          AND LENGTH(cpv_main_code) >= 3
+        GROUP BY grp
+        ORDER BY cnt DESC
+    """)).mappings().all()
+
+    return [
+        {
+            "code": r["grp"],
+            "label": cpv_group_label(r["grp"]),
+            "count": r["cnt"],
+        }
+        for r in rows
     ]
 
 
