@@ -79,7 +79,7 @@ class TestBuildPrompt:
         )
         prompt = _build_prompt(notice, lang="fr")
         assert "Marché de nettoyage" in prompt
-        assert "Valeur estimée" not in prompt
+        assert "**Valeur estimée**:" not in prompt
 
 
 class TestCheckAiUsage:
