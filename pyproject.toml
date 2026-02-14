@@ -1,0 +1,42 @@
+[project]
+name = "procurewatch"
+version = "0.1.0"
+description = "Intelligent alerts for public procurement markets"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_functions = "test_*"
+addopts = [
+    "-v",
+    "--tb=short",
+    "-x",                # stop on first failure
+    "--no-header",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::sqlalchemy.exc.MovedIn20Warning",
+]
+markers = [
+    "slow: marks tests that require external services or are slow",
+    "integration: marks tests needing a real database or API",
+    "unit: marks pure unit tests",
+]
+
+[tool.coverage.run]
+source = ["app"]
+omit = [
+    "app/api/routes/admin_bosa.py",
+    "app/connectors/*",
+    "tests/*",
+]
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 40
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__",
+    "pass",
+]

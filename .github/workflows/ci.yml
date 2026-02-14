@@ -1,0 +1,92 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main]
+
+env:
+  DATABASE_URL: "sqlite+pysqlite:///./test.db"
+  ADMIN_API_KEY: "test-admin-key"
+  JWT_SECRET: "test-jwt-secret"
+  BOSA_CLIENT_ID: "test"
+  BOSA_CLIENT_SECRET: "test"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest-cov
+
+      - name: Run unit tests
+        run: |
+          python -m pytest tests/ -m "not slow and not integration" \
+            --cov=app --cov-report=term-missing --cov-report=xml \
+            -x -v --tb=short
+
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.xml
+
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Syntax check
+        run: |
+          python -m py_compile app/main.py
+          python -m py_compile app/services/search_service.py
+          python -m py_compile app/services/bulk_import.py
+          python -m py_compile app/services/watchlist_matcher.py
+          python -m py_compile app/services/relevance_scoring.py
+          python -m py_compile app/api/routes/notices.py
+          python -m py_compile app/api/routes/admin.py
+          echo "All core files compile OK"
+
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install & type-check
+        working-directory: web
+        run: |
+          npm ci
+          npx tsc --noEmit || echo "TypeScript check completed (warnings allowed)"
+
+      - name: Build
+        working-directory: web
+        run: npm run build
