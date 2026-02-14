@@ -9,7 +9,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from app.core.database import get_db
+from app.db.session import get_db
 from app.services.translation_service import (
     translate_keyword,
     translate_keyword_smart,
