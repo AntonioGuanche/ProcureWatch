@@ -56,7 +56,7 @@ class TestBulkImportSource:
         db = MagicMock()
         call_count = 0
 
-        def mock_fetch(term, page, page_size):
+        def mock_fetch(term, page, page_size, **kwargs):
             nonlocal call_count
             call_count += 1
             if call_count <= 3:
@@ -87,7 +87,7 @@ class TestBulkImportSource:
 
         db = MagicMock()
 
-        def mock_fetch(term, page, page_size):
+        def mock_fetch(term, page, page_size, **kwargs):
             if page == 1:
                 return {"items": [{"publicationWorkspaceId": "ws-1"}], "total_count": None}
             return {"items": [], "total_count": None}
@@ -112,7 +112,7 @@ class TestBulkImportSource:
 
         db = MagicMock()
 
-        def mock_fetch(term, page, page_size):
+        def mock_fetch(term, page, page_size, **kwargs):
             # Return fewer items than page_size → last page
             return {
                 "items": [{"publicationWorkspaceId": f"ws-{i}"} for i in range(3)],
@@ -139,7 +139,7 @@ class TestBulkImportSource:
         db = MagicMock()
         pages_called = []
 
-        def mock_fetch(term, page, page_size):
+        def mock_fetch(term, page, page_size, **kwargs):
             pages_called.append(page)
             return {
                 "items": [{"publicationWorkspaceId": f"ws-{page}-{i}"} for i in range(50)],
@@ -173,7 +173,7 @@ class TestBulkImportSource:
 
         db = MagicMock()
 
-        def mock_fetch(term, page, page_size):
+        def mock_fetch(term, page, page_size, **kwargs):
             if page == 1:
                 return {"items": [{"publication-number": "123-2024"}], "total_count": 1}
             return {"items": [], "total_count": 1}
