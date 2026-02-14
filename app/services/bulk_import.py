@@ -369,4 +369,12 @@ def bulk_import_all(
         total_created, total_updated, results["elapsed_seconds"],
     )
 
+    # Invalidate facets cache so next search page load gets fresh counts
+    if total_created > 0 or total_updated > 0:
+        try:
+            from app.services.search_service import invalidate_facets_cache
+            invalidate_facets_cache()
+        except Exception:
+            pass
+
     return results

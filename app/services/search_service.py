@@ -1,12 +1,14 @@
 """Notice search service — full-text (Postgres) with ILIKE fallback (SQLite).
 
 Provides build_search_query() which returns a SQLAlchemy query + optional rank column,
-and get_facets() for dynamic filter values.
+and get_facets() for dynamic filter values (cached 5 min).
 
 Phase 12: Added deadline_after, value_min/max, active_only, multi-source filters,
           value_desc/asc sort, enriched facets (NUTS, deadline range, value range).
+Phase 15: Performance — facets caching, consolidated aggregates, index hints.
 """
 import re
+import time as _time
 from datetime import date, datetime, timezone
 from typing import Any, Optional
 
@@ -15,6 +17,11 @@ from sqlalchemy.orm import Session, Query
 
 from app.models.notice import ProcurementNotice, NoticeSource
 from app.services.dashboard_service import CPV_DIVISIONS as _CPV_DIVISIONS
+
+# ── Facets cache (in-memory, 5-min TTL) ──────────────────────────────
+_facets_cache: dict[str, Any] = {}
+_facets_cache_ts: float = 0.0
+_FACETS_TTL = 300  # seconds
 
 
 # ── Helpers ──────────────────────────────────────────────────────────
@@ -254,31 +261,76 @@ def build_search_query(
 
 def get_facets(db: Session) -> dict[str, Any]:
     """
-    Return dynamic filter options for the UI:
-    - sources: [{value, label, count}]
-    - top_cpv: [{code, count}]  (top 20 CPV 2-digit divisions)
-    - top_nuts: [{code, count}]  (top 20 NUTS country/region prefixes)
-    - notice_types: [{value, count}]
-    - date_range: {min, max}
-    - deadline_range: {min, max}
-    - value_range: {min, max}
-    - active_count: int  (notices with deadline > now)
+    Return dynamic filter options for the UI (cached 5 min).
     """
+    global _facets_cache, _facets_cache_ts
+
+    now = _time.time()
+    if _facets_cache and (now - _facets_cache_ts) < _FACETS_TTL:
+        return _facets_cache
+
+    result = _compute_facets(db)
+    _facets_cache = result
+    _facets_cache_ts = now
+    return result
+
+
+def invalidate_facets_cache() -> None:
+    """Call after bulk imports to force fresh facets on next request."""
+    global _facets_cache_ts
+    _facets_cache_ts = 0.0
+
+
+def _compute_facets(db: Session) -> dict[str, Any]:
+    """Compute facets from DB (uncached)."""
     is_pg = _is_postgres(db)
     N = ProcurementNotice
 
-    # Sources
-    sources = (
-        db.query(N.source, func.count(N.id))
-        .group_by(N.source)
-        .all()
-    )
+    # ── Single aggregate query for totals, date ranges ──
+    agg = db.query(
+        func.count(N.id),
+        func.min(N.publication_date),
+        func.max(N.publication_date),
+        func.min(N.deadline),
+        func.max(N.deadline),
+    ).first()
+
+    total = agg[0] if agg else 0
+    date_info = {
+        "min": agg[1].isoformat() if agg and agg[1] else None,
+        "max": agg[2].isoformat() if agg and agg[2] else None,
+    }
+    deadline_info = {
+        "min": agg[3].isoformat() if agg and agg[3] else None,
+        "max": agg[4].isoformat() if agg and agg[4] else None,
+    }
+
+    # ── Value range (separate — needs WHERE filter) ──
+    value_range = db.query(
+        func.min(N.estimated_value),
+        func.max(N.estimated_value),
+    ).filter(N.estimated_value.isnot(None), N.estimated_value > 0).first()
+    value_info = {
+        "min": float(value_range[0]) if value_range and value_range[0] else None,
+        "max": float(value_range[1]) if value_range and value_range[1] else None,
+    }
+
+    # ── Active count (uses ix_notices_deadline_active) ──
+    now_dt = datetime.now(timezone.utc)
+    active_count = (
+        db.query(func.count(N.id))
+        .filter(N.deadline > now_dt)
+        .scalar()
+    ) or 0
+
+    # ── Sources ──
+    sources = db.query(N.source, func.count(N.id)).group_by(N.source).all()
     source_list = [
         {"value": s, "label": "BOSA" if s == "BOSA_EPROC" else "TED", "count": c}
         for s, c in sources
     ]
 
-    # Top CPV codes (2-digit divisions)
+    # ── Top CPV divisions (uses ix_notices_cpv_division expression index) ──
     if is_pg:
         cpv_rows = db.execute(text("""
             SELECT LEFT(REPLACE(cpv_main_code, '-', ''), 2) AS div, COUNT(*) AS cnt
@@ -299,7 +351,7 @@ def get_facets(db: Session) -> dict[str, Any]:
         """)).all()
     cpv_list = [{"code": row[0], "label": _CPV_DIVISIONS.get(row[0], ""), "count": row[1]} for row in cpv_rows if row[0]]
 
-    # Top NUTS regions (2-char country codes from JSONB array)
+    # ── Top NUTS countries ──
     nuts_list = []
     if is_pg:
         try:
@@ -315,9 +367,9 @@ def get_facets(db: Session) -> dict[str, Any]:
             """)).all()
             nuts_list = [{"code": row[0], "count": row[1]} for row in nuts_rows if row[0]]
         except Exception:
-            pass  # Graceful degradation if NUTS data is sparse
+            pass
 
-    # Notice types
+    # ── Notice types ──
     type_rows = (
         db.query(N.notice_type, func.count(N.id))
         .filter(N.notice_type.isnot(None))
@@ -327,47 +379,6 @@ def get_facets(db: Session) -> dict[str, Any]:
         .all()
     )
     type_list = [{"value": t, "count": c} for t, c in type_rows]
-
-    # Date range (publication)
-    date_range = db.query(
-        func.min(N.publication_date),
-        func.max(N.publication_date),
-    ).first()
-    date_info = {
-        "min": date_range[0].isoformat() if date_range and date_range[0] else None,
-        "max": date_range[1].isoformat() if date_range and date_range[1] else None,
-    }
-
-    # Deadline range
-    deadline_range = db.query(
-        func.min(N.deadline),
-        func.max(N.deadline),
-    ).first()
-    deadline_info = {
-        "min": deadline_range[0].isoformat() if deadline_range and deadline_range[0] else None,
-        "max": deadline_range[1].isoformat() if deadline_range and deadline_range[1] else None,
-    }
-
-    # Value range
-    value_range = db.query(
-        func.min(N.estimated_value),
-        func.max(N.estimated_value),
-    ).filter(N.estimated_value.isnot(None), N.estimated_value > 0).first()
-    value_info = {
-        "min": float(value_range[0]) if value_range and value_range[0] else None,
-        "max": float(value_range[1]) if value_range and value_range[1] else None,
-    }
-
-    # Active count (deadline > now)
-    now = datetime.now(timezone.utc)
-    active_count = (
-        db.query(func.count(N.id))
-        .filter(N.deadline > now)
-        .scalar()
-    ) or 0
-
-    # Total
-    total = db.query(func.count(N.id)).scalar() or 0
 
     return {
         "total_notices": total,

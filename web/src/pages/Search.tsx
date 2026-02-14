@@ -14,6 +14,23 @@ function fmtValue(v: number | null): string {
   return new Intl.NumberFormat("fr-BE", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(v);
 }
 
+const NOTICE_TYPE_LABELS: Record<string, string> = {
+  "CONTRACT_NOTICE": "Avis de marché",
+  "CONTRACT_AWARD_NOTICE": "Attribution",
+  "PRIOR_INFORMATION_NOTICE": "Info préalable",
+  "VOLUNTARY_EX_ANTE_TRANSPARENCY_NOTICE": "Transparence ex ante",
+  "MODIFICATION_NOTICE": "Modification",
+  "DESIGN_CONTEST_NOTICE": "Concours",
+  "CONCESSION_AWARD_NOTICE": "Concession (attr.)",
+  "PLANNING": "Planification",
+  "COMPETITION": "Mise en concurrence",
+  "RESULT": "Résultat",
+  "CHANGE": "Rectificatif",
+  "can": "Attribution (CAN)",
+  "cn": "Avis de marché (CN)",
+  "pin": "Info préalable (PIN)",
+};
+
 function deadlineTag(deadline: string | null) {
   if (!deadline) return null;
   const days = Math.ceil((new Date(deadline).getTime() - Date.now()) / 86400000);
@@ -58,6 +75,7 @@ export function Search() {
   const [cpv, setCpv] = useState("");
   const [nuts, setNuts] = useState("");
   const [source, setSource] = useState("");
+  const [noticeType, setNoticeType] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [valueMin, setValueMin] = useState("");
@@ -110,6 +128,7 @@ export function Search() {
       if (cpv) params.cpv = cpv;
       if (nuts) params.nuts = nuts;
       if (source) params.source = source;
+      if (noticeType) params.notice_type = noticeType;
       if (dateFrom) params.date_from = dateFrom;
       if (dateTo) params.date_to = dateTo;
       if (valueMin) params.value_min = parseFloat(valueMin);
@@ -122,7 +141,7 @@ export function Search() {
     } finally {
       setLoading(false);
     }
-  }, [q, cpv, nuts, source, dateFrom, dateTo, valueMin, valueMax, activeOnly, sort, pageSize]);
+  }, [q, cpv, nuts, source, noticeType, dateFrom, dateTo, valueMin, valueMax, activeOnly, sort, pageSize]);
 
   useEffect(() => { doSearch(1); }, []);
 
@@ -186,6 +205,12 @@ export function Search() {
             <option value="">Tous pays</option>
             {facets?.top_nuts_countries.map((f) => (
               <option key={f.code} value={f.code}>{f.code} ({f.count})</option>
+            ))}
+          </select>
+          <select value={noticeType} onChange={(e) => setNoticeType(e.target.value)} className="filter-select">
+            <option value="">Tous types</option>
+            {facets?.notice_types.map((f) => (
+              <option key={f.value} value={f.value}>{NOTICE_TYPE_LABELS[f.value || ""] || f.value?.replace(/_/g, " ") || "?"} ({f.count})</option>
             ))}
           </select>
           <div className="source-toggles">
