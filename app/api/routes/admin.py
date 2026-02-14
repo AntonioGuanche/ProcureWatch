@@ -1126,61 +1126,113 @@ def ted_can_enrich(
 def ted_can_enrich_debug(
     db: Session = Depends(get_db),
 ) -> dict:
-    """Debug: pick 1 candidate, UPDATE it, verify if it persists."""
-    # 1. Pick ONE candidate
-    row = db.execute(text(
-        "SELECT id, source_id, award_winner_name "
-        "FROM notices "
+    """Debug: pick 3 candidates, show what TED returns, what we'd write, verify."""
+    from app.connectors.ted.client import search_ted_notices
+    from app.services.notice_service import (
+        _safe_str, _ted_pick_text,
+    )
+
+    # 1. Pick 3 candidates
+    rows = db.execute(text(
+        "SELECT DISTINCT source_id FROM notices "
         "WHERE source = 'TED_EU' "
         "  AND award_winner_name IS NOT NULL "
         "  AND LENGTH(award_winner_name) <= 3 "
         "  AND source_id IS NOT NULL "
-        "LIMIT 1"
-    )).fetchone()
+        "LIMIT 3"
+    )).fetchall()
 
-    if not row:
-        return {"error": "No candidates found"}
+    candidates = [r[0] for r in rows]
+    if not candidates:
+        return {"error": "No candidates"}
 
-    notice_id, source_id, old_winner = row[0], row[1], row[2]
+    # 2. Batch-fetch from TED
+    clauses = [f'publication-number = "{pn}"' for pn in candidates]
+    query = " OR ".join(clauses)
+    result = search_ted_notices(term=query, page=1, page_size=10)
+    items = result.get("notices", [])
 
-    # 2. Count all rows with this source_id
-    dupes = db.execute(text(
-        "SELECT id, award_winner_name FROM notices WHERE source_id = :sid ORDER BY id"
-    ), {"sid": source_id}).fetchall()
+    # Index
+    result_map = {}
+    for item in items:
+        pn = item.get("publication-number")
+        if isinstance(pn, list):
+            pn = pn[0]
+        if isinstance(pn, dict):
+            pn = pn.get("value")
+        if pn:
+            result_map[str(pn).strip()] = item
 
-    # 3. Direct UPDATE with a test value
-    test_name = f"TEST_{source_id}"
-    result = db.execute(text(
-        "UPDATE notices "
-        "SET award_winner_name = :name "
+    # 3. Analyze each
+    analysis = []
+    for sid in candidates:
+        item = result_map.get(sid)
+        if not item:
+            analysis.append({"source_id": sid, "error": "not found in TED"})
+            continue
+
+        # What the cascade produces
+        biz = _ted_pick_text(item.get("business-name"))
+        win = _ted_pick_text(item.get("winner-name"))
+        org = _ted_pick_text(item.get("organisation-name-tenderer"))
+        orgp = _ted_pick_text(item.get("organisation-partname-tenderer"))
+        wc = _ted_pick_text(item.get("winner-country"))
+
+        cascade_result = biz or win or org or orgp or wc
+        final = _safe_str(cascade_result, 500)
+
+        # Raw field values from TED
+        raw_fields = {
+            "business-name": item.get("business-name"),
+            "winner-name": item.get("winner-name"),
+            "organisation-name-tenderer": item.get("organisation-name-tenderer"),
+            "organisation-partname-tenderer": item.get("organisation-partname-tenderer"),
+            "winner-country": item.get("winner-country"),
+        }
+
+        # Do a real UPDATE
+        if final and len(final) > 3:
+            db.execute(text(
+                "UPDATE notices SET award_winner_name = :name "
+                "WHERE source = 'TED_EU' AND source_id = :sid "
+                "AND LENGTH(COALESCE(award_winner_name, '')) <= 3"
+            ), {"name": final, "sid": sid})
+            db.commit()
+            updated = True
+        else:
+            updated = False
+
+        # Verify
+        after = db.execute(text(
+            "SELECT award_winner_name FROM notices WHERE source_id = :sid LIMIT 1"
+        ), {"sid": sid}).fetchone()
+
+        analysis.append({
+            "source_id": sid,
+            "raw_fields": {k: str(v)[:100] if v else None for k, v in raw_fields.items()},
+            "cascade_steps": {
+                "business-name": str(biz)[:50] if biz else None,
+                "winner-name": str(win)[:50] if win else None,
+                "org-name-tenderer": str(org)[:50] if org else None,
+                "org-partname": str(orgp)[:50] if orgp else None,
+                "winner-country": str(wc)[:50] if wc else None,
+            },
+            "cascade_result": str(cascade_result)[:100] if cascade_result else None,
+            "final_safe_str": str(final)[:100] if final else None,
+            "final_length": len(final) if final else 0,
+            "updated": updated,
+            "after_db": after[0] if after else None,
+        })
+
+    # Remaining count
+    remaining = db.execute(text(
+        "SELECT COUNT(DISTINCT source_id) FROM notices "
         "WHERE source = 'TED_EU' "
-        "  AND source_id = :sid "
-        "  AND LENGTH(COALESCE(award_winner_name, '')) <= 3"
-    ), {"name": test_name, "sid": source_id})
-    rows_affected = result.rowcount
+        "  AND award_winner_name IS NOT NULL "
+        "  AND LENGTH(award_winner_name) <= 3"
+    )).scalar()
 
-    # 4. Check BEFORE commit
-    before_commit = db.execute(text(
-        "SELECT id, award_winner_name FROM notices WHERE source_id = :sid ORDER BY id"
-    ), {"sid": source_id}).fetchall()
-
-    # 5. Commit
-    db.commit()
-
-    # 6. Check AFTER commit
-    after_commit = db.execute(text(
-        "SELECT id, award_winner_name FROM notices WHERE source_id = :sid ORDER BY id"
-    ), {"sid": source_id}).fetchall()
-
-    return {
-        "target": {"id": notice_id, "source_id": source_id, "old_winner": old_winner},
-        "duplicates_count": len(dupes),
-        "duplicates_before_update": [{"id": r[0][:8], "winner": r[1]} for r in dupes],
-        "update_rowcount": rows_affected,
-        "test_value": test_name,
-        "before_commit": [{"id": r[0][:8], "winner": r[1]} for r in before_commit],
-        "after_commit": [{"id": r[0][:8], "winner": r[1]} for r in after_commit],
-    }
+    return {"candidates": len(candidates), "analysis": analysis, "remaining": remaining}
 
 
 @router.get("/bosa-can-formats")
