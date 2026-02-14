@@ -210,9 +210,9 @@ class TestEnsureExtractedText:
 
 
 class TestDownloadAndExtract:
-    @patch("app.services.document_analysis.extract_text_from_pdf")
-    @patch("app.services.document_analysis.requests")
-    def test_success(self, mock_requests, mock_extract):
+    @patch("app.documents.pdf_extractor.extract_text_from_pdf")
+    @patch("requests.get")
+    def test_success(self, mock_get, mock_extract):
         fake_pdf = b"%PDF-1.4 fake content here"
         mock_resp = MagicMock()
         mock_resp.raise_for_status = MagicMock()
@@ -220,7 +220,7 @@ class TestDownloadAndExtract:
         mock_resp.iter_content.return_value = [fake_pdf]
         mock_resp.__enter__ = MagicMock(return_value=mock_resp)
         mock_resp.__exit__ = MagicMock(return_value=None)
-        mock_requests.get.return_value = mock_resp
+        mock_get.return_value = mock_resp
 
         mock_extract.return_value = "Cahier des charges - Article 1"
 
@@ -233,9 +233,9 @@ class TestDownloadAndExtract:
         assert doc.sha256 == hashlib.sha256(fake_pdf).hexdigest()
         assert doc.file_size == len(fake_pdf)
 
-    @patch("app.services.document_analysis.requests")
-    def test_download_failure(self, mock_requests):
-        mock_requests.get.side_effect = Exception("Connection refused")
+    @patch("requests.get")
+    def test_download_failure(self, mock_get):
+        mock_get.side_effect = Exception("Connection refused")
 
         doc = _make_doc()
         result = _download_and_extract_text(doc)
@@ -244,9 +244,9 @@ class TestDownloadAndExtract:
         assert doc.download_status == "failed"
         assert "Connection refused" in (doc.download_error or "")
 
-    @patch("app.services.document_analysis.extract_text_from_pdf")
-    @patch("app.services.document_analysis.requests")
-    def test_empty_pdf(self, mock_requests, mock_extract):
+    @patch("app.documents.pdf_extractor.extract_text_from_pdf")
+    @patch("requests.get")
+    def test_empty_pdf(self, mock_get, mock_extract):
         """Scanned PDF with no extractable text."""
         mock_resp = MagicMock()
         mock_resp.raise_for_status = MagicMock()
@@ -254,7 +254,7 @@ class TestDownloadAndExtract:
         mock_resp.iter_content.return_value = [b"fake"]
         mock_resp.__enter__ = MagicMock(return_value=mock_resp)
         mock_resp.__exit__ = MagicMock(return_value=None)
-        mock_requests.get.return_value = mock_resp
+        mock_get.return_value = mock_resp
 
         mock_extract.return_value = ""  # No text from scanned PDF
 

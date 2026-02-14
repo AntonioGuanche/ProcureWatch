@@ -13,7 +13,7 @@ class TestFetchPages:
             "metadata": {"totalCount": 200},
             "json": {"publications": [{"id": "1"}, {"id": "2"}]},
         }
-        with patch("app.services.bulk_import.search_publications", return_value=mock_resp):
+        with patch("app.connectors.bosa.client.search_publications", return_value=mock_resp):
             result = _fetch_page_bosa("*", 1, 25)
             assert len(result["items"]) == 2
             assert result["total_count"] == 200
@@ -24,7 +24,7 @@ class TestFetchPages:
             "metadata": {"totalCount": 500},
             "json": {"notices": [{"id": "a"}, {"id": "b"}, {"id": "c"}]},
         }
-        with patch("app.services.bulk_import.search_ted_notices", return_value=mock_resp):
+        with patch("app.connectors.ted.client.search_ted_notices", return_value=mock_resp):
             result = _fetch_page_ted("construction", 1, 50)
             assert len(result["items"]) == 3
             assert result["total_count"] == 500
@@ -32,7 +32,7 @@ class TestFetchPages:
     def test_bosa_empty_response(self):
         from app.services.bulk_import import _fetch_page_bosa
         mock_resp = {"metadata": {}, "json": {}}
-        with patch("app.services.bulk_import.search_publications", return_value=mock_resp):
+        with patch("app.connectors.bosa.client.search_publications", return_value=mock_resp):
             result = _fetch_page_bosa("*", 1, 25)
             assert result["items"] == []
 
@@ -42,7 +42,7 @@ class TestFetchPages:
             "metadata": {},
             "json": {"notices": [{"id": "x"}], "totalCount": 42},
         }
-        with patch("app.services.bulk_import.search_ted_notices", return_value=mock_resp):
+        with patch("app.connectors.ted.client.search_ted_notices", return_value=mock_resp):
             result = _fetch_page_ted("*", 1, 10)
             assert result["total_count"] == 42
 
@@ -202,9 +202,9 @@ class TestBulkImportAll:
         db = MagicMock()
 
         with patch("app.services.bulk_import.bulk_import_source") as mock_source, \
-             patch("app.services.bulk_import.backfill_from_raw_data", return_value={"enriched": 5}), \
-             patch("app.services.bulk_import.refresh_search_vectors", return_value=10), \
-             patch("app.services.bulk_import.run_watchlist_matcher", return_value={"total_new_matches": 2}):
+             patch("app.services.enrichment_service.backfill_from_raw_data", return_value={"enriched": 5}), \
+             patch("app.services.enrichment_service.refresh_search_vectors", return_value=10), \
+             patch("app.services.watchlist_matcher.run_watchlist_matcher", return_value={"total_new_matches": 2}):
 
             mock_source.side_effect = [
                 {"total_created": 10, "total_updated": 2},  # BOSA
@@ -224,7 +224,7 @@ class TestBulkImportAll:
         db = MagicMock()
 
         with patch("app.services.bulk_import.bulk_import_source") as mock_source, \
-             patch("app.services.bulk_import.backfill_from_raw_data") as mock_bf:
+             patch("app.services.enrichment_service.backfill_from_raw_data") as mock_bf:
 
             mock_source.return_value = {"total_created": 0, "total_updated": 0}
             result = bulk_import_all(db, sources="BOSA")

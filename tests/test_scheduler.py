@@ -111,7 +111,7 @@ class TestFetchPage:
     def test_fetch_bosa(self):
         from app.services.scheduler import _fetch_page
         mock_data = {"publications": [{"id": "1"}, {"id": "2"}]}
-        with patch("app.services.scheduler.search_publications", return_value=mock_data) as mock:
+        with patch("app.connectors.bosa.client.search_publications", return_value=mock_data) as mock:
             items = _fetch_page("BOSA", "*", 1, 25)
             assert len(items) == 2
             mock.assert_called_once_with(term="*", page=1, page_size=25)
@@ -119,7 +119,7 @@ class TestFetchPage:
     def test_fetch_ted(self):
         from app.services.scheduler import _fetch_page
         mock_data = {"notices": [{"id": "a"}]}
-        with patch("app.services.scheduler.search_ted_notices", return_value=mock_data) as mock:
+        with patch("app.connectors.ted.client.search_ted_notices", return_value=mock_data) as mock:
             items = _fetch_page("TED", "construction", 1, 10)
             assert len(items) == 1
             mock.assert_called_once_with(term="construction", page=1, page_size=10)
@@ -137,42 +137,31 @@ class TestImportPipeline:
         import app.services.scheduler as sched_mod
 
         mock_db = MagicMock()
-        mock_svc_instance = MagicMock()
-
-        # Mock async import methods
-        import asyncio
-
-        async def mock_eproc(*a, **kw):
-            return {"created": 3, "updated": 1, "skipped": 0, "errors": []}
-
-        async def mock_ted(*a, **kw):
-            return {"created": 2, "updated": 0, "skipped": 0, "errors": []}
-
-        mock_svc_instance.import_from_eproc_search = mock_eproc
-        mock_svc_instance.import_from_ted_search = mock_ted
+        mock_result = {
+            "status": "ok",
+            "total_created": 5,
+            "total_updated": 1,
+            "elapsed_seconds": 2.0,
+            "backfill": {"enriched": 2},
+            "watchlist_matcher": {"total_new_matches": 1},
+        }
 
         with patch.object(sched_mod, "settings") as mock_settings, \
-             patch("app.services.scheduler.SessionLocal", return_value=mock_db), \
-             patch("app.services.scheduler.NoticeService", return_value=mock_svc_instance), \
-             patch.object(sched_mod, "_fetch_page") as mock_fetch, \
-             patch("app.services.scheduler.run_watchlist_matcher", return_value={"total_new_matches": 1, "watchlists_processed": 1, "emails_sent": 0}) as mock_matcher, \
-             patch("app.services.scheduler.backfill_from_raw_data", return_value={"enriched": 2}) as mock_bf, \
-             patch("app.services.scheduler.refresh_search_vectors", return_value=5):
+             patch("app.db.session.SessionLocal", return_value=mock_db), \
+             patch("app.services.bulk_import.bulk_import_all", return_value=mock_result) as mock_all:
 
             mock_settings.import_sources = "BOSA,TED"
             mock_settings.import_term = "*"
+            mock_settings.import_term_ted = "*"
+            mock_settings.import_ted_days_back = 7
             mock_settings.import_page_size = 25
             mock_settings.import_max_pages = 1
             mock_settings.backfill_after_import = True
-
-            # Each source returns 1 page of items then empty
-            mock_fetch.side_effect = [
-                [{"id": "1"}],  # BOSA page 1
-                [{"id": "a"}],  # TED page 1
-            ]
+            mock_settings.scheduler_enabled = True
 
             sched_mod._run_import_pipeline()
 
+            mock_all.assert_called_once()
             result = sched_mod._last_run.get("import_pipeline")
             assert result is not None
             assert result["status"] == "ok"

@@ -201,7 +201,7 @@ def test_matcher_sends_email(db):
     db.add(wl)
     db.commit()
 
-    with patch("app.services.watchlist_matcher.send_watchlist_notification") as mock_send:
+    with patch("app.services.notification_service.send_consolidated_digest") as mock_send:
         result = run_watchlist_matcher(db)
 
     assert result["watchlists_processed"] == 1
@@ -224,7 +224,7 @@ def test_matcher_skips_disabled(db):
     db.add(wl)
     db.commit()
 
-    with patch("app.services.watchlist_matcher.send_watchlist_notification") as mock_send:
+    with patch("app.services.notification_service.send_consolidated_digest") as mock_send:
         result = run_watchlist_matcher(db)
 
     assert result["watchlists_processed"] == 0
@@ -239,7 +239,7 @@ def test_matcher_no_email_when_no_matches(db):
     db.add(wl)
     db.commit()
 
-    with patch("app.services.watchlist_matcher.send_watchlist_notification") as mock_send:
+    with patch("app.services.notification_service.send_consolidated_digest") as mock_send:
         result = run_watchlist_matcher(db)
 
     assert result["total_new_matches"] == 0
@@ -263,7 +263,7 @@ def test_run_matcher_multiple_watchlists(db):
     db.add_all([wl1, wl2])
     db.commit()
 
-    with patch("app.services.watchlist_matcher.send_watchlist_notification"):
+    with patch("app.services.notification_service.send_consolidated_digest"):
         result = run_watchlist_matcher(db)
 
     assert result["watchlists_processed"] == 2
