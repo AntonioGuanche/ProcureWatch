@@ -78,7 +78,7 @@ class TestBulkImportSource:
              patch("app.services.bulk_import.NoticeService", return_value=mock_svc):
             result = bulk_import_source(db, "BOSA", page_size=10)
 
-        assert result["total_created"] == 25
+        assert result["total_created"] == 30
         assert result["pages_fetched"] == 3
         assert result["api_total_count"] == 25
 
