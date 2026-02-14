@@ -84,7 +84,7 @@ def test_search_notices_uses_hardcoded_path_and_expert_query() -> None:
         assert len(body["fields"]) > 0
         assert body["page"] == 2
         assert body["limit"] == 10
-        assert body.get("scope") == "ACTIVE"
+        assert body.get("scope") == "ALL"
         assert body.get("paginationMode") == "PAGE_NUMBER"
 
 

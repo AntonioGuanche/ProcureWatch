@@ -46,7 +46,7 @@ def _seed(db, notices: list[ProcurementNotice]):
 
 def test_parse_tsquery_simple():
     from app.services.search_service import _parse_tsquery
-    assert _parse_tsquery("construction") == "construction:*"
+    assert _parse_tsquery("construction", expand_translations=False) == "construction:*"
 
 
 def test_parse_tsquery_multiple_words():
@@ -207,7 +207,7 @@ def test_search_sort_date_asc(db):
 
 def test_facets_basic(db):
     """Facets returns expected structure."""
-    from app.services.search_service import get_facets
+    from app.services.search_service import get_facets, invalidate_facets_cache
 
     _seed(db, [
         _make_notice(source=NoticeSource.BOSA_EPROC.value, cpv_main_code="45000000-7", notice_type="CONTRACT_NOTICE"),
@@ -215,6 +215,7 @@ def test_facets_basic(db):
         _make_notice(source=NoticeSource.TED_EU.value, cpv_main_code="71000000-8", notice_type="CONTRACT_AWARD"),
     ])
 
+    invalidate_facets_cache()
     facets = get_facets(db)
 
     assert facets["total_notices"] == 3

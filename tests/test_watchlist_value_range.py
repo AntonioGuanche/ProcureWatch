@@ -69,10 +69,10 @@ class TestMatcherExplanation:
         from app.services.watchlist_matcher import _build_explanation
 
         wl = MagicMock()
-        wl.keywords = ["test"]
-        wl.cpv_prefixes = []
-        wl.countries = []
-        wl.nuts_prefixes = []
+        wl.keywords = "test"
+        wl.cpv_prefixes = ""
+        wl.countries = ""
+        wl.nuts_prefixes = ""
         wl.value_min = 10000
         wl.value_max = 500000
 
@@ -85,9 +85,9 @@ class TestMatcherExplanation:
 
         wl = MagicMock()
         wl.keywords = []
-        wl.cpv_prefixes = []
-        wl.countries = []
-        wl.nuts_prefixes = []
+        wl.cpv_prefixes = ""
+        wl.countries = ""
+        wl.nuts_prefixes = ""
         wl.value_min = 10000
         wl.value_max = None
 
@@ -99,10 +99,10 @@ class TestMatcherExplanation:
         from app.services.watchlist_matcher import _build_explanation
 
         wl = MagicMock()
-        wl.keywords = ["construction"]
-        wl.cpv_prefixes = []
-        wl.countries = []
-        wl.nuts_prefixes = []
+        wl.keywords = "construction"
+        wl.cpv_prefixes = ""
+        wl.countries = ""
+        wl.nuts_prefixes = ""
         wl.value_min = None
         wl.value_max = None
 
