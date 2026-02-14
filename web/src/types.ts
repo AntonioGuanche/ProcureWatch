@@ -429,9 +429,9 @@ export interface CpvWinner {
 export interface CpvBuyer {
   name: string;
   notice_count: number;
-  awarded_count: number;
-  total_estimated_eur: number;
-  total_awarded_eur: number;
+  cn_count: number;
+  can_count: number;
+  active_count: number;
 }
 
 export interface CompetitionBucket {

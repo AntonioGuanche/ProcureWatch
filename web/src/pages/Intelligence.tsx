@@ -264,10 +264,10 @@ export function Intelligence() {
                     <tr>
                       <th>#</th>
                       <th>Autorité</th>
-                      <th>Marchés</th>
-                      <th>Attribués</th>
-                      <th>Valeur estimée</th>
-                      <th>Valeur attribuée</th>
+                      <th>Publications</th>
+                      <th>Appels</th>
+                      <th>Attributions</th>
+                      <th>En cours</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -276,9 +276,13 @@ export function Intelligence() {
                         <td className="rank">{i + 1}</td>
                         <td className="name">{b.name}</td>
                         <td>{b.notice_count}</td>
-                        <td>{b.awarded_count}</td>
-                        <td>{eur(b.total_estimated_eur)}</td>
-                        <td>{eur(b.total_awarded_eur)}</td>
+                        <td>{b.cn_count || "—"}</td>
+                        <td>{b.can_count || "—"}</td>
+                        <td>
+                          {b.active_count > 0
+                            ? <span className="tag tag-success small">{b.active_count}</span>
+                            : "—"}
+                        </td>
                       </tr>
                     ))}
                   </tbody>

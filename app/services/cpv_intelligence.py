@@ -355,7 +355,13 @@ def get_top_winners(
 def get_top_buyers(
     db: Session, cpv_groups: list[str], limit: int = 20,
 ) -> list[dict[str, Any]]:
-    """Top contracting authorities in this CPV group."""
+    """Top contracting authorities in this CPV group.
+
+    Only shows reliably available data: notice count and type breakdown.
+    Award values are NOT shown per buyer because CN and CAN are separate
+    records that may have different organisation_names, making the join
+    unreliable.
+    """
     cpv_clause = _cpv_filter_clause(cpv_groups)
     params = {**_cpv_params(cpv_groups), "limit": limit}
 
@@ -369,9 +375,15 @@ def get_top_buyers(
                 'Inconnu'
             ) AS buyer_name,
             COUNT(*) AS notice_count,
-            COALESCE(SUM(estimated_value), 0) AS total_estimated,
-            COALESCE(SUM(award_value), 0) AS total_awarded,
-            COUNT(CASE WHEN award_winner_name IS NOT NULL THEN 1 END) AS awarded_count
+            COUNT(CASE WHEN notice_type ILIKE '%cn%'
+                       OR notice_type ILIKE '%contract notice%'
+                       OR form_type ILIKE '%competition%'
+                       THEN 1 END) AS cn_count,
+            COUNT(CASE WHEN notice_type ILIKE '%can%'
+                       OR notice_type ILIKE '%award%'
+                       OR notice_type ILIKE '%result%'
+                       THEN 1 END) AS can_count,
+            COUNT(CASE WHEN deadline > NOW() THEN 1 END) AS active_count
         FROM notices
         WHERE {cpv_clause}
           AND cpv_main_code IS NOT NULL
@@ -386,9 +398,9 @@ def get_top_buyers(
         {
             "name": r["buyer_name"],
             "notice_count": r["notice_count"],
-            "awarded_count": r["awarded_count"],
-            "total_estimated_eur": float(r["total_estimated"]),
-            "total_awarded_eur": float(r["total_awarded"]),
+            "cn_count": r["cn_count"],
+            "can_count": r["can_count"],
+            "active_count": r["active_count"],
         }
         for r in rows
     ]
