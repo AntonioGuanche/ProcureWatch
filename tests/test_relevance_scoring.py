@@ -8,7 +8,7 @@ from app.services.relevance_scoring import (
     calculate_relevance_score,
     _keyword_score,
     _cpv_score,
-    _geo_score,
+    _geo_score_watchlist,
     _recency_score,
 )
 
@@ -47,25 +47,25 @@ class TestKeywordScore:
     def test_keyword_in_title(self):
         notice = _make_notice(title="Nettoyage de bureaux à Bruxelles")
         score, matched = _keyword_score(notice, ["nettoyage"])
-        assert score == 15
+        assert score == 12
         assert "nettoyage" in matched
 
     def test_keyword_in_description_only(self):
         notice = _make_notice(title="Marché public", description="Nettoyage de bureaux")
         score, matched = _keyword_score(notice, ["nettoyage"])
-        assert score == 8
+        assert score == 6
         assert "nettoyage" in matched
 
     def test_multiple_keywords_in_title(self):
         notice = _make_notice(title="Nettoyage de bureaux et entretien des locaux")
         score, matched = _keyword_score(notice, ["nettoyage", "entretien"])
-        assert score == 30  # 15 + 15
+        assert score == 24  # 12 + 12
         assert len(matched) == 2
 
-    def test_keywords_capped_at_40(self):
+    def test_keywords_capped_at_30(self):
         notice = _make_notice(title="Construction rénovation bâtiment travaux publics")
         score, matched = _keyword_score(notice, ["construction", "rénovation", "bâtiment", "travaux"])
-        assert score == 40  # Capped
+        assert score == 30  # Capped (4 * 12 = 48 -> capped at 30)
 
     def test_no_match(self):
         notice = _make_notice(title="Fourniture de matériel informatique")
@@ -85,22 +85,22 @@ class TestCpvScore:
     def test_exact_match(self):
         notice = _make_notice(cpv_main_code="45000000-7")
         score, matched = _cpv_score(notice, ["45000000"])
-        assert score == 25
+        assert score == 20
 
     def test_division_match(self):
         notice = _make_notice(cpv_main_code="45233120-6")
         score, matched = _cpv_score(notice, ["45233"])
-        assert score == 20
+        assert score == 15
 
     def test_group_match(self):
         notice = _make_notice(cpv_main_code="45233120-6")
         score, matched = _cpv_score(notice, ["452"])
-        assert score == 15
+        assert score == 12
 
     def test_broad_match(self):
         notice = _make_notice(cpv_main_code="45233120-6")
         score, matched = _cpv_score(notice, ["45"])
-        assert score == 10
+        assert score == 8
 
     def test_no_match(self):
         notice = _make_notice(cpv_main_code="45000000")
@@ -113,22 +113,22 @@ class TestCpvScore:
 class TestGeoScore:
     def test_nuts_exact_match(self):
         notice = _make_notice(nuts_codes=["BE100"])
-        score, matched = _geo_score(notice, ["be100"], [])
-        assert score == 20
+        score, matched = _geo_score_watchlist(notice, ["be100"], [])
+        assert score == 10
 
     def test_nuts_prefix_match(self):
         notice = _make_notice(nuts_codes=["BE211"])
-        score, matched = _geo_score(notice, ["be2"], [])
-        assert score == 20
+        score, matched = _geo_score_watchlist(notice, ["be2"], [])
+        assert score == 10
 
     def test_country_match(self):
         notice = _make_notice(nuts_codes=["BE100"])
-        score, matched = _geo_score(notice, [], ["BE"])
-        assert score == 15
+        score, matched = _geo_score_watchlist(notice, [], ["BE"])
+        assert score == 7
 
     def test_no_match(self):
         notice = _make_notice(nuts_codes=["FR100"])
-        score, matched = _geo_score(notice, ["be"], ["BE"])
+        score, matched = _geo_score_watchlist(notice, ["be"], ["BE"])
         assert score == 0
 
 
@@ -137,23 +137,23 @@ class TestGeoScore:
 class TestRecencyScore:
     def test_no_deadline(self):
         notice = _make_notice(deadline=None)
-        assert _recency_score(notice) == 8
+        assert _recency_score(notice) == 5
 
     def test_ample_time(self):
         notice = _make_notice(deadline=datetime.now(timezone.utc) + timedelta(days=30))
-        assert _recency_score(notice) == 15
+        assert _recency_score(notice) == 10
 
     def test_medium_time(self):
         notice = _make_notice(deadline=datetime.now(timezone.utc) + timedelta(days=10))
-        assert _recency_score(notice) == 10
+        assert _recency_score(notice) == 7
 
     def test_short_time(self):
         notice = _make_notice(deadline=datetime.now(timezone.utc) + timedelta(days=5))
-        assert _recency_score(notice) == 5
+        assert _recency_score(notice) == 4
 
     def test_urgent(self):
         notice = _make_notice(deadline=datetime.now(timezone.utc) + timedelta(days=1))
-        assert _recency_score(notice) == 2
+        assert _recency_score(notice) == 1
 
 
 # --- Full scoring ---
@@ -174,8 +174,8 @@ class TestCalculateRelevanceScore:
             countries="BE",
         )
         score, explanation = calculate_relevance_score(notice, watchlist)
-        assert score >= 75  # Keywords (30) + CPV (25) + Geo (20) + Recency (15) = 90
-        assert "keywords" in explanation
+        assert score >= 50  # Keywords (24) + CPV (20) + Geo (10) + Recency (10) = 64
+        assert "mots-clés" in explanation
         assert "CPV" in explanation
 
     def test_keyword_only_match(self):
@@ -190,15 +190,15 @@ class TestCalculateRelevanceScore:
             keywords="nettoyage",
         )
         score, explanation = calculate_relevance_score(notice, watchlist)
-        assert 15 <= score <= 30
-        assert "keywords" in explanation
+        assert 12 <= score <= 25  # keyword (12) + recency (5) = 17
+        assert "mots-clés" in explanation
 
     def test_no_filters(self):
         """Watchlist with no filters -> only recency points."""
         notice = _make_notice(deadline=datetime.now(timezone.utc) + timedelta(days=30))
         watchlist = _make_watchlist()
         score, explanation = calculate_relevance_score(notice, watchlist)
-        assert score == 15  # Only recency
+        assert score == 10  # Only recency
 
     def test_score_capped_at_100(self):
         """Score never exceeds 100."""
