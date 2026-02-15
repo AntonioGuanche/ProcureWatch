@@ -585,10 +585,13 @@ export default function Landing() {
               <button className="ld-btn-outline ld-btn-full" onClick={() => user ? navigate("/profile") : navigate("/login")}>Passer en Business</button>
             </div>
           </div>
+          <div style={{ textAlign: "center", marginTop: "1.5rem" }}>
+            <a href="/pricing" style={{ color: "var(--ld-teal)", fontWeight: 600, fontSize: "0.9rem" }}>
+              Voir la comparaison détaillée des plans →
+            </a>
+          </div>
         </div>
       </section>
-
-      {/* ─── FAQ ─── */}
       <section className="ld-faq" id="faq">
         <div className="ld-faq-inner">
           <h2>Questions fréquentes</h2>

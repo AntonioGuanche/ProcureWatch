@@ -15,6 +15,7 @@ import { Profile } from "./pages/Profile";
 import { Admin } from "./pages/Admin";
 import { Intelligence } from "./pages/Intelligence";
 import Landing from "./pages/Landing";
+import Pricing from "./pages/Pricing";
 
 function AuthGate() {
   const { user, loading } = useAuth();
@@ -70,6 +71,7 @@ function AppRoutes() {
       {/* Public routes */}
       <Route path="/" element={user ? <Navigate to="/dashboard" replace /> : <Landing />} />
       <Route path="/landing" element={<Landing />} />
+      <Route path="/pricing" element={<Pricing />} />
       <Route path="/login" element={<AuthGate />} />
       <Route path="/signup" element={<AuthGate />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
