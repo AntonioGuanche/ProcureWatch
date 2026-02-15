@@ -9,6 +9,7 @@ Key behaviors:
 Called after each import run via run_watchlist_matcher(db).
 """
 import logging
+import os
 from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Any, Optional
@@ -282,15 +283,29 @@ def _notice_to_email_dict(notice: Notice, is_new: bool = False) -> dict[str, Any
             or notice.organisation_names.get("EN")
             or next(iter(notice.organisation_names.values()), None)
         )
+
+    # Region from NUTS codes (first 2 chars = country, first code as region hint)
+    region = None
+    if notice.nuts_codes and isinstance(notice.nuts_codes, list) and notice.nuts_codes:
+        region = notice.nuts_codes[0]  # e.g. "BE100" → will be formatted in template
+
+    # App link: point to ProcureWatch platform, not source
+    app_url = os.environ.get("APP_URL", "https://procurewatch.eu")
+    app_link = f"{app_url}/search?notice={notice.id}"
+
     return {
         "title": notice.title,
         "buyer": buyer,
         "deadline": notice.deadline,
         "link": notice.url,
+        "app_link": app_link,
         "id": notice.id,
         "source": notice.source,
         "publication_date": notice.publication_date,
         "cpv": notice.cpv_main_code,
+        "notice_type": notice.notice_type,
+        "estimated_value": float(notice.estimated_value) if notice.estimated_value else None,
+        "region": region,
         "is_new": is_new,
     }
 

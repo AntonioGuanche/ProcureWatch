@@ -120,7 +120,82 @@ _FOOTER = """
 """.replace("{font}", _FONT)
 
 
-# ── Notice card (single notice) ──────────────────────────────────────
+# ── Notice type helpers ───────────────────────────────────────────────
+
+_NOTICE_TYPE_LABELS: dict[str, tuple[str, str, str]] = {
+    # key: (label, bg_color, text_color)
+    "CONTRACT_NOTICE": ("Opportunité", "#ecfdf5", "#059669"),
+    "cn": ("Opportunité", "#ecfdf5", "#059669"),
+    "COMPETITION": ("Mise en concurrence", "#ecfdf5", "#059669"),
+    "CONTRACT_AWARD_NOTICE": ("Attribution", "#fef3c7", "#d97706"),
+    "can": ("Attribution", "#fef3c7", "#d97706"),
+    "RESULT": ("Résultat", "#fef3c7", "#d97706"),
+    "CONCESSION_AWARD_NOTICE": ("Concession", "#fef3c7", "#d97706"),
+    "PRIOR_INFORMATION_NOTICE": ("Info préalable", "#f0f9ff", "#0369a1"),
+    "pin": ("Info préalable", "#f0f9ff", "#0369a1"),
+    "PLANNING": ("Planification", "#f0f9ff", "#0369a1"),
+    "MODIFICATION_NOTICE": ("Modification", "#faf5ff", "#7c3aed"),
+    "CHANGE": ("Rectificatif", "#faf5ff", "#7c3aed"),
+    "DESIGN_CONTEST_NOTICE": ("Concours", "#fff7ed", "#ea580c"),
+}
+
+
+def _notice_type_pill(notice_type: Any) -> str:
+    t = str(notice_type or "").strip()
+    label, bg, color = _NOTICE_TYPE_LABELS.get(t, ("Avis", "#f1f5f9", "#475569"))
+    return f'<span style="display:inline-block;background:{bg};color:{color};padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700;letter-spacing:0.3px;">{html.escape(label)}</span>'
+
+
+def _fmt_value(value: Any) -> str:
+    """Format estimated value nicely: 1234567.89 → '1.234.567 €'"""
+    if not value:
+        return ""
+    try:
+        v = float(value)
+        if v <= 0:
+            return ""
+        if v >= 1_000_000:
+            return f"{v / 1_000_000:,.1f} M€".replace(",", ".")
+        if v >= 1_000:
+            return f"{v / 1_000:,.0f} K€".replace(",", ".")
+        return f"{v:,.0f} €".replace(",", ".")
+    except (ValueError, TypeError):
+        return ""
+
+
+# NUTS code → readable Belgian regions
+_NUTS_REGIONS: dict[str, str] = {
+    "BE1": "Bruxelles",
+    "BE10": "Bruxelles",
+    "BE100": "Bruxelles",
+    "BE2": "Flandre",
+    "BE21": "Anvers",
+    "BE22": "Limbourg",
+    "BE23": "Flandre orientale",
+    "BE24": "Brabant flamand",
+    "BE25": "Flandre occidentale",
+    "BE3": "Wallonie",
+    "BE31": "Brabant wallon",
+    "BE32": "Hainaut",
+    "BE33": "Liège",
+    "BE34": "Luxembourg (BE)",
+    "BE35": "Namur",
+}
+
+
+def _fmt_region(nuts_code: Any) -> str:
+    if not nuts_code:
+        return ""
+    code = str(nuts_code).strip().upper()
+    # Try exact, then progressively shorter
+    for length in (len(code), 4, 3, 2):
+        label = _NUTS_REGIONS.get(code[:length])
+        if label:
+            return label
+    # Non-Belgian: show country-level
+    if len(code) >= 2 and not code.startswith("BE"):
+        return code[:2]  # e.g. "FR", "NL", "DE"
+    return ""
 
 def _notice_card(m: dict, idx: int) -> str:
     title = _esc(m.get("title", "Sans titre"))
@@ -130,15 +205,38 @@ def _notice_card(m: dict, idx: int) -> str:
     deadline = m.get("deadline")
     dl_color, dl_label = _deadline_style(deadline)
     source = m.get("source", "")
-    link = m.get("link", "")
+    notice_type = m.get("notice_type", "")
+    estimated_value = m.get("estimated_value")
+    region = m.get("region", "")
+    app_link = m.get("app_link", "")
+    source_link = m.get("link", "")
 
+    # Primary CTA: ProcureWatch app link; fallback to source
+    primary_link = app_link or source_link
     link_html = ""
-    if link and str(link).strip():
-        link_html = f'<a href="{html.escape(str(link).strip())}" style="display:inline-block;background:#1B2D4F;color:#ffffff;padding:7px 18px;border-radius:8px;text-decoration:none;font-size:12px;font-weight:600;font-family:{_FONT};">Voir &rarr;</a>'
+    if primary_link and str(primary_link).strip():
+        link_html = f'<a href="{html.escape(str(primary_link).strip())}" style="display:inline-block;background:#1B2D4F;color:#ffffff;padding:8px 20px;border-radius:8px;text-decoration:none;font-size:12px;font-weight:600;font-family:{_FONT};">Voir le dossier &rarr;</a>'
+
+    # Source link as secondary (small text)
+    source_link_html = ""
+    if source_link and app_link and str(source_link).strip():
+        source_link_html = f'<a href="{html.escape(str(source_link).strip())}" style="color:#94a3b8;font-size:11px;text-decoration:underline;margin-left:12px;">source</a>'
 
     cpv_html = ""
     if cpv and cpv != "—":
         cpv_html = f'<span style="display:inline-block;background:#f1f5f9;color:#475569;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600;font-family:Consolas,Monaco,monospace;margin-left:8px;">{cpv}</span>'
+
+    # Value badge
+    value_str = _fmt_value(estimated_value)
+    value_html = ""
+    if value_str:
+        value_html = f'<span style="display:inline-block;background:#fefce8;color:#a16207;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700;margin-left:8px;">&#x1F4B0; {value_str}</span>'
+
+    # Region
+    region_str = _fmt_region(region)
+    region_html = ""
+    if region_str:
+        region_html = f'<span style="color:#94a3b8;margin:0 6px;">&middot;</span><span style="color:#94a3b8;">&#x1F4CD;</span> {html.escape(region_str)}'
 
     bg = "#ffffff" if idx % 2 == 0 else "#fafbfc"
 
@@ -147,31 +245,32 @@ def _notice_card(m: dict, idx: int) -> str:
       <td style="padding:0;">
         <table width="100%" cellpadding="0" cellspacing="0" style="background:{bg};border-bottom:1px solid #f1f5f9;">
           <tr>
-            <td style="padding:16px 24px;">
-              <!-- Source + deadline row -->
-              <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:8px;">
+            <td style="padding:18px 24px;">
+              <!-- Row 1: Type + Source + Value + Deadline -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:10px;">
                 <tr>
-                  <td>{_source_pill(source)}{cpv_html}</td>
+                  <td>{_notice_type_pill(notice_type)}{_source_pill(source)}{cpv_html}{value_html}</td>
                   <td align="right">
                     <span style="font-size:12px;font-weight:700;color:{dl_color};font-family:{_FONT};">
-                      {dl_label}
+                      &#x23F0; {dl_label}
                     </span>
                   </td>
                 </tr>
               </table>
-              <!-- Title -->
-              <div style="font-size:14px;font-weight:700;color:#1e293b;line-height:1.45;margin-bottom:6px;font-family:{_FONT};">
+              <!-- Row 2: Title -->
+              <div style="font-size:15px;font-weight:700;color:#1e293b;line-height:1.5;margin-bottom:8px;font-family:{_FONT};">
                 {title}
               </div>
-              <!-- Meta row -->
+              <!-- Row 3: Buyer + Date + Region + CTA -->
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
-                  <td style="font-size:12px;color:#64748b;font-family:{_FONT};">
+                  <td style="font-size:12px;color:#64748b;font-family:{_FONT};line-height:1.6;">
                     <span style="color:#94a3b8;">&#x1F3E2;</span> {buyer}
                     <span style="color:#cbd5e1;margin:0 6px;">&middot;</span>
                     <span style="color:#94a3b8;">&#x1F4C5;</span> {pub_date}
+                    {region_html}
                   </td>
-                  <td align="right">{link_html}</td>
+                  <td align="right" style="white-space:nowrap;">{link_html}{source_link_html}</td>
                 </tr>
               </table>
             </td>

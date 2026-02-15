@@ -8,12 +8,18 @@ client = TestClient(app)
 
 
 def test_root() -> None:
-    """Test root endpoint."""
+    """Test root endpoint serves SPA or API fallback."""
     response = client.get("/")
     assert response.status_code == 200
-    data = response.json()
-    assert data["name"] == "procurewatch-api"
-    assert data["status"] == "running"
+    # If frontend is built, root serves index.html (HTML, not JSON)
+    # If not, it returns JSON {"name": ..., "status": "running"}
+    content_type = response.headers.get("content-type", "")
+    if "text/html" in content_type:
+        assert "<!DOCTYPE html>" in response.text or "<html" in response.text
+    else:
+        data = response.json()
+        assert data["name"] == "procurewatch-api"
+        assert data["status"] == "running"
 
 
 def test_health_ok(monkeypatch) -> None:
