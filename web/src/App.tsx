@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { BrowserRouter, Routes, Route, NavLink, Navigate, useNavigate, Link } from "react-router-dom";
 import { AuthProvider, useAuth } from "./auth";
-import { createWatchlist } from "./api";
+import { createWatchlist, listWatchlists } from "./api";
 import { Dashboard } from "./pages/Dashboard";
 import { Search } from "./pages/Search";
 import { WatchlistList } from "./pages/WatchlistList";
@@ -16,6 +16,7 @@ import { Admin } from "./pages/Admin";
 import { Intelligence } from "./pages/Intelligence";
 import Landing from "./pages/Landing";
 import Pricing from "./pages/Pricing";
+import Onboarding from "./pages/Onboarding";
 
 function AuthGate() {
   const { user, loading } = useAuth();
@@ -36,32 +37,51 @@ function AppRoutes() {
   const navigate = useNavigate();
   const onboardingDone = useRef(false);
 
-  // Auto-create watchlist from landing page onboarding data
+  // Auto-create watchlist from landing page onboarding data,
+  // OR redirect new users (0 watchlists) to onboarding wizard
   useEffect(() => {
     if (!user || onboardingDone.current) return;
+
     const raw = sessionStorage.getItem("pw_onboarding");
-    if (!raw) return;
-    onboardingDone.current = true;
-    try {
-      const data = JSON.parse(raw);
-      sessionStorage.removeItem("pw_onboarding");
-      const payload = {
-        name: data.company_name ? `Veille ${data.company_name}` : "Ma première veille",
-        keywords: data.keywords || [],
-        cpv_prefixes: data.cpv_codes || [],
-        nuts_codes: [],
-        country_codes: [],
-        enabled: true,
-      };
-      createWatchlist(payload as any).then((w) => {
-        navigate(`/watchlists/${w.id}`, { replace: true });
-      }).catch(() => {
-        // Fallback: redirect to manual creation
-        navigate("/watchlists/new", { replace: true });
-      });
-    } catch {
-      sessionStorage.removeItem("pw_onboarding");
+    if (raw) {
+      // Landing page flow: auto-create watchlist from analyzed URL
+      onboardingDone.current = true;
+      try {
+        const data = JSON.parse(raw);
+        sessionStorage.removeItem("pw_onboarding");
+        const payload = {
+          name: data.company_name ? `Veille ${data.company_name}` : "Ma première veille",
+          keywords: data.keywords || [],
+          cpv_prefixes: data.cpv_codes || [],
+          nuts_codes: [],
+          country_codes: [],
+          enabled: true,
+        };
+        createWatchlist(payload as any).then((w) => {
+          navigate(`/watchlists/${w.id}`, { replace: true });
+        }).catch(() => {
+          navigate("/watchlists/new", { replace: true });
+        });
+      } catch {
+        sessionStorage.removeItem("pw_onboarding");
+      }
+      return;
     }
+
+    // No landing data — check if user needs onboarding wizard
+    if (sessionStorage.getItem("pw_onboarding_done")) return;
+    onboardingDone.current = true;
+
+    listWatchlists(1, 1).then((res) => {
+      if (res.total === 0) {
+        navigate("/onboarding", { replace: true });
+      } else {
+        sessionStorage.setItem("pw_onboarding_done", "1");
+      }
+    }).catch(() => {
+      // API error — don't block, just skip
+      sessionStorage.setItem("pw_onboarding_done", "1");
+    });
   }, [user, navigate]);
 
   if (loading) return <div className="loading">Chargement…</div>;
@@ -122,6 +142,7 @@ function AppRoutes() {
               <main className="app-main">
                 <Routes>
                   <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                  <Route path="/onboarding" element={<Onboarding />} />
                   <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/search" element={<Search />} />
                   <Route path="/watchlists" element={<WatchlistList />} />
