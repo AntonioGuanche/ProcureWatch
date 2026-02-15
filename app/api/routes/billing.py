@@ -189,12 +189,13 @@ async def get_plans() -> list[dict]:
         {
             "name": name,
             "display_name": lim.display_name,
-            "price_monthly_eur": {"free": 0, "pro": 4900, "business": 14900}.get(name, 0),
-            "price_annual_eur": {"free": 0, "pro": 46800, "business": 142800}.get(name, 0),
+            "price_monthly_eur": {"free": 0, "pro": 1900, "business": 4900}.get(name, 0),
+            "price_annual_eur": {"free": 0, "pro": 18000, "business": 46800}.get(name, 0),
             "features": {
                 "max_watchlists": lim.max_watchlists,
                 "max_results_per_watchlist": lim.max_results_per_watchlist,
                 "email_digest": lim.email_digest,
+                "digest_frequency": lim.digest_frequency,
                 "realtime_alerts": lim.realtime_alerts,
                 "csv_export": lim.csv_export,
                 "api_access": lim.api_access,

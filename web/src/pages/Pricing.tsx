@@ -25,6 +25,7 @@ const PLANS = [
       "10 résultats par veille",
       "Sources TED + BOSA",
       "Recherche full-text trilingue",
+      "Digest email hebdomadaire",
       "Historique 30 jours",
     ],
     cta: "Démarrer gratuitement",
@@ -33,8 +34,8 @@ const PLANS = [
   {
     key: "pro",
     name: "Pro",
-    priceMonthly: 49,
-    priceAnnualMonthly: 39,
+    priceMonthly: 19,
+    priceAnnualMonthly: 15,
     tagline: "Pour les indépendants et PME actives",
     features: [
       "5 veilles actives",
@@ -51,8 +52,8 @@ const PLANS = [
   {
     key: "business",
     name: "Business",
-    priceMonthly: 149,
-    priceAnnualMonthly: 119,
+    priceMonthly: 49,
+    priceAnnualMonthly: 39,
     tagline: "Pour les équipes et soumissionnaires réguliers",
     features: [
       "Veilles illimitées",
@@ -78,7 +79,7 @@ const COMPARISON_ROWS: Array<{
   { label: "Veilles & alertes", free: "", pro: "", business: "", category: true },
   { label: "Nombre de veilles", free: "1", pro: "5", business: "Illimité" },
   { label: "Résultats par veille", free: "10", pro: "Illimité", business: "Illimité" },
-  { label: "Digest email quotidien", free: "—", pro: "✓", business: "✓" },
+  { label: "Digest email", free: "Hebdomadaire", pro: "Quotidien", business: "Quotidien" },
   { label: "Alertes temps réel", free: "—", pro: "—", business: "✓" },
   { label: "Données & recherche", free: "", pro: "", business: "", category: true },
   { label: "Sources TED + BOSA", free: "✓", pro: "✓", business: "✓" },
@@ -106,7 +107,7 @@ const FAQS = [
   },
   {
     q: "Le plan annuel est-il vraiment moins cher ?",
-    a: "Oui, le plan annuel offre une réduction de 20% par rapport au paiement mensuel. Vous payez l'équivalent de 10 mois pour 12 mois d'accès.",
+    a: "Oui, le plan annuel offre une réduction de 20% par rapport au paiement mensuel. Par exemple, le plan Pro passe de 19€ à 15€/mois, soit 180€/an au lieu de 228€.",
   },
   {
     q: "Quelles sont les méthodes de paiement acceptées ?",

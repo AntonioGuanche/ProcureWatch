@@ -347,10 +347,10 @@ export function Profile() {
                 {sub.effective_plan === "free" && (
                   <>
                     <button className="btn-sm btn-primary" onClick={() => handleUpgrade("pro", "month")} disabled={billingAction}>
-                      {billingAction ? "Redirection…" : "Passer à Pro — 49€/mois"}
+                      {billingAction ? "Redirection…" : "Passer à Pro — 19€/mois"}
                     </button>
                     <button className="btn-sm btn-outline" onClick={() => handleUpgrade("business", "month")} disabled={billingAction}>
-                      Business — 149€/mois
+                      Business — 49€/mois
                     </button>
                   </>
                 )}

@@ -23,6 +23,7 @@ class PlanLimits:
     max_watchlists: int          # -1 = unlimited
     max_results_per_watchlist: int
     email_digest: bool
+    digest_frequency: str        # "none", "weekly", "daily", "realtime"
     realtime_alerts: bool
     ai_summaries_per_month: int  # -1 = unlimited, 0 = none
     csv_export: bool
@@ -35,21 +36,21 @@ PLANS: dict[str, PlanLimits] = {
     "free": PlanLimits(
         name="free", display_name="Découverte",
         max_watchlists=1, max_results_per_watchlist=10,
-        email_digest=False, realtime_alerts=False,
+        email_digest=True, digest_frequency="weekly", realtime_alerts=False,
         ai_summaries_per_month=0, csv_export=False,
         api_access=False, max_seats=1, history_days=30,
     ),
     "pro": PlanLimits(
         name="pro", display_name="Pro",
         max_watchlists=5, max_results_per_watchlist=-1,
-        email_digest=True, realtime_alerts=False,
+        email_digest=True, digest_frequency="daily", realtime_alerts=False,
         ai_summaries_per_month=20, csv_export=True,
         api_access=False, max_seats=1, history_days=365,
     ),
     "business": PlanLimits(
         name="business", display_name="Business",
         max_watchlists=-1, max_results_per_watchlist=-1,
-        email_digest=True, realtime_alerts=True,
+        email_digest=True, digest_frequency="realtime", realtime_alerts=True,
         ai_summaries_per_month=-1, csv_export=True,
         api_access=True, max_seats=5, history_days=1095,
     ),

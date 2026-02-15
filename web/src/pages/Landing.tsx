@@ -217,7 +217,7 @@ export default function Landing() {
   const faqs = [
     { q: "Qu'est-ce qu'une watchlist ?", a: "Une watchlist est un ensemble de critères (mots-clés, codes CPV, régions) qui définissent les marchés publics pertinents pour votre activité. ProcureWatch surveille en continu les nouvelles publications et vous alerte dès qu'un marché correspond." },
     { q: "Quelles sources sont couvertes ?", a: "Nous centralisons les avis du portail belge e-Procurement (BOSA) et du Tenders Electronic Daily (TED) de l'Union européenne. Cela couvre la quasi-totalité des marchés publics belges et européens." },
-    { q: "L'outil est-il vraiment gratuit ?", a: "Le plan Découverte est gratuit et permet de créer une veille, de faire des recherches et de consulter les résultats. Les plans Pro (49€/mois) et Business (149€/mois) ajoutent les alertes email, plus de veilles, l'export CSV, les résumés IA et l'accès API." },
+    { q: "L'outil est-il vraiment gratuit ?", a: "Oui. Le plan Découverte est gratuit, sans carte bancaire. Vous pouvez créer une veille, recevoir un digest hebdomadaire et consulter les résultats. Les plans Pro (19€/mois) et Business (49€/mois) ajoutent le digest quotidien, plus de veilles, l'export CSV, les résumés IA et l'accès API." },
     { q: "Puis-je annuler à tout moment ?", a: "Oui, aucun engagement. Vous pouvez annuler ou changer de plan à tout moment depuis votre profil." },
   ];
 
@@ -551,6 +551,7 @@ export default function Landing() {
                 <li>1 veille</li>
                 <li>10 résultats par veille</li>
                 <li>Sources TED + BOSA</li>
+                <li>Digest email hebdomadaire</li>
                 <li>Historique 30 jours</li>
               </ul>
               <button className="ld-btn-outline ld-btn-full" onClick={() => navigate("/login")}>Démarrer gratuitement</button>
@@ -558,8 +559,8 @@ export default function Landing() {
             <div className="ld-price-card popular">
               <div className="ld-popular-badge">Le plus populaire</div>
               <div className="ld-price-name">Pro</div>
-              <div className="ld-price-amount">49€<span>/mois</span></div>
-              <div className="ld-price-annual">ou 39€/mois en annuel</div>
+              <div className="ld-price-amount">19€<span>/mois</span></div>
+              <div className="ld-price-annual">ou 15€/mois en annuel</div>
               <ul className="ld-price-features">
                 <li>5 veilles</li>
                 <li>Résultats illimités</li>
@@ -572,8 +573,8 @@ export default function Landing() {
             </div>
             <div className="ld-price-card">
               <div className="ld-price-name">Business</div>
-              <div className="ld-price-amount">149€<span>/mois</span></div>
-              <div className="ld-price-annual">ou 119€/mois en annuel</div>
+              <div className="ld-price-amount">49€<span>/mois</span></div>
+              <div className="ld-price-annual">ou 39€/mois en annuel</div>
               <ul className="ld-price-features">
                 <li>Veilles illimitées</li>
                 <li>Alertes temps réel</li>
